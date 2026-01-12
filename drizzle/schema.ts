@@ -499,4 +499,46 @@ export const churnPredictions = mysqlTable("churnPredictions", {
 export type ChurnPrediction = typeof churnPredictions.$inferSelect;
 export type InsertChurnPrediction = typeof churnPredictions.$inferInsert;
 
+/**
+ * 予約テーブル
+ */
+export const reservations = mysqlTable("reservations", {
+  id: int("id").autoincrement().primaryKey(),
+  reservationId: varchar("reservationId", { length: 64 }).notNull().unique(),
+  customerId: varchar("customerId", { length: 64 }), // 予約時に自動作成
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  
+  // 予約者情報（予約時点の情報）
+  customerName: varchar("customerName", { length: 100 }).notNull(),
+  customerPhone: varchar("customerPhone", { length: 20 }).notNull(),
+  customerEmail: varchar("customerEmail", { length: 320 }),
+  
+  // 予約日時（最大3つの希望）
+  firstChoiceDate: timestamp("firstChoiceDate").notNull(),
+  firstChoiceTimeSlot: varchar("firstChoiceTimeSlot", { length: 50 }).notNull(), // '10:00-13:00', '13:00-17:00', '17:00-'
+  
+  secondChoiceDate: timestamp("secondChoiceDate"),
+  secondChoiceTimeSlot: varchar("secondChoiceTimeSlot", { length: 50 }),
+  
+  thirdChoiceDate: timestamp("thirdChoiceDate"),
+  thirdChoiceTimeSlot: varchar("thirdChoiceTimeSlot", { length: 50 }),
+  
+  // 確定日時（スタッフが第1-3希望から選択）
+  confirmedDate: timestamp("confirmedDate"),
+  confirmedTimeSlot: varchar("confirmedTimeSlot", { length: 50 }),
+  
+  // ステータス
+  status: mysqlEnum("status", ["pending", "confirmed", "completed", "cancelled", "no_show"]).default("pending").notNull(),
+  
+  // メモ
+  notes: varchar("notes", { length: 1000 }),
+  staffNotes: varchar("staffNotes", { length: 1000 }), // スタッフ用メモ
+  
+  // タイムスタンプ
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Reservation = typeof reservations.$inferSelect;
+export type InsertReservation = typeof reservations.$inferInsert;
 

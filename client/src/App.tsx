@@ -20,6 +20,7 @@ import AdvertisingExpenseForm from "./pages/AdvertisingExpenseForm";
 import CustomerManagement from "./pages/CustomerManagement";
 import { AiregSync } from "./pages/AiregSync";
 import SalesManagement from "./pages/SalesManagement";
+import ReservationManagement from "./pages/ReservationManagement";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/customers" component={CustomerManagement} />
       <Route path="/aireg-sync" component={AiregSync} />
       <Route path="/sales" component={SalesManagement} />
+      <Route path="/reservations" component={ReservationManagement} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

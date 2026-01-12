@@ -32,6 +32,7 @@ import {
   HardDrive,
   QrCode,
   Clock,
+  CalendarCheck,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -115,6 +116,7 @@ const Dashboard: React.FC = () => {
     { id: "analytics", label: "顧客分析", icon: TrendingUp },
     { id: "settlement", label: "決算書類", icon: FileText },
     { id: "qrcode", label: "QRコード管理", icon: QrCode },
+    { id: "reservations", label: "予約管理", icon: CalendarCheck },
     { id: "backup", label: "バックアップ", icon: HardDrive },
     { id: "schedule", label: "スケジュール", icon: Clock },
     { id: "settings", label: "設定", icon: Settings },
@@ -143,6 +145,9 @@ const Dashboard: React.FC = () => {
         break;
       case "qrcode":
         setLocation("/qrcode-management");
+        break;
+      case "reservations":
+        setLocation("/reservations");
         break;
       case "backup":
         setLocation("/backup");
