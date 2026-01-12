@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date, tinyint } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -433,3 +433,45 @@ export const advertisingMetrics = mysqlTable("advertisingMetrics", {
 
 export type AdvertisingMetrics = typeof advertisingMetrics.$inferSelect;
 export type InsertAdvertisingMetrics = typeof advertisingMetrics.$inferInsert;
+
+
+/**
+ * QRコード管理テーブル（セルフレジストレーション用）
+ */
+export const registrationQrCodes = mysqlTable("registrationQrCodes", {
+  id: int("id").autoincrement().primaryKey(),
+  qrCodeId: varchar("qrCodeId", { length: 64 }).notNull().unique(), // UUID
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  facilityName: varchar("facilityName", { length: 100 }).notNull(),
+  qrCodeData: varchar("qrCodeData", { length: 512 }).notNull(), // QRコード内容
+  qrCodeImageUrl: varchar("qrCodeImageUrl", { length: 512 }), // QRコード画像URL
+  registrationUrl: varchar("registrationUrl", { length: 512 }).notNull(), // 登録フォームURL
+  isActive: tinyint("isActive").default(1).notNull(), // 有効/無効
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  expiresAt: timestamp("expiresAt"), // 有効期限
+});
+
+export type RegistrationQrCode = typeof registrationQrCodes.$inferSelect;
+export type InsertRegistrationQrCode = typeof registrationQrCodes.$inferInsert;
+
+/**
+ * セルフレジストレーション履歴テーブル
+ */
+export const registrationAttempts = mysqlTable("registrationAttempts", {
+  id: int("id").autoincrement().primaryKey(),
+  attemptId: varchar("attemptId", { length: 64 }).notNull().unique(), // UUID
+  qrCodeId: varchar("qrCodeId", { length: 64 }).notNull(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  customerId: varchar("customerId", { length: 64 }), // 登録完了時のみ設定
+  status: mysqlEnum("status", ["initiated", "in_progress", "completed", "abandoned"]).default("initiated").notNull(),
+  sessionToken: varchar("sessionToken", { length: 256 }).notNull(), // セッション管理用
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+  abandonedAt: timestamp("abandonedAt"),
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4/IPv6対応
+  userAgent: varchar("userAgent", { length: 512 }),
+});
+
+export type RegistrationAttempt = typeof registrationAttempts.$inferSelect;
+export type InsertRegistrationAttempt = typeof registrationAttempts.$inferInsert;

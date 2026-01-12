@@ -12,6 +12,7 @@ import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Dashboard from "./pages/Dashboard";
 import AdvertisingDashboard from "./pages/AdvertisingDashboard";
 import SettlementReport from "./pages/SettlementReport";
+import SelfRegistration from "./pages/SelfRegistration";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/dashboard/advertising" component={AdvertisingDashboard} />
       <Route path="/settlement" component={SettlementReport} />
+      <Route path="/register-qr" component={SelfRegistration} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
