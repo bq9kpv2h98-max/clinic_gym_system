@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date, tinyint } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date, tinyint, float, text } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -475,5 +475,28 @@ export const registrationAttempts = mysqlTable("registrationAttempts", {
 
 export type RegistrationAttempt = typeof registrationAttempts.$inferSelect;
 export type InsertRegistrationAttempt = typeof registrationAttempts.$inferInsert;
+
+/**
+ * 顧客離反予測結果テーブル
+ */
+export const churnPredictions = mysqlTable("churnPredictions", {
+  id: int("id").autoincrement().primaryKey(),
+  predictionId: varchar("predictionId", { length: 64 }).notNull().unique(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  churnRiskScore: float("churnRiskScore").notNull(),
+  riskLevel: varchar("riskLevel", { length: 20 }).notNull(),
+  predictionReason: text("predictionReason").notNull(),
+  recommendedActions: text("recommendedActions").notNull(),
+  lastVisitDaysAgo: int("lastVisitDaysAgo"),
+  visitFrequency: float("visitFrequency"),
+  pointBalance: int("pointBalance"),
+  totalSpent: int("totalSpent"),
+  predictedAt: timestamp("predictedAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt"),
+});
+
+export type ChurnPrediction = typeof churnPredictions.$inferSelect;
+export type InsertChurnPrediction = typeof churnPredictions.$inferInsert;
 
 
