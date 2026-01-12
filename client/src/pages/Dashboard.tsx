@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
     setActiveTab(tabId);
     switch (tabId) {
       case "customers":
-        setLocation("/register");
+        setLocation("/customers");
         break;
       case "sales":
         setLocation("/analytics");

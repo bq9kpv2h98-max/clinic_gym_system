@@ -16,6 +16,7 @@ import SelfRegistration from "./pages/SelfRegistration";
 import BackupManagement from "./pages/BackupManagement";
 import QRCodeManagement from "./pages/QRCodeManagement";
 import AdvertisingExpenseForm from "./pages/AdvertisingExpenseForm";
+import CustomerManagement from "./pages/CustomerManagement";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/backup" component={BackupManagement} />
       <Route path="/qrcode-management" component={QRCodeManagement} />
       <Route path="/advertising-expense" component={AdvertisingExpenseForm} />
+      <Route path="/customers" component={CustomerManagement} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -90,28 +90,49 @@ const SelfRegistration: React.FC = () => {
     }));
   };
 
+  // 顧客登録API
+  const registerMutation = trpc.customers.register.useMutation();
+  const [registeredCustomer, setRegisteredCustomer] = useState<{
+    customerId: string;
+    qrCodeImageUrl: string;
+  } | null>(null);
+
   // フォーム送信
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // バリデーション
-    if (!formData.fullName || !formData.dateOfBirth || !formData.gender) {
+    if (!formData.fullName || !formData.dateOfBirth || !formData.gender || !formData.phone) {
       setError("必須項目を入力してください");
       return;
     }
 
     setIsLoading(true);
     try {
-      // ここで顧客登録APIを呼び出す
-      // const result = await trpc.customers.registerFromQrCode.mutate({
-      //   sessionToken,
-      //   ...formData,
-      // });
+      // 顧客登録APIを呼び出す
+      const result = await registerMutation.mutateAsync({
+        fullName: formData.fullName,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender as "male" | "female" | "other" | "prefer_not_to_say",
+        phone: formData.phone,
+        email: formData.email || undefined,
+        postalCode: formData.postalCode,
+        prefecture: formData.prefecture,
+        city: formData.city,
+        addressLine1: formData.addressLine1,
+        addressLine2: formData.addressLine2 || undefined,
+      });
 
       // 登録完了状況を更新
       await updateStatusMutation.mutateAsync({
         sessionToken,
         status: "completed",
+      });
+
+      // 登録した顧客情報を保存
+      setRegisteredCustomer({
+        customerId: result.customerId,
+        qrCodeImageUrl: result.qrCodeImageUrl,
       });
 
       setStep("confirmation");
@@ -419,19 +440,43 @@ const SelfRegistration: React.FC = () => {
 
             <div className="bg-gray-100 rounded-lg p-8">
               <p className="text-sm text-gray-600 mb-2">診察券QRコード</p>
-              <div className="bg-white rounded p-4">
-                <p className="text-gray-400 text-center">
-                  [QRコード画像]
-                </p>
+              <div className="bg-white rounded p-4 flex justify-center">
+                {registeredCustomer?.qrCodeImageUrl ? (
+                  <img
+                    src={registeredCustomer.qrCodeImageUrl}
+                    alt="診察券QRコード"
+                    className="w-64 h-64"
+                  />
+                ) : (
+                  <p className="text-gray-400 text-center">
+                    QRコードを生成中...
+                  </p>
+                )}
               </div>
             </div>
 
-            <Button
-              className="w-full bg-green-600 hover:bg-green-700"
-              onClick={() => setLocation("/")}
-            >
-              ホームに戻る
-            </Button>
+            <div className="flex gap-3">
+              {registeredCustomer?.qrCodeImageUrl && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = registeredCustomer.qrCodeImageUrl;
+                    link.download = `qrcode-${registeredCustomer.customerId}.png`;
+                    link.click();
+                  }}
+                >
+                  QRコードを保存
+                </Button>
+              )}
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={() => setLocation("/")}
+              >
+                ホームに戻る
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
