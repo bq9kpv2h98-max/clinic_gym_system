@@ -311,4 +311,62 @@ export const salesRouter = router({
         dailyBreakdown: monthlySales,
       };
     }),
+
+  /**
+   * 売上情報を更新
+   */
+  update: protectedProcedure
+    .input(
+      z.object({
+        saleId: z.string(),
+        amount: z.number(),
+        paymentMethod: z.enum(["cash", "credit_card", "qr_code", "other"]),
+        saleDate: z.date(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(sales)
+        .set({
+          amount: input.amount,
+          paymentMethod: input.paymentMethod,
+          saleDate: input.saleDate,
+        })
+        .where(eq(sales.saleId, input.saleId));
+
+      return { success: true };
+    }),
+
+  /**
+   * 売上を削除
+   */
+  delete: protectedProcedure
+    .input(
+      z.object({
+        saleId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.delete(sales).where(eq(sales.saleId, input.saleId));
+
+      return { success: true };
+    }),
+
+  /**
+   * 全売上データを取得
+   */
+  getAll: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db.select().from(sales).orderBy(sales.saleDate);
+
+    return result;
+  }),
 });

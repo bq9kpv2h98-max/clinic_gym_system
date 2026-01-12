@@ -475,3 +475,5 @@ export const registrationAttempts = mysqlTable("registrationAttempts", {
 
 export type RegistrationAttempt = typeof registrationAttempts.$inferSelect;
 export type InsertRegistrationAttempt = typeof registrationAttempts.$inferInsert;
+
+

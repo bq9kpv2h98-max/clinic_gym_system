@@ -19,6 +19,7 @@ import QRCodeManagement from "./pages/QRCodeManagement";
 import AdvertisingExpenseForm from "./pages/AdvertisingExpenseForm";
 import CustomerManagement from "./pages/CustomerManagement";
 import { AiregSync } from "./pages/AiregSync";
+import SalesManagement from "./pages/SalesManagement";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/advertising-expense" component={AdvertisingExpenseForm} />
       <Route path="/customers" component={CustomerManagement} />
       <Route path="/aireg-sync" component={AiregSync} />
+      <Route path="/sales" component={SalesManagement} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
