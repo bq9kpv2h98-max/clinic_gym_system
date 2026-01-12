@@ -248,3 +248,111 @@ export const familyMembers = mysqlTable("familyMembers", {
 
 export type FamilyMember = typeof familyMembers.$inferSelect;
 export type InsertFamilyMember = typeof familyMembers.$inferInsert;
+
+
+/**
+ * 施設テーブル（マルチ施設対応）
+ */
+export const facilities = mysqlTable("facilities", {
+  id: int("id").autoincrement().primaryKey(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull().unique(),
+  facilityName: varchar("facilityName", { length: 100 }).notNull(),
+  facilityType: mysqlEnum("facilityType", ["clinic", "gym", "wellness", "other"]).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  email: varchar("email", { length: 320 }),
+  postalCode: varchar("postalCode", { length: 10 }),
+  prefecture: varchar("prefecture", { length: 50 }),
+  city: varchar("city", { length: 100 }),
+  addressLine1: varchar("addressLine1", { length: 200 }),
+  addressLine2: varchar("addressLine2", { length: 200 }),
+  airRegId: varchar("airRegId", { length: 100 }), // エアレジ店舗ID
+  isActive: int("isActive").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Facility = typeof facilities.$inferSelect;
+export type InsertFacility = typeof facilities.$inferInsert;
+
+/**
+ * ユーザー・施設間の結合テーブル（権限管理用）
+ */
+export const userFacilityRoles = mysqlTable("userFacilityRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  role: mysqlEnum("role", ["owner", "manager", "staff", "viewer"]).default("staff").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserFacilityRole = typeof userFacilityRoles.$inferSelect;
+export type InsertUserFacilityRole = typeof userFacilityRoles.$inferInsert;
+
+/**
+ * 売上テーブル（エアレジから取得）
+ */
+export const sales = mysqlTable("sales", {
+  id: int("id").autoincrement().primaryKey(),
+  saleId: varchar("saleId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  customerId: varchar("customerId", { length: 64 }), // 顧客が特定できない場合はNULL
+  transactionId: varchar("transactionId", { length: 100 }).notNull(), // エアレジのトランザクションID
+  amount: int("amount").notNull(), // 売上金額（円）
+  paymentMethod: mysqlEnum("paymentMethod", ["cash", "credit_card", "qr_code", "other"]).notNull(),
+  itemCount: int("itemCount").default(0).notNull(),
+  taxAmount: int("taxAmount").default(0).notNull(),
+  discountAmount: int("discountAmount").default(0).notNull(),
+  notes: varchar("notes", { length: 500 }),
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(), // エアレジから同期された時刻
+  saleDate: date("saleDate").notNull(), // 売上日
+  saleTime: varchar("saleTime", { length: 10 }), // 売上時刻（HH:MM:SS）
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Sale = typeof sales.$inferSelect;
+export type InsertSale = typeof sales.$inferInsert;
+
+/**
+ * 売上集計テーブル（日次集計用）
+ */
+export const dailySalesAggregation = mysqlTable("dailySalesAggregation", {
+  id: int("id").autoincrement().primaryKey(),
+  aggregationId: varchar("aggregationId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  saleDate: date("saleDate").notNull(),
+  totalSales: int("totalSales").default(0).notNull(), // 合計売上
+  totalTransactions: int("totalTransactions").default(0).notNull(), // 取引件数
+  totalCustomers: int("totalCustomers").default(0).notNull(), // 顧客数
+  averageTransactionAmount: int("averageTransactionAmount").default(0).notNull(), // 平均取引額
+  totalTax: int("totalTax").default(0).notNull(), // 合計税額
+  totalDiscount: int("totalDiscount").default(0).notNull(), // 合計割引額
+  paymentMethodBreakdown: varchar("paymentMethodBreakdown", { length: 1000 }), // JSON形式の支払い方法別集計
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DailySalesAggregation = typeof dailySalesAggregation.$inferSelect;
+export type InsertDailySalesAggregation = typeof dailySalesAggregation.$inferInsert;
+
+/**
+ * エアレジ同期ログテーブル
+ */
+export const airRegSyncLogs = mysqlTable("airRegSyncLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  syncId: varchar("syncId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  syncType: mysqlEnum("syncType", ["full", "incremental"]).notNull(),
+  status: mysqlEnum("status", ["success", "failed", "pending"]).default("pending").notNull(),
+  recordsProcessed: int("recordsProcessed").default(0).notNull(),
+  recordsSucceeded: int("recordsSucceeded").default(0).notNull(),
+  recordsFailed: int("recordsFailed").default(0).notNull(),
+  errorMessage: varchar("errorMessage", { length: 1000 }),
+  syncStartTime: timestamp("syncStartTime").notNull(),
+  syncEndTime: timestamp("syncEndTime"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AirRegSyncLog = typeof airRegSyncLogs.$inferSelect;
+export type InsertAirRegSyncLog = typeof airRegSyncLogs.$inferInsert;
