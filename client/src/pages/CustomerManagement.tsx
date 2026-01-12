@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Search, Eye, Edit, Trash2, QrCode, Loader } from "lucide-react";
+import { Search, Eye, Edit, Trash2, QrCode, Loader, Trash } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 const CustomerManagement: React.FC = () => {
@@ -15,7 +16,9 @@ const CustomerManagement: React.FC = () => {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
 
   // 顧客一覧取得
   const { data: customers, isLoading, refetch } = trpc.customers.list.useQuery();
@@ -41,6 +44,19 @@ const CustomerManagement: React.FC = () => {
     },
     onError: (error) => {
       alert(`削除失敗: ${error.message}`);
+    },
+  });
+
+  // 顧客一括削除
+  const bulkDeleteMutation = trpc.customersBulk.bulkDelete.useMutation({
+    onSuccess: (data) => {
+      alert(data.message);
+      refetch();
+      setIsBulkDeleteDialogOpen(false);
+      setSelectedCustomerIds([]);
+    },
+    onError: (error) => {
+      alert(`一括削除失敗: ${error.message}`);
     },
   });
 
@@ -107,6 +123,31 @@ const CustomerManagement: React.FC = () => {
     }
   };
 
+  // 顧客一括削除実行
+  const handleBulkDeleteSubmit = () => {
+    if (selectedCustomerIds.length > 0) {
+      bulkDeleteMutation.mutate({ customerIds: selectedCustomerIds });
+    }
+  };
+
+  // 全選択/全解除
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && filteredCustomers) {
+      setSelectedCustomerIds(filteredCustomers.map(c => c.customerId));
+    } else {
+      setSelectedCustomerIds([]);
+    }
+  };
+
+  // 個別選択
+  const handleSelectCustomer = (customerId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCustomerIds([...selectedCustomerIds, customerId]);
+    } else {
+      setSelectedCustomerIds(selectedCustomerIds.filter(id => id !== customerId));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -118,7 +159,7 @@ const CustomerManagement: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* 検索バー */}
+            {/* 検索バーと一括削除ボタン */}
             <div className="flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -130,6 +171,15 @@ const CustomerManagement: React.FC = () => {
                   className="pl-10"
                 />
               </div>
+              {selectedCustomerIds.length > 0 && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setIsBulkDeleteDialogOpen(true)}
+                >
+                  <Trash className="w-4 h-4 mr-2" />
+                  選択した{selectedCustomerIds.length}件を削除
+                </Button>
+              )}
             </div>
 
             {/* 顧客一覧テーブル */}
@@ -142,6 +192,12 @@ const CustomerManagement: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedCustomerIds.length === filteredCustomers.length && filteredCustomers.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>顧客ID</TableHead>
                       <TableHead>名前</TableHead>
                       <TableHead>電話番号</TableHead>
@@ -154,6 +210,12 @@ const CustomerManagement: React.FC = () => {
                   <TableBody>
                     {filteredCustomers.map((customer) => (
                       <TableRow key={customer.customerId}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedCustomerIds.includes(customer.customerId)}
+                            onCheckedChange={(checked) => handleSelectCustomer(customer.customerId, checked as boolean)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {customer.customerId.substring(0, 8)}...
                         </TableCell>
@@ -496,6 +558,46 @@ const CustomerManagement: React.FC = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 顧客一括削除ダイアログ */}
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>顧客一括削除の確認</DialogTitle>
+            <DialogDescription>
+              選択した{selectedCustomerIds.length}件の顧客を削除しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+              <p className="text-sm text-red-800 font-semibold mb-2">
+                ⚠️ 以下のデータが削除されます：
+              </p>
+              <ul className="text-sm text-red-800 list-disc list-inside space-y-1">
+                <li>顧客情報（{selectedCustomerIds.length}件）</li>
+                <li>来院履歴</li>
+                <li>ポイント取引履歴</li>
+                <li>ファミリーメンバー情報</li>
+              </ul>
+              <p className="text-sm text-red-800 mt-2">
+                削除したデータは復元できません。
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsBulkDeleteDialogOpen(false)}>
+                キャンセル
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDeleteSubmit}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                {bulkDeleteMutation.isPending ? "削除中..." : `${selectedCustomerIds.length}件を削除`}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
