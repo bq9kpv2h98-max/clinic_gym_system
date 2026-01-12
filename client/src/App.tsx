@@ -14,6 +14,8 @@ import AdvertisingDashboard from "./pages/AdvertisingDashboard";
 import SettlementReport from "./pages/SettlementReport";
 import SelfRegistration from "./pages/SelfRegistration";
 import BackupManagement from "./pages/BackupManagement";
+import QRCodeManagement from "./pages/QRCodeManagement";
+import AdvertisingExpenseForm from "./pages/AdvertisingExpenseForm";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -29,6 +31,8 @@ function Router() {
       <Route path="/settlement" component={SettlementReport} />
       <Route path="/register-qr" component={SelfRegistration} />
       <Route path="/backup" component={BackupManagement} />
+      <Route path="/qrcode-management" component={QRCodeManagement} />
+      <Route path="/advertising-expense" component={AdvertisingExpenseForm} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

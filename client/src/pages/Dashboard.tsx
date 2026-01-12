@@ -30,6 +30,7 @@ import {
   X,
   FileText,
   HardDrive,
+  QrCode,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -112,6 +113,7 @@ const Dashboard: React.FC = () => {
     { id: "advertising", label: "広告分析", icon: Target },
     { id: "analytics", label: "顧客分析", icon: TrendingUp },
     { id: "settlement", label: "決算書類", icon: FileText },
+    { id: "qrcode", label: "QRコード管理", icon: QrCode },
     { id: "backup", label: "バックアップ", icon: HardDrive },
     { id: "settings", label: "設定", icon: Settings },
   ];
@@ -131,8 +133,14 @@ const Dashboard: React.FC = () => {
       case "advertising":
         setLocation("/dashboard/advertising");
         break;
+      case "advertising-expense":
+        setLocation("/advertising-expense");
+        break;
       case "settlement":
         setLocation("/settlement");
+        break;
+      case "qrcode":
+        setLocation("/qrcode-management");
         break;
       case "backup":
         setLocation("/backup");
