@@ -1,13 +1,13 @@
 {
-  "version": "7",
+  "version": "5",
   "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
       "version": "5",
-      "when": 1768146371066,
-      "tag": "0001_new_tables",
-      "breakpoints": true
+      "when": 1234567890000,
+      "tag": "0000_adorable_vulture",
+      "lines": []
     }
   ]
 }

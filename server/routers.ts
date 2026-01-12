@@ -3,10 +3,13 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { customerRouter } from "./routers/customers";
+import { familyRouter } from "./routers/family";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+  customers: customerRouter,
+  family: familyRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -17,8 +20,7 @@ export const appRouter = router({
       } as const;
     }),
   }),
-
-  customers: customerRouter,
 });
+
 
 export type AppRouter = typeof appRouter;

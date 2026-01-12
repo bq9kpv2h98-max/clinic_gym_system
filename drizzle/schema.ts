@@ -120,3 +120,131 @@ export const staff = mysqlTable("staff", {
 
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = typeof staff.$inferInsert;
+
+
+/**
+ * 顧客セグメント定義テーブル
+ */
+export const customerSegments = mysqlTable("customerSegments", {
+  id: int("id").autoincrement().primaryKey(),
+  segmentId: varchar("segmentId", { length: 64 }).notNull().unique(),
+  segmentName: varchar("segmentName", { length: 100 }).notNull(),
+  description: varchar("description", { length: 500 }),
+  segmentType: mysqlEnum("segmentType", [
+    "birthday",
+    "visit_frequency",
+    "points_balance",
+    "region",
+    "lifetime_value",
+    "custom",
+  ]).notNull(),
+  criteria: varchar("criteria", { length: 1000 }).notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  createdBy: varchar("createdBy", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CustomerSegment = typeof customerSegments.$inferSelect;
+export type InsertCustomerSegment = typeof customerSegments.$inferInsert;
+
+/**
+ * メッセージテンプレートテーブル
+ */
+export const messageTemplates = mysqlTable("messageTemplates", {
+  id: int("id").autoincrement().primaryKey(),
+  templateId: varchar("templateId", { length: 64 }).notNull().unique(),
+  templateName: varchar("templateName", { length: 100 }).notNull(),
+  description: varchar("description", { length: 500 }),
+  messageType: mysqlEnum("messageType", ["push", "sms", "email"]).notNull(),
+  subject: varchar("subject", { length: 200 }),
+  content: varchar("content", { length: 2000 }).notNull(),
+  variables: varchar("variables", { length: 500 }),
+  isActive: int("isActive").default(1).notNull(),
+  createdBy: varchar("createdBy", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+export type InsertMessageTemplate = typeof messageTemplates.$inferInsert;
+
+/**
+ * メッセージキャンペーンテーブル
+ */
+export const messageCampaigns = mysqlTable("messageCampaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: varchar("campaignId", { length: 64 }).notNull().unique(),
+  campaignName: varchar("campaignName", { length: 100 }).notNull(),
+  description: varchar("description", { length: 500 }),
+  segmentId: varchar("segmentId", { length: 64 }).notNull(),
+  templateId: varchar("templateId", { length: 64 }).notNull(),
+  status: mysqlEnum("status", ["draft", "scheduled", "sent", "failed", "cancelled"]).default("draft").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  sentAt: timestamp("sentAt"),
+  totalRecipients: int("totalRecipients").default(0),
+  sentCount: int("sentCount").default(0),
+  failedCount: int("failedCount").default(0),
+  createdBy: varchar("createdBy", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MessageCampaign = typeof messageCampaigns.$inferSelect;
+export type InsertMessageCampaign = typeof messageCampaigns.$inferInsert;
+
+/**
+ * メッセージ送信履歴テーブル
+ */
+export const messageLogs = mysqlTable("messageLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  logId: varchar("logId", { length: 64 }).notNull().unique(),
+  campaignId: varchar("campaignId", { length: 64 }).notNull(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  messageType: mysqlEnum("messageType", ["push", "sms", "email"]).notNull(),
+  status: mysqlEnum("status", ["sent", "failed", "bounced", "opened", "clicked"]).notNull(),
+  content: varchar("content", { length: 2000 }),
+  errorMessage: varchar("errorMessage", { length: 500 }),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+  openedAt: timestamp("openedAt"),
+  clickedAt: timestamp("clickedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MessageLog = typeof messageLogs.$inferSelect;
+export type InsertMessageLog = typeof messageLogs.$inferInsert;
+
+
+/**
+ * ファミリーグループテーブル
+ */
+export const familyGroups = mysqlTable("familyGroups", {
+  id: int("id").autoincrement().primaryKey(),
+  groupId: varchar("groupId", { length: 64 }).notNull().unique(),
+  groupName: varchar("groupName", { length: 100 }).notNull(),
+  parentCustomerId: varchar("parentCustomerId", { length: 64 }).notNull(),
+  totalFamilyPoints: int("totalFamilyPoints").default(0).notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FamilyGroup = typeof familyGroups.$inferSelect;
+export type InsertFamilyGroup = typeof familyGroups.$inferInsert;
+
+/**
+ * ファミリーメンバーテーブル
+ */
+export const familyMembers = mysqlTable("familyMembers", {
+  id: int("id").autoincrement().primaryKey(),
+  memberId: varchar("memberId", { length: 64 }).notNull().unique(),
+  groupId: varchar("groupId", { length: 64 }).notNull(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  relationshipType: mysqlEnum("relationshipType", ["parent", "child", "spouse", "other"]).notNull(),
+  isPointShared: int("isPointShared").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FamilyMember = typeof familyMembers.$inferSelect;
+export type InsertFamilyMember = typeof familyMembers.$inferInsert;
