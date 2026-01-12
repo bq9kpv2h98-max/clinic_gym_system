@@ -12,7 +12,7 @@ export default function Home() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-blue-600">診察券管理システム</h1>
+          <h1 className="text-2xl font-bold text-blue-600">分析ツール</h1>
           <div className="flex gap-2">
             {isAuthenticated && (
               <>
