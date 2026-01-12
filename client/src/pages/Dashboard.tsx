@@ -31,6 +31,7 @@ import {
   FileText,
   HardDrive,
   QrCode,
+  Clock,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -115,6 +116,7 @@ const Dashboard: React.FC = () => {
     { id: "settlement", label: "決算書類", icon: FileText },
     { id: "qrcode", label: "QRコード管理", icon: QrCode },
     { id: "backup", label: "バックアップ", icon: HardDrive },
+    { id: "schedule", label: "スケジュール", icon: Clock },
     { id: "settings", label: "設定", icon: Settings },
   ];
 
@@ -144,6 +146,9 @@ const Dashboard: React.FC = () => {
         break;
       case "backup":
         setLocation("/backup");
+        break;
+      case "schedule":
+        setLocation("/schedule");
         break;
       default:
         break;

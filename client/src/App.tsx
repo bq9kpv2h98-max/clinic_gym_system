@@ -14,6 +14,7 @@ import AdvertisingDashboard from "./pages/AdvertisingDashboard";
 import SettlementReport from "./pages/SettlementReport";
 import SelfRegistration from "./pages/SelfRegistration";
 import BackupManagement from "./pages/BackupManagement";
+import ScheduleManagement from "./pages/ScheduleManagement";
 import QRCodeManagement from "./pages/QRCodeManagement";
 import AdvertisingExpenseForm from "./pages/AdvertisingExpenseForm";
 import CustomerManagement from "./pages/CustomerManagement";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/settlement" component={SettlementReport} />
       <Route path="/register-qr" component={SelfRegistration} />
       <Route path="/backup" component={BackupManagement} />
+      <Route path="/schedule" component={ScheduleManagement} />
       <Route path="/qrcode-management" component={QRCodeManagement} />
       <Route path="/advertising-expense" component={AdvertisingExpenseForm} />
       <Route path="/customers" component={CustomerManagement} />

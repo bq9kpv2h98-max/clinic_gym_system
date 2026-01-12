@@ -163,6 +163,73 @@ export const customerRouter = router({
   }),
 
   /**
+   * 顧客情報更新
+   */
+  update: publicProcedure
+    .input(
+      z.object({
+        customerId: z.string(),
+        fullName: z.string().min(1, "名前は必須です").optional(),
+        dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "生年月日はYYYY-MM-DD形式です").optional(),
+        gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
+        phone: z.string().regex(/^\d{10,11}$/, "電話番号10-11文字です").optional(),
+        email: z.string().email("有効なメールアドレスを入力してください").optional(),
+        postalCode: z.string().min(7, "郵便番号は7文字です").optional(),
+        prefecture: z.string().min(1, "都道府県は必須です").optional(),
+        city: z.string().min(1, "市区町村は必須です").optional(),
+        addressLine1: z.string().min(1, "住所は必須です").optional(),
+        addressLine2: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const { customerId, ...updateData } = input;
+
+      // 更新データを準備
+      const dataToUpdate: any = {};
+      if (updateData.fullName) dataToUpdate.fullName = updateData.fullName;
+      if (updateData.dateOfBirth) dataToUpdate.dateOfBirth = new Date(updateData.dateOfBirth);
+      if (updateData.gender) dataToUpdate.gender = updateData.gender;
+      if (updateData.phone) dataToUpdate.phone = updateData.phone;
+      if (updateData.email !== undefined) dataToUpdate.email = updateData.email || undefined;
+      if (updateData.postalCode) dataToUpdate.postalCode = updateData.postalCode;
+      if (updateData.prefecture) dataToUpdate.prefecture = updateData.prefecture;
+      if (updateData.city) dataToUpdate.city = updateData.city;
+      if (updateData.addressLine1) dataToUpdate.addressLine1 = updateData.addressLine1;
+      if (updateData.addressLine2 !== undefined) dataToUpdate.addressLine2 = updateData.addressLine2 || undefined;
+
+      await db
+        .update(customers)
+        .set(dataToUpdate)
+        .where(eq(customers.customerId, customerId));
+
+      return {
+        success: true,
+        message: "顧客情報を更新しました",
+      };
+    }),
+
+  /**
+   * 顧客削除
+   */
+  delete: publicProcedure
+    .input(z.object({ customerId: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // 顧客を削除
+      await db.delete(customers).where(eq(customers.customerId, input.customerId));
+
+      return {
+        success: true,
+        message: "顧客を削除しました",
+      };
+    }),
+
+  /**
    * 来院履歴作成
    */
   recordVisit: publicProcedure
