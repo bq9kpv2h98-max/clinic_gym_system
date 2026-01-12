@@ -112,11 +112,13 @@ const Dashboard: React.FC = () => {
     { id: "overview", label: "概要", icon: BarChart3 },
     { id: "customers", label: "顧客管理", icon: Users },
     { id: "sales", label: "売上管理", icon: DollarSign },
-    { id: "advertising", label: "広告分析", icon: Target },
-    { id: "analytics", label: "顧客分析", icon: TrendingUp },
-    { id: "settlement", label: "決算書類", icon: FileText },
+    { id: "reservations", label: "予約管理（スタッフ）", icon: CalendarCheck },
+    { id: "reservation-form", label: "予約フォーム（顧客用）", icon: CalendarCheck },
+    { id: "analytics", label: "分析", icon: TrendingUp },
+    { id: "advertising", label: "広告効果測定", icon: Target },
+    { id: "advertising-expense", label: "広告費登録", icon: DollarSign },
+    { id: "settlement", label: "決算報告書", icon: FileText },
     { id: "qrcode", label: "QRコード管理", icon: QrCode },
-    { id: "reservations", label: "予約管理", icon: CalendarCheck },
     { id: "backup", label: "バックアップ", icon: HardDrive },
     { id: "schedule", label: "スケジュール", icon: Clock },
     { id: "settings", label: "設定", icon: Settings },
@@ -148,6 +150,9 @@ const Dashboard: React.FC = () => {
         break;
       case "reservations":
         setLocation("/reservations");
+        break;
+      case "reservation-form":
+        setLocation("/reservation");
         break;
       case "backup":
         setLocation("/backup");
