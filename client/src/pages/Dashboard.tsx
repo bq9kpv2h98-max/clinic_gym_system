@@ -125,7 +125,7 @@ const Dashboard: React.FC = () => {
         setLocation("/customers");
         break;
       case "sales":
-        setLocation("/analytics");
+        setLocation("/aireg-sync");
         break;
       case "analytics":
         setLocation("/analytics");
