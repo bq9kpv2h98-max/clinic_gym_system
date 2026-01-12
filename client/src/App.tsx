@@ -9,6 +9,8 @@ import CustomerRegister from "./pages/CustomerRegister";
 import StaffCheckIn from "./pages/StaffCheckIn";
 import FamilyCheckIn from "./pages/FamilyCheckIn";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import Dashboard from "./pages/Dashboard";
+import AdvertisingDashboard from "./pages/AdvertisingDashboard";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -19,6 +21,8 @@ function Router() {
       <Route path="/staff/checkin" component={StaffCheckIn} />
       <Route path="/staff/family-checkin" component={FamilyCheckIn} />
       <Route path="/analytics" component={AnalyticsDashboard} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dashboard/advertising" component={AdvertisingDashboard} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

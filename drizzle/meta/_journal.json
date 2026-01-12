@@ -15,6 +15,13 @@
       "when": 1768182396708,
       "tag": "0001_handy_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768184272758,
+      "tag": "0002_lean_roulette",
+      "breakpoints": true
     }
   ]
 }

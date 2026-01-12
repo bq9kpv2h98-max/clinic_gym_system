@@ -13,11 +13,18 @@ export default function Home() {
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-blue-600">診察券管理システム</h1>
-          {isAuthenticated && (
-            <Button variant="ghost" onClick={logout}>
-              ログアウト
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isAuthenticated && (
+              <>
+                <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+                  ダッシュボード
+                </Button>
+                <Button variant="ghost" onClick={logout}>
+                  ログアウト
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

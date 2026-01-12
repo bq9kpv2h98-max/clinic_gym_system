@@ -356,3 +356,80 @@ export const airRegSyncLogs = mysqlTable("airRegSyncLogs", {
 
 export type AirRegSyncLog = typeof airRegSyncLogs.$inferSelect;
 export type InsertAirRegSyncLog = typeof airRegSyncLogs.$inferInsert;
+
+
+/**
+ * 広告チャネルテーブル
+ */
+export const advertisingChannels = mysqlTable("advertisingChannels", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: varchar("channelId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  channelName: varchar("channelName", { length: 100 }).notNull(), // Google広告、Facebook、チラシなど
+  channelType: mysqlEnum("channelType", ["google_ads", "facebook", "instagram", "flyer", "word_of_mouth", "other"]).notNull(),
+  description: varchar("description", { length: 500 }),
+  isActive: int("isActive").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdvertisingChannel = typeof advertisingChannels.$inferSelect;
+export type InsertAdvertisingChannel = typeof advertisingChannels.$inferInsert;
+
+/**
+ * 広告費テーブル
+ */
+export const advertisingExpenses = mysqlTable("advertisingExpenses", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseId: varchar("expenseId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  channelId: varchar("channelId", { length: 64 }).notNull(),
+  expenseDate: date("expenseDate").notNull(), // 広告費の日付
+  amount: int("amount").notNull(), // 広告費（円）
+  budget: int("budget"), // 予算（円）
+  description: varchar("description", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdvertisingExpense = typeof advertisingExpenses.$inferSelect;
+export type InsertAdvertisingExpense = typeof advertisingExpenses.$inferInsert;
+
+/**
+ * 顧客獲得チャネルテーブル
+ */
+export const customerAcquisitionChannels = mysqlTable("customerAcquisitionChannels", {
+  id: int("id").autoincrement().primaryKey(),
+  acquisitionId: varchar("acquisitionId", { length: 64 }).notNull().unique(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  channelId: varchar("channelId", { length: 64 }).notNull(),
+  acquisitionDate: timestamp("acquisitionDate").defaultNow().notNull(), // 顧客獲得日時
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CustomerAcquisitionChannel = typeof customerAcquisitionChannels.$inferSelect;
+export type InsertCustomerAcquisitionChannel = typeof customerAcquisitionChannels.$inferInsert;
+
+/**
+ * 広告効果分析テーブル（キャッシュ用）
+ */
+export const advertisingMetrics = mysqlTable("advertisingMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  metricsId: varchar("metricsId", { length: 64 }).notNull().unique(),
+  facilityId: varchar("facilityId", { length: 64 }).notNull(),
+  channelId: varchar("channelId", { length: 64 }).notNull(),
+  metricsDate: date("metricsDate").notNull(),
+  totalExpense: int("totalExpense").default(0).notNull(), // 広告費合計
+  newCustomers: int("newCustomers").default(0).notNull(), // 新規顧客数
+  cpa: int("cpa").default(0).notNull(), // CPA（顧客獲得単価）
+  totalRevenue: int("totalRevenue").default(0).notNull(), // 売上合計
+  roas: int("roas").default(0).notNull(), // ROAS（広告費用対効果）
+  ltv: int("ltv").default(0).notNull(), // LTV（顧客生涯価値）
+  ltvCacRatio: int("ltvCacRatio").default(0).notNull(), // LTV/CAC比率
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdvertisingMetrics = typeof advertisingMetrics.$inferSelect;
+export type InsertAdvertisingMetrics = typeof advertisingMetrics.$inferInsert;
