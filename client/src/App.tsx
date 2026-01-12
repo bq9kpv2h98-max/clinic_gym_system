@@ -11,6 +11,7 @@ import FamilyCheckIn from "./pages/FamilyCheckIn";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Dashboard from "./pages/Dashboard";
 import AdvertisingDashboard from "./pages/AdvertisingDashboard";
+import SettlementReport from "./pages/SettlementReport";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/analytics" component={AnalyticsDashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/dashboard/advertising" component={AdvertisingDashboard} />
+      <Route path="/settlement" component={SettlementReport} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

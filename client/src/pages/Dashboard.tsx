@@ -28,6 +28,7 @@ import {
   Settings,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -109,6 +110,7 @@ const Dashboard: React.FC = () => {
     { id: "sales", label: "売上管理", icon: DollarSign },
     { id: "advertising", label: "広告分析", icon: Target },
     { id: "analytics", label: "顧客分析", icon: TrendingUp },
+    { id: "settlement", label: "決算書類", icon: FileText },
     { id: "settings", label: "設定", icon: Settings },
   ];
 
@@ -126,6 +128,9 @@ const Dashboard: React.FC = () => {
         break;
       case "advertising":
         setLocation("/dashboard/advertising");
+        break;
+      case "settlement":
+        setLocation("/settlement");
         break;
       default:
         break;
