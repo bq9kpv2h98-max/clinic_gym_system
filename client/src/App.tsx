@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import AdvertisingDashboard from "./pages/AdvertisingDashboard";
 import SettlementReport from "./pages/SettlementReport";
 import SelfRegistration from "./pages/SelfRegistration";
+import BackupManagement from "./pages/BackupManagement";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/dashboard/advertising" component={AdvertisingDashboard} />
       <Route path="/settlement" component={SettlementReport} />
       <Route path="/register-qr" component={SelfRegistration} />
+      <Route path="/backup" component={BackupManagement} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
