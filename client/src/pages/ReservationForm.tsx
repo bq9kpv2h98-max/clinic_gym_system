@@ -69,7 +69,11 @@ export default function ReservationForm() {
       toast.error("電話番号は10-11桁の数字で入力してください");
       return false;
     }
-    if (formData.customerEmail && !formData.customerEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    if (!formData.customerEmail.trim()) {
+      toast.error("メールアドレスを入力してください");
+      return false;
+    }
+    if (!formData.customerEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       toast.error("有効なメールアドレスを入力してください");
       return false;
     }
@@ -101,7 +105,7 @@ export default function ReservationForm() {
       facilityId,
       customerName: formData.customerName,
       customerPhone: formData.customerPhone,
-      customerEmail: formData.customerEmail || undefined,
+      customerEmail: formData.customerEmail,
       firstChoiceDate: formData.firstChoiceDate!,
       firstChoiceTimeSlot: formData.firstChoiceTimeSlot as "10:00-13:00" | "13:00-17:00" | "17:00-",
       secondChoiceDate: formData.secondChoiceDate,
@@ -168,7 +172,7 @@ export default function ReservationForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">メールアドレス（任意）</Label>
+                <Label htmlFor="email">メールアドレス *</Label>
                 <Input
                   id="email"
                   type="email"

@@ -40,7 +40,7 @@ export const reservationsRouter = router({
         facilityId: z.string(),
         customerName: z.string().min(1, "お名前を入力してください"),
         customerPhone: z.string().min(10, "電話番号を入力してください"),
-        customerEmail: z.string().email("有効なメールアドレスを入力してください").optional(),
+        customerEmail: z.string().email("有効なメールアドレスを入力してください").min(1, "メールアドレスを入力してください"),
         firstChoiceDate: z.date(),
         firstChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]),
         secondChoiceDate: z.date().optional(),
@@ -102,7 +102,7 @@ export const reservationsRouter = router({
           customerId,
           fullName: input.customerName,
           phone: input.customerPhone,
-          email: input.customerEmail || undefined,
+          email: input.customerEmail,
           qrCodeData,
           qrCodeImageUrl,
           // 仮の値（後で更新可能）
@@ -122,7 +122,7 @@ export const reservationsRouter = router({
         facilityId: input.facilityId,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
-        customerEmail: input.customerEmail || null,
+        customerEmail: input.customerEmail,
         firstChoiceDate: input.firstChoiceDate,
         firstChoiceTimeSlot: input.firstChoiceTimeSlot,
         secondChoiceDate: input.secondChoiceDate || null,
@@ -133,9 +133,9 @@ export const reservationsRouter = router({
         status: "pending",
       });
 
-      // メールアドレスが提供されている場合、確認メールを送信
+      // 確認メールを送信
       let emailSent = false;
-      if (input.customerEmail) {
+      {
         // 顧客情報を取得してQRコードURLを含める
         const db = await getDb();
         if (db) {
