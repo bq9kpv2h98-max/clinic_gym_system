@@ -26,6 +26,7 @@ import { customers } from "../../drizzle/schema";
 import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
+import { sendReservationConfirmationEmail } from "../_core/email";
 
 export const reservationsRouter = router({
   /**
@@ -132,11 +133,41 @@ export const reservationsRouter = router({
         status: "pending",
       });
 
+      // メールアドレスが提供されている場合、確認メールを送信
+      let emailSent = false;
+      if (input.customerEmail) {
+        // 顧客情報を取得してQRコードURLを含める
+        const db = await getDb();
+        if (db) {
+          const customerData = await db
+            .select()
+            .from(customers)
+            .where(eq(customers.customerId, customerId))
+            .limit(1);
+          
+          if (customerData.length > 0) {
+            emailSent = await sendReservationConfirmationEmail({
+              to: input.customerEmail,
+              customerName: input.customerName,
+              reservationId,
+              firstChoiceDate: input.firstChoiceDate,
+              firstChoiceTimeSlot: input.firstChoiceTimeSlot,
+              secondChoiceDate: input.secondChoiceDate,
+              secondChoiceTimeSlot: input.secondChoiceTimeSlot,
+              thirdChoiceDate: input.thirdChoiceDate,
+              thirdChoiceTimeSlot: input.thirdChoiceTimeSlot,
+              qrCodeImageUrl: customerData[0].qrCodeImageUrl || undefined,
+            });
+          }
+        }
+      }
+
       return {
         success: true,
         reservationId,
         customerId,
         isNewCustomer: !existingCustomer,
+        emailSent,
       };
     }),
 
