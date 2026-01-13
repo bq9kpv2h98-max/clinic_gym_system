@@ -49,7 +49,7 @@ export default function ReservationForm() {
     onSuccess: (data) => {
       setReservationResult(data);
       setStep(4);
-      toast.success("予約を受け付けました");
+      toast.success("予約リクエストを受け付けました");
     },
     onError: (error) => {
       toast.error(`エラー: ${error.message}`);
@@ -128,7 +128,7 @@ export default function ReservationForm() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約フォーム</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約リクエストフォーム</h1>
             <p className="text-gray-600">お客様情報をご入力ください</p>
           </div>
 
@@ -139,7 +139,7 @@ export default function ReservationForm() {
                 お客様情報（ステップ 1/3）
               </CardTitle>
               <CardDescription>
-                ご予約に必要な情報をご入力ください
+                ご予約リクエストに必要な情報をご入力ください
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -177,7 +177,7 @@ export default function ReservationForm() {
                   onChange={(e) => handleInputChange("customerEmail", e.target.value)}
                 />
                 <p className="text-sm text-muted-foreground">
-                  予約確認メールをお送りします
+                  予約リクエスト確認メールをお送りします
                 </p>
               </div>
 
@@ -199,7 +199,7 @@ export default function ReservationForm() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約フォーム</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約リクエストフォーム</h1>
             <p className="text-gray-600">ご希望の日時を選択してください</p>
           </div>
 
@@ -345,7 +345,7 @@ export default function ReservationForm() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約フォーム</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約リクエストフォーム</h1>
             <p className="text-gray-600">内容をご確認ください</p>
           </div>
 
@@ -353,10 +353,10 @@ export default function ReservationForm() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5" />
-                ご予約内容の確認（ステップ 3/3）
+                ご予約リクエスト内容の確認（ステップ 3/3）
               </CardTitle>
               <CardDescription>
-                内容に間違いがなければ「予約を確定する」ボタンを押してください
+                内容に間違いがなければ「予約リクエストを送信する」ボタンを押してください
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -412,10 +412,10 @@ export default function ReservationForm() {
 
               {/* メモ */}
               <div className="space-y-2">
-                <Label htmlFor="notes">ご要望・メモ（任意）</Label>
+                <Label htmlFor="notes">症状やお悩みをお書きください（任意）</Label>
                 <Textarea
                   id="notes"
-                  placeholder="ご要望やご質問があればご記入ください"
+                  placeholder="例）肩こりがひどい、腰痛が気になるなど"
                   value={formData.notes}
                   onChange={(e) => handleInputChange("notes", e.target.value)}
                   rows={4}
@@ -432,7 +432,7 @@ export default function ReservationForm() {
                   className="px-8"
                   disabled={createMutation.isPending}
                 >
-                  {createMutation.isPending ? "送信中..." : "予約を確定する"}
+                  {createMutation.isPending ? "送信中..." : "予約リクエストを送信する"}
                 </Button>
               </div>
             </CardContent>
@@ -452,7 +452,7 @@ export default function ReservationForm() {
               <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-10 h-10 text-green-600" />
               </div>
-              <CardTitle className="text-2xl">ご予約を受け付けました</CardTitle>
+              <CardTitle className="text-2xl">ご予約リクエストを受け付けました</CardTitle>
               <CardDescription>
                 予約ID: {reservationResult.reservation.reservationId.slice(0, 8)}
               </CardDescription>
@@ -460,7 +460,7 @@ export default function ReservationForm() {
             <CardContent className="space-y-6">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  ご予約ありがとうございます。確定日時は後ほどご連絡いたします。
+                  ご予約リクエストありがとうございます。確定日時は後ほどご連絡いたします。
                   {formData.customerEmail && "確認メールをお送りしましたのでご確認ください。"}
                 </p>
               </div>
