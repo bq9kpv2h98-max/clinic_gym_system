@@ -22,6 +22,7 @@ import { AiregSync } from "./pages/AiregSync";
 import SalesManagement from "./pages/SalesManagement";
 import ReservationManagement from "./pages/ReservationManagement";
 import ReservationForm from "./pages/ReservationForm";
+import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -66,6 +67,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <PWAInstallPrompt />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
