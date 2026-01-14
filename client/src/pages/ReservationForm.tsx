@@ -458,7 +458,7 @@ export default function ReservationForm() {
               </div>
               <CardTitle className="text-2xl">ご予約リクエストを受け付けました</CardTitle>
               <CardDescription>
-                予約ID: {reservationResult.reservation.reservationId.slice(0, 8)}
+                予約ID: {reservationResult?.reservationId?.slice(0, 8) || "処理中"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -468,25 +468,6 @@ export default function ReservationForm() {
                   {formData.customerEmail && "確認メールをお送りしましたのでご確認ください。"}
                 </p>
               </div>
-
-              {reservationResult.customer && reservationResult.customer.qrCodeImageUrl && (
-                <div className="text-center space-y-4">
-                  <h3 className="font-semibold text-lg">診察券QRコード</h3>
-                  <p className="text-sm text-muted-foreground">
-                    来院時にこちらのQRコードをご提示ください
-                  </p>
-                  <div className="inline-block p-4 bg-white rounded-lg shadow-md">
-                    <img
-                      src={reservationResult.customer.qrCodeImageUrl}
-                      alt="診察券QRコード"
-                      className="w-64 h-64"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    ※このQRコードはスクリーンショットで保存してください
-                  </p>
-                </div>
-              )}
 
               <div className="flex justify-center pt-4">
                 <Button onClick={() => setLocation("/")} size="lg">

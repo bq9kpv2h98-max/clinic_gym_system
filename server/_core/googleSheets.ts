@@ -13,10 +13,14 @@ const GOOGLE_SHEETS_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 // Google Sheets APIクライアントを初期化
 let sheetsClient: any = null;
 
-function initSheetsClient() {
+async function getSheetsClient() {
   if (!GOOGLE_SHEETS_CREDENTIALS || !GOOGLE_SHEETS_SPREADSHEET_ID) {
     console.warn("Google Sheets credentials not configured. Skipping sheets sync.");
     return null;
+  }
+
+  if (sheetsClient) {
+    return sheetsClient;
   }
 
   try {
@@ -27,6 +31,7 @@ function initSheetsClient() {
     });
 
     sheetsClient = google.sheets({ version: "v4", auth });
+    console.log("Google Sheets client initialized successfully");
     return sheetsClient;
   } catch (error) {
     console.error("Failed to initialize Google Sheets client:", error);
@@ -39,13 +44,16 @@ function initSheetsClient() {
  */
 async function appendRowToSheet(sheetName: string, values: any[]) {
   try {
-    const client = sheetsClient || initSheetsClient();
+    const client = await getSheetsClient();
     if (!client) {
       console.warn("Google Sheets client not available. Skipping sync.");
       return false;
     }
 
-    await client.spreadsheets.values.append({
+    console.log(`Attempting to append row to sheet: ${sheetName}`);
+    console.log(`Values:`, values);
+
+    const response = await client.spreadsheets.values.append({
       spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
       valueInputOption: "USER_ENTERED",
@@ -54,10 +62,13 @@ async function appendRowToSheet(sheetName: string, values: any[]) {
       },
     });
 
-    console.log(`Successfully appended row to sheet: ${sheetName}`);
+    console.log(`Successfully appended row to sheet: ${sheetName}`, response.data);
     return true;
-  } catch (error) {
-    console.error(`Failed to append row to sheet ${sheetName}:`, error);
+  } catch (error: any) {
+    console.error(`Failed to append row to sheet ${sheetName}:`, error.message || error);
+    if (error.response) {
+      console.error(`API Error Response:`, error.response.data);
+    }
     return false;
   }
 }
@@ -161,7 +172,7 @@ export async function saveCustomerRegistrationToSheets(data: {
  */
 export async function initializeSheetHeaders() {
   try {
-    const client = sheetsClient || initSheetsClient();
+    const client = await getSheetsClient();
     if (!client) {
       console.warn("Google Sheets client not available. Skipping header initialization.");
       return false;
