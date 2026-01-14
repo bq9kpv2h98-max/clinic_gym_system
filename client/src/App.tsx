@@ -22,6 +22,7 @@ import { AiregSync } from "./pages/AiregSync";
 import SalesManagement from "./pages/SalesManagement";
 import ReservationManagement from "./pages/ReservationManagement";
 import ReservationForm from "./pages/ReservationForm";
+import MonthlyStats from "./pages/MonthlyStats";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 
 function Router() {
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/sales" component={SalesManagement} />
       <Route path="/reservations" component={ReservationManagement} />
       <Route path="/reservation" component={ReservationForm} />
+      <Route path="/monthly-stats" component={MonthlyStats} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

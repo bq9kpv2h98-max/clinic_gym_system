@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
-import { saveCustomerRegistrationToSheets } from "../_core/googleSheets";
+import { saveCustomerRegistrationToSheets, saveVisitToSheets, updateMonthlySummaryInSheets } from "../_core/googleSheets";
 
 // QRコード生成用の秘密鍵
 const QR_SECRET_KEY = process.env.QR_SECRET_KEY || "default-secret-key";
@@ -103,8 +103,12 @@ export const customerRouter = router({
       });
 
       // Google Sheetsに保存（エラーがあってもシステムは続行）
+      console.log("=== Google Sheets保存処理開始 ===");
+      console.log("顧客ID:", customerId);
+      console.log("顧客名:", input.fullName);
+      
       try {
-        await saveCustomerRegistrationToSheets({
+        const sheetsData = {
           customerId,
           fullName: input.fullName,
           phone: input.phone,
@@ -117,9 +121,19 @@ export const customerRouter = router({
           addressLine1: input.addressLine1,
           addressLine2: input.addressLine2,
           createdAt: new Date(),
-        });
+        };
+        
+        console.log("Google Sheetsに保存するデータ:", sheetsData);
+        
+        const result = await saveCustomerRegistrationToSheets(sheetsData);
+        
+        console.log("Google Sheets保存結果:", result);
+        console.log("=== Google Sheets保存処理完了 ===");
       } catch (error) {
-        console.error("Failed to save customer registration to Google Sheets:", error);
+        console.error("=== Google Sheets保存エラー ===");
+        console.error("エラー詳細:", error);
+        console.error("エラーメッセージ:", error instanceof Error ? error.message : String(error));
+        console.error("エラースタック:", error instanceof Error ? error.stack : "N/A");
       }
 
       return {
@@ -275,39 +289,87 @@ export const customerRouter = router({
         notes: input.notes,
       });
 
+      // 顧客情報を取得
+      const customer = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.customerId, input.customerId))
+        .limit(1);
+
+      if (!customer.length) {
+        throw new Error("顧客が見つかりません");
+      }
+
+      const visitDate = new Date();
+
       // ポイント付与
       if (input.pointsEarned > 0) {
-        const customer = await db
+        const newBalance = (customer[0].totalPoints || 0) + input.pointsEarned;
+
+        // ポイント取引履歴を記録
+        await db.insert(pointTransactions).values({
+          transactionId: nanoid(32),
+          customerId: input.customerId,
+          transactionType: "earn",
+          points: input.pointsEarned,
+          balanceAfter: newBalance,
+          description: `来院時ポイント付与`,
+        });
+
+        // 顧客のポイントを更新
+        await db
+          .update(customers)
+          .set({
+            totalPoints: newBalance,
+            lifetimePoints: (customer[0].lifetimePoints || 0) + input.pointsEarned,
+            lastPointActivityDate: new Date(),
+            lastVisitDate: visitDate,
+            visitCount: (customer[0].visitCount || 0) + 1,
+          })
+          .where(eq(customers.customerId, input.customerId));
+      }
+
+      // Google Sheetsに来院記録を保存
+      try {
+        await saveVisitToSheets({
+          visitId,
+          customerId: input.customerId,
+          customerName: customer[0].fullName,
+          visitDate,
+          pointsEarned: input.pointsEarned,
+          notes: input.notes,
+        });
+
+        // 月次サマリーを更新
+        const yearMonth = visitDate.toLocaleDateString("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+        }).replace("/", "/");
+
+        // 今月の来院回数を取得
+        const monthStart = new Date(visitDate.getFullYear(), visitDate.getMonth(), 1);
+        const monthEnd = new Date(visitDate.getFullYear(), visitDate.getMonth() + 1, 0, 23, 59, 59);
+        
+        const monthlyVisits = await db
           .select()
-          .from(customers)
-          .where(eq(customers.customerId, input.customerId))
-          .limit(1);
+          .from(visits)
+          .where(eq(visits.customerId, input.customerId));
+        
+        const thisMonthVisits = monthlyVisits.filter(v => {
+          const vDate = new Date(v.visitDate);
+          return vDate >= monthStart && vDate <= monthEnd;
+        });
 
-        if (customer.length) {
-          const newBalance = (customer[0].totalPoints || 0) + input.pointsEarned;
-
-          // ポイント取引履歴を記録
-          await db.insert(pointTransactions).values({
-            transactionId: nanoid(32),
-            customerId: input.customerId,
-            transactionType: "earn",
-            points: input.pointsEarned,
-            balanceAfter: newBalance,
-            description: `来院時ポイント付与`,
-          });
-
-          // 顧客のポイントを更新
-          await db
-            .update(customers)
-            .set({
-              totalPoints: newBalance,
-              lifetimePoints: (customer[0].lifetimePoints || 0) + input.pointsEarned,
-              lastPointActivityDate: new Date(),
-              lastVisitDate: new Date(),
-              visitCount: (customer[0].visitCount || 0) + 1,
-            })
-            .where(eq(customers.customerId, input.customerId));
-        }
+        await updateMonthlySummaryInSheets({
+          customerId: input.customerId,
+          customerName: customer[0].fullName,
+          yearMonth,
+          visitCount: thisMonthVisits.length,
+          lastVisitDate: visitDate,
+        });
+      } catch (error) {
+        console.error("Google Sheets保存エラー:", error);
+        // エラーが発生してもシステムは続行
       }
 
       return {

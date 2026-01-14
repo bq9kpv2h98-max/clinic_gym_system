@@ -236,3 +236,173 @@ export async function initializeSheetHeaders() {
     return false;
   }
 }
+
+/**
+ * 来院記録をスプレッドシートに保存
+ */
+export async function saveVisitToSheets(data: {
+  visitId: string;
+  customerId: string;
+  customerName: string;
+  visitDate: Date;
+  pointsEarned: number;
+  notes?: string | null;
+}) {
+  const formatDateTime = (date: Date) => {
+    return new Date(date).toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const values = [
+    formatDateTime(data.visitDate), // 来院日時
+    data.visitId,
+    data.customerId,
+    data.customerName,
+    data.pointsEarned,
+    data.notes || "",
+  ];
+
+  return await appendRowToSheet("来院履歴", values);
+}
+
+/**
+ * 月次サマリーをスプレッドシートに更新
+ * 既存の行があれば更新、なければ新規追加
+ */
+export async function updateMonthlySummaryInSheets(data: {
+  customerId: string;
+  customerName: string;
+  yearMonth: string; // "2026/01" 形式
+  visitCount: number;
+  lastVisitDate: Date;
+}) {
+  try {
+    const client = await getSheetsClient();
+    if (!client) {
+      console.warn("Google Sheets client not available. Skipping monthly summary update.");
+      return false;
+    }
+
+    const sheetName = "月次来院統計";
+    
+    // 既存データを取得
+    const existingData = await client.spreadsheets.values.get({
+      spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+      range: `${sheetName}!A:E`,
+    });
+
+    const rows = existingData.data.values || [];
+    
+    // ヘッダー行を除外
+    const dataRows = rows.slice(1);
+    
+    // 既存の行を検索（年月 + 顧客IDで一致）
+    const existingRowIndex = dataRows.findIndex(
+      (row: any[]) => row[0] === data.yearMonth && row[1] === data.customerId
+    );
+
+    const formatDate = (date: Date) => {
+      return new Date(date).toLocaleDateString("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    };
+
+    const newValues = [
+      data.yearMonth,
+      data.customerId,
+      data.customerName,
+      data.visitCount,
+      formatDate(data.lastVisitDate),
+    ];
+
+    if (existingRowIndex >= 0) {
+      // 既存行を更新
+      const rowNumber = existingRowIndex + 2; // ヘッダー行 + 0-indexed
+      await client.spreadsheets.values.update({
+        spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+        range: `${sheetName}!A${rowNumber}:E${rowNumber}`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: [newValues],
+        },
+      });
+      console.log(`Updated monthly summary for ${data.customerName} (${data.yearMonth})`);
+    } else {
+      // 新規行を追加
+      await appendRowToSheet(sheetName, newValues);
+      console.log(`Added new monthly summary for ${data.customerName} (${data.yearMonth})`);
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error(`Failed to update monthly summary:`, error.message || error);
+    if (error.response) {
+      console.error(`API Error Response:`, error.response.data);
+    }
+    return false;
+  }
+}
+
+/**
+ * 来院履歴と月次統計のヘッダーを初期化
+ */
+export async function initializeVisitSheetHeaders() {
+  try {
+    const client = await getSheetsClient();
+    if (!client) {
+      console.warn("Google Sheets client not available. Skipping header initialization.");
+      return false;
+    }
+
+    // 来院履歴シートのヘッダー
+    const visitHeaders = [
+      "来院日時",
+      "来院ID",
+      "顧客ID",
+      "顧客名",
+      "獲得ポイント",
+      "備考",
+    ];
+
+    // 月次来院統計シートのヘッダー
+    const monthlySummaryHeaders = [
+      "年月",
+      "顧客ID",
+      "顧客名",
+      "来院回数",
+      "最終来院日",
+    ];
+
+    // ヘッダーを追加
+    await client.spreadsheets.values.update({
+      spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+      range: "来院履歴!A1:F1",
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [visitHeaders],
+      },
+    });
+
+    await client.spreadsheets.values.update({
+      spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+      range: "月次来院統計!A1:E1",
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [monthlySummaryHeaders],
+      },
+    });
+
+    console.log("Successfully initialized visit sheet headers");
+    return true;
+  } catch (error) {
+    console.error("Failed to initialize visit sheet headers:", error);
+    return false;
+  }
+}

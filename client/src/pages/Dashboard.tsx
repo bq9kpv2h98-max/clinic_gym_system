@@ -33,6 +33,7 @@ import {
   QrCode,
   Clock,
   CalendarCheck,
+  Calendar,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -115,6 +116,7 @@ const Dashboard: React.FC = () => {
     { id: "reservations", label: "予約管理（スタッフ）", icon: CalendarCheck },
     { id: "reservation-form", label: "予約フォーム（顧客用）", icon: CalendarCheck },
     { id: "analytics", label: "分析", icon: TrendingUp },
+    { id: "monthly-stats", label: "月次統計", icon: Calendar },
     { id: "advertising", label: "広告効果測定", icon: Target },
     { id: "advertising-expense", label: "広告費登録", icon: DollarSign },
     { id: "settlement", label: "決算報告書", icon: FileText },
@@ -153,6 +155,9 @@ const Dashboard: React.FC = () => {
         break;
       case "reservation-form":
         setLocation("/reservation");
+        break;
+      case "monthly-stats":
+        setLocation("/monthly-stats");
         break;
       case "backup":
         setLocation("/backup");
