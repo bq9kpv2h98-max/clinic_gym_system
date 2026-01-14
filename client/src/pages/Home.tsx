@@ -1,6 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { QrCode, Users, TrendingUp, Calendar } from "lucide-react";
+import { QrCode, Users, TrendingUp, Calendar, ClipboardList, UserCheck, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Home() {
@@ -54,6 +54,51 @@ export default function Home() {
               <QrCode className="mr-2 h-5 w-5" />
               診察券を発行する
             </Button>
+          </div>
+        </section>
+
+        {/* 予約手順 */}
+        <section className="mb-16">
+          <h3 className="text-3xl font-bold text-center mb-12">3ステップで簡単予約</h3>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-10 w-10 text-blue-600" />
+              </div>
+              <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-4 text-sm font-bold">
+                1
+              </div>
+              <h4 className="text-xl font-semibold mb-2">希望日時を選択</h4>
+              <p className="text-gray-600">
+                カレンダーから第1〜3希望日時を選択します
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <ClipboardList className="h-10 w-10 text-blue-600" />
+              </div>
+              <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-4 text-sm font-bold">
+                2
+              </div>
+              <h4 className="text-xl font-semibold mb-2">お客様情報を入力</h4>
+              <p className="text-gray-600">
+                お名前、電話番号、メールアドレスを入力します
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-10 w-10 text-blue-600" />
+              </div>
+              <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-4 text-sm font-bold">
+                3
+              </div>
+              <h4 className="text-xl font-semibold mb-2">予約完了</h4>
+              <p className="text-gray-600">
+                確認メールが届きます。当日お待ちしております
+              </p>
+            </div>
           </div>
         </section>
 
