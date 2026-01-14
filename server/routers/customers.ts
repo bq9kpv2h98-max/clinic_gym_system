@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
+import { saveCustomerRegistrationToSheets } from "../_core/googleSheets";
 
 // QRコード生成用の秘密鍵
 const QR_SECRET_KEY = process.env.QR_SECRET_KEY || "default-secret-key";
@@ -100,6 +101,26 @@ export const customerRouter = router({
         qrCodeImageUrl,
         customFields: input.customFields ? JSON.stringify(input.customFields) : undefined,
       });
+
+      // Google Sheetsに保存（エラーがあってもシステムは続行）
+      try {
+        await saveCustomerRegistrationToSheets({
+          customerId,
+          fullName: input.fullName,
+          phone: input.phone,
+          email: input.email,
+          dateOfBirth: new Date(input.dateOfBirth),
+          gender: input.gender,
+          postalCode: input.postalCode,
+          prefecture: input.prefecture,
+          city: input.city,
+          addressLine1: input.addressLine1,
+          addressLine2: input.addressLine2,
+          createdAt: new Date(),
+        });
+      } catch (error) {
+        console.error("Failed to save customer registration to Google Sheets:", error);
+      }
 
       return {
         success: true,

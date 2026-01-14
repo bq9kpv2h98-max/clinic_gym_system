@@ -27,6 +27,7 @@ import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { sendReservationConfirmationEmail } from "../_core/email";
+import { saveReservationToSheets } from "../_core/googleSheets";
 
 export const reservationsRouter = router({
   /**
@@ -160,6 +161,26 @@ export const reservationsRouter = router({
             });
           }
         }
+      }
+
+      // Google Sheetsに保存（エラーがあってもシステムは続行）
+      try {
+        await saveReservationToSheets({
+          reservationId,
+          customerName: input.customerName,
+          customerPhone: input.customerPhone,
+          customerEmail: input.customerEmail,
+          firstChoiceDate: input.firstChoiceDate,
+          firstChoiceTimeSlot: input.firstChoiceTimeSlot,
+          secondChoiceDate: input.secondChoiceDate,
+          secondChoiceTimeSlot: input.secondChoiceTimeSlot,
+          thirdChoiceDate: input.thirdChoiceDate,
+          thirdChoiceTimeSlot: input.thirdChoiceTimeSlot,
+          notes: input.notes,
+          createdAt: new Date(),
+        });
+      } catch (error) {
+        console.error("Failed to save reservation to Google Sheets:", error);
       }
 
       return {
