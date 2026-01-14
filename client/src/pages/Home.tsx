@@ -1,6 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { QrCode, Users, TrendingUp } from "lucide-react";
+import { QrCode, Users, TrendingUp, Calendar } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Home() {
@@ -32,18 +32,29 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 py-12">
         {/* ヒーロー */}
         <section className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">QRコード診察券</h2>
+          <h2 className="text-4xl font-bold mb-4">整体院・パーソナルジム</h2>
           <p className="text-xl text-gray-600 mb-8">
             スマートフォンで診察券を管理。来院時はQRコードをかざすだけ。
           </p>
-          <Button
-            size="lg"
-            onClick={() => navigate("/register")}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <QrCode className="mr-2 h-5 w-5" />
-            診察券を発行する
-          </Button>
+          <div className="flex gap-4 justify-center">
+            <Button
+              size="lg"
+              onClick={() => navigate("/reservation")}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Calendar className="mr-2 h-5 w-5" />
+              予約する
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => navigate("/register-qr")}
+              variant="outline"
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <QrCode className="mr-2 h-5 w-5" />
+              診察券を発行する
+            </Button>
+          </div>
         </section>
 
         {/* 特徴 */}
@@ -76,14 +87,26 @@ export default function Home() {
         {/* CTA */}
         <section className="bg-blue-600 text-white p-12 rounded-lg text-center">
           <h3 className="text-2xl font-bold mb-4">今すぐ始めましょう</h3>
-          <p className="mb-8 text-lg">3ステップで簡単登録。1分で完了します。</p>
-          <Button
-            size="lg"
-            variant="secondary"
-            onClick={() => navigate("/register")}
-          >
-            診察券を発行する
-          </Button>
+          <p className="mb-8 text-lg">予約は3ステップで簡単。診察券登録は1分で完了します。</p>
+          <div className="flex gap-4 justify-center">
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={() => navigate("/reservation")}
+            >
+              <Calendar className="mr-2 h-5 w-5" />
+              予約する
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-white text-blue-600 hover:bg-gray-100"
+              onClick={() => navigate("/register-qr")}
+            >
+              <QrCode className="mr-2 h-5 w-5" />
+              診察券を発行する
+            </Button>
+          </div>
         </section>
       </main>
     </div>
