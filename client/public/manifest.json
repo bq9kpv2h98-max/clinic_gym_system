@@ -1,7 +1,7 @@
 {
-  "name": "整体院・パーソナルジム 診察券",
-  "short_name": "診察券",
-  "description": "スマートフォンで診察券を管理。来院時はQRコードをかざすだけ。",
+  "name": "ULU GROUP 診察券",
+  "short_name": "ULU GROUP",
+  "description": "ULU GROUPのデジタル診察券。来院時はQRコードをかざすだけ。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
