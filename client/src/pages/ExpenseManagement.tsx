@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function ExpenseManagement() {
   const [selectedYearMonth, setSelectedYearMonth] = useState(() => {
@@ -407,6 +408,9 @@ export default function ExpenseManagement() {
         </Card>
       )}
 
+      {/* 経費推移グラフ */}
+      <ExpenseTrendChart />
+
       {/* 経費一覧 */}
       <Card>
         <CardHeader>
@@ -475,5 +479,159 @@ export default function ExpenseManagement() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * 経費推移グラフコンポーネント
+ */
+function ExpenseTrendChart() {
+  const { data: trendData, isLoading } = trpc.expenses.getTrend.useQuery();
+  const [chartType, setChartType] = useState<"line" | "bar">("line");
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            経費推移（過去12ヶ月）
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!trendData || trendData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            経費推移（過去12ヶ月）
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            経費データがありません
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("ja-JP", {
+      style: "currency",
+      currency: "JPY",
+      notation: "compact",
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            経費推移（過去12ヶ月）
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant={chartType === "line" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setChartType("line")}
+            >
+              折れ線グラフ
+            </Button>
+            <Button
+              variant={chartType === "bar" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setChartType("bar")}
+            >
+              棒グラフ
+            </Button>
+          </div>
+        </div>
+        <CardDescription>カテゴリ別の経費推移を確認できます</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-8">
+          {/* カテゴリ別推移グラフ */}
+          <div>
+            <h3 className="text-sm font-semibold mb-4">カテゴリ別経費推移</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              {chartType === "line" ? (
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="yearMonth" />
+                  <YAxis tickFormatter={formatCurrency} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                  <Line type="monotone" dataKey="laborCosts" stroke="#8b5cf6" name="人件費" strokeWidth={2} />
+                  <Line type="monotone" dataKey="rent" stroke="#3b82f6" name="家賃" strokeWidth={2} />
+                  <Line type="monotone" dataKey="utilities" stroke="#10b981" name="水道光熱費" strokeWidth={2} />
+                  <Line type="monotone" dataKey="advertisingTotal" stroke="#f59e0b" name="広告費" strokeWidth={2} />
+                  <Line type="monotone" dataKey="otherExpenses" stroke="#6b7280" name="その他経費" strokeWidth={2} />
+                </LineChart>
+              ) : (
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="yearMonth" />
+                  <YAxis tickFormatter={formatCurrency} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="laborCosts" stackId="a" fill="#8b5cf6" name="人件費" />
+                  <Bar dataKey="rent" stackId="a" fill="#3b82f6" name="家賃" />
+                  <Bar dataKey="utilities" stackId="a" fill="#10b981" name="水道光熱費" />
+                  <Bar dataKey="advertisingTotal" stackId="a" fill="#f59e0b" name="広告費" />
+                  <Bar dataKey="otherExpenses" stackId="a" fill="#6b7280" name="その他経費" />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+
+          {/* 売上・利益推移グラフ */}
+          <div>
+            <h3 className="text-sm font-semibold mb-4">売上・利益推移</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="yearMonth" />
+                <YAxis tickFormatter={formatCurrency} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+                <Line type="monotone" dataKey="revenue" stroke="#22c55e" name="売上高" strokeWidth={3} />
+                <Line type="monotone" dataKey="grossProfit" stroke="#3b82f6" name="売上総利益" strokeWidth={2} />
+                <Line type="monotone" dataKey="operatingProfit" stroke="#f59e0b" name="営業利益" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* 広告費内訳グラフ */}
+          <div>
+            <h3 className="text-sm font-semibold mb-4">広告費内訳</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="yearMonth" />
+                <YAxis tickFormatter={formatCurrency} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+                <Bar dataKey="advertisingMeta" stackId="a" fill="#0084ff" name="Meta" />
+                <Bar dataKey="advertisingGoogle" stackId="a" fill="#34a853" name="Google" />
+                <Bar dataKey="advertisingFlyer" stackId="a" fill="#fbbc04" name="チラシ" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
