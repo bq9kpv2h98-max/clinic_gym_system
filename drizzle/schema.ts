@@ -542,3 +542,73 @@ export const reservations = mysqlTable("reservations", {
 export type Reservation = typeof reservations.$inferSelect;
 export type InsertReservation = typeof reservations.$inferInsert;
 
+
+/**
+ * 月次経費テーブル（10カテゴリ・暦月運用）
+ * 
+ * 簡易PL計算式:
+ * - 売上総利益（粗利）= 売上高 - (costProductSales + costTreatmentMaterials)
+ * - 営業利益 = 粗利 - (laborCosts + rent + utilities + otherExpenses + advertisingTotal)
+ */
+export const monthlyExpenses = mysqlTable("monthlyExpenses", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseId: varchar("expenseId", { length: 64 }).notNull().unique(),
+  
+  // 年月（YYYY-MM形式）
+  yearMonth: varchar("yearMonth", { length: 7 }).notNull(),
+  
+  // 売上（自動集計）
+  revenue: decimal("revenue", { precision: 12, scale: 2 }).default("0").notNull(),
+  
+  // 原価（2種）
+  costProductSales: decimal("costProductSales", { precision: 12, scale: 2 }).default("0").notNull(), // 物販仕入
+  costTreatmentMaterials: decimal("costTreatmentMaterials", { precision: 12, scale: 2 }).default("0").notNull(), // 施術材料
+  
+  // 経費（4種）
+  laborCosts: decimal("laborCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 人件費
+  rent: decimal("rent", { precision: 12, scale: 2 }).default("0").notNull(), // 家賃
+  utilities: decimal("utilities", { precision: 12, scale: 2 }).default("0").notNull(), // 水道光熱費
+  otherExpenses: decimal("otherExpenses", { precision: 12, scale: 2 }).default("0").notNull(), // その他経費
+  
+  // 広告宣伝費（合計）
+  advertisingTotal: decimal("advertisingTotal", { precision: 12, scale: 2 }).default("0").notNull(),
+  
+  // 計算フィールド（自動計算）
+  grossProfit: decimal("grossProfit", { precision: 12, scale: 2 }).default("0").notNull(), // 売上総利益
+  operatingIncome: decimal("operatingIncome", { precision: 12, scale: 2 }).default("0").notNull(), // 営業利益
+  
+  // メモ
+  notes: varchar("notes", { length: 1000 }),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MonthlyExpense = typeof monthlyExpenses.$inferSelect;
+export type InsertMonthlyExpense = typeof monthlyExpenses.$inferInsert;
+
+/**
+ * 広告内訳テーブル（Meta/Google/チラシ）
+ */
+export const advertisingBreakdown = mysqlTable("advertisingBreakdown", {
+  id: int("id").autoincrement().primaryKey(),
+  breakdownId: varchar("breakdownId", { length: 64 }).notNull().unique(),
+  
+  // 関連する月次経費ID
+  expenseId: varchar("expenseId", { length: 64 }).notNull(),
+  
+  // 広告媒体
+  channel: mysqlEnum("channel", ["meta", "google", "flyer"]).notNull(),
+  
+  // 金額
+  amount: decimal("amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  
+  // メモ
+  notes: varchar("notes", { length: 500 }),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdvertisingBreakdown = typeof advertisingBreakdown.$inferSelect;
+export type InsertAdvertisingBreakdown = typeof advertisingBreakdown.$inferInsert;

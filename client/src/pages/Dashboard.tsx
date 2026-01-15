@@ -117,6 +117,7 @@ const Dashboard: React.FC = () => {
     { id: "reservation-form", label: "予約フォーム（顧客用）", icon: CalendarCheck },
     { id: "analytics", label: "分析", icon: TrendingUp },
     { id: "monthly-stats", label: "月次統計", icon: Calendar },
+    { id: "expenses", label: "経費管理", icon: DollarSign },
     { id: "advertising", label: "広告効果測定", icon: Target },
     { id: "advertising-expense", label: "広告費登録", icon: DollarSign },
     { id: "settlement", label: "決算報告書", icon: FileText },
@@ -158,6 +159,9 @@ const Dashboard: React.FC = () => {
         break;
       case "monthly-stats":
         setLocation("/monthly-stats");
+        break;
+      case "expenses":
+        setLocation("/expenses");
         break;
       case "backup":
         setLocation("/backup");

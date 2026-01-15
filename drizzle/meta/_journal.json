@@ -43,6 +43,13 @@
       "when": 1768231903817,
       "tag": "0005_steep_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1768490910326,
+      "tag": "0006_public_ben_parker",
+      "breakpoints": true
     }
   ]
 }

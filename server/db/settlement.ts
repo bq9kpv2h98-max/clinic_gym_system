@@ -1,5 +1,5 @@
 import { getDb } from "../db";
-import { sales, customers, pointTransactions, advertisingExpenses } from "../../drizzle/schema";
+import { sales, customers, pointTransactions, advertisingExpenses, monthlyExpenses } from "../../drizzle/schema";
 import { eq, gte, lte, and } from "drizzle-orm";
 
 /**
@@ -100,7 +100,15 @@ export async function getMonthlySettlementData(
       )
     );
 
-  // 広告費データ取得
+  // 広告費データ取得（経費管理データから）
+  const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+  const expenseData = await db
+    .select()
+    .from(monthlyExpenses)
+    .where(eq(monthlyExpenses.yearMonth, yearMonth))
+    .limit(1);
+
+  // 旧広告費データ（互換性のため残す）
   const adExpenseData = await db
     .select()
     .from(advertisingExpenses)
@@ -153,8 +161,14 @@ export async function getMonthlySettlementData(
     .filter((p) => p.transactionType === "redeem")
     .reduce((sum, p) => sum + p.points, 0);
 
-  // 広告費分析
-  const totalAdvertisingExpense = adExpenseData.reduce((sum, a) => sum + a.amount, 0);
+  // 広告費分析（経費管理データを優先）
+  let totalAdvertisingExpense = 0;
+  if (expenseData.length > 0) {
+    totalAdvertisingExpense = parseFloat(expenseData[0].advertisingTotal);
+  } else {
+    // 旧データからフォールバック
+    totalAdvertisingExpense = adExpenseData.reduce((sum, a) => sum + a.amount, 0);
+  }
   const cpa = newCustomers > 0 ? Math.round(totalAdvertisingExpense / newCustomers) : 0;
   const roas = totalAdvertisingExpense > 0 ? Math.round((totalSales / totalAdvertisingExpense) * 100) : 0;
 
