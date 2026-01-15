@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Database, Download, Upload, CheckCircle, AlertCircle, Loader } from "lucide-react";
+import { Database, Download, Upload, CheckCircle, AlertCircle, Loader, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 const BackupManagement: React.FC = () => {
@@ -19,6 +19,11 @@ const BackupManagement: React.FC = () => {
     { backupUrl },
     { enabled: false }
   );
+  const backupToSheetsMutation = trpc.backup.backupToSheets.useMutation();
+  const { data: customersCSV, refetch: refetchCustomers } = trpc.backup.exportCustomersCSV.useQuery(undefined, { enabled: false });
+  const { data: salesCSV, refetch: refetchSales } = trpc.backup.exportSalesCSV.useQuery(undefined, { enabled: false });
+  const { data: expensesCSV, refetch: refetchExpenses } = trpc.backup.exportExpensesCSV.useQuery(undefined, { enabled: false });
+  const { data: reservationsCSV, refetch: refetchReservations } = trpc.backup.exportReservationsCSV.useQuery(undefined, { enabled: false });
 
   // バックアップ作成
   const handleCreateBackup = async () => {
@@ -143,6 +148,65 @@ const BackupManagement: React.FC = () => {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Google Sheetsバックアップ */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5" />
+              Google Sheetsバックアップ
+            </CardTitle>
+            <CardDescription>
+              全データをGoogle Sheetsにバックアップします（自動: 毎日午前3時）
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-800">
+                <strong>バックアップ先シート：</strong>
+              </p>
+              <ul className="text-sm text-green-700 mt-2 space-y-1 list-disc list-inside">
+                <li>バックアップ：顧客</li>
+                <li>バックアップ：売上</li>
+                <li>バックアップ：経費</li>
+                <li>バックアップ：予約</li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={async () => {
+                setMessage(null);
+                try {
+                  await backupToSheetsMutation.mutateAsync();
+                  setMessage({
+                    type: "success",
+                    text: "Google Sheetsへのバックアップが完了しました",
+                  });
+                } catch (error: any) {
+                  setMessage({
+                    type: "error",
+                    text: `バックアップに失敗しました: ${error.message}`,
+                  });
+                }
+              }}
+              disabled={backupToSheetsMutation.isPending}
+              className="w-full bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              {backupToSheetsMutation.isPending ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin mr-2" />
+                  バックアップ中...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  今すぐバックアップ
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* バックアップ作成 */}
         <Card>
@@ -285,6 +349,95 @@ const BackupManagement: React.FC = () => {
                     データベースを復元
                   </>
                 )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CSVエクスポート */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              CSVエクスポート
+            </CardTitle>
+            <CardDescription>
+              各データをCSV形式でダウンロードします
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Button
+                onClick={async () => {
+                  const result = await refetchCustomers();
+                  if (result.data) {
+                    const blob = new Blob([result.data.data], { type: "text/csv;charset=utf-8;" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = result.data.filename;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                    setMessage({ type: "success", text: `${result.data.rowCount}件の顧客データをエクスポートしました` });
+                  }
+                }}
+                variant="outline"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                顧客データ
+              </Button>
+              <Button
+                onClick={async () => {
+                  const result = await refetchSales();
+                  if (result.data) {
+                    const blob = new Blob([result.data.data], { type: "text/csv;charset=utf-8;" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = result.data.filename;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                    setMessage({ type: "success", text: `${result.data.rowCount}件の売上データをエクスポートしました` });
+                  }
+                }}
+                variant="outline"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                売上データ
+              </Button>
+              <Button
+                onClick={async () => {
+                  const result = await refetchExpenses();
+                  if (result.data) {
+                    const blob = new Blob([result.data.data], { type: "text/csv;charset=utf-8;" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = result.data.filename;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                    setMessage({ type: "success", text: `${result.data.rowCount}件の経費データをエクスポートしました` });
+                  }
+                }}
+                variant="outline"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                経費データ
+              </Button>
+              <Button
+                onClick={async () => {
+                  const result = await refetchReservations();
+                  if (result.data) {
+                    const blob = new Blob([result.data.data], { type: "text/csv;charset=utf-8;" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = result.data.filename;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                    setMessage({ type: "success", text: `${result.data.rowCount}件の予約データをエクスポートしました` });
+                  }
+                }}
+                variant="outline"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                予約データ
               </Button>
             </div>
           </CardContent>

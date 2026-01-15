@@ -50,6 +50,13 @@
       "when": 1768490910326,
       "tag": "0006_public_ben_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1768519781624,
+      "tag": "0007_magical_bug",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,8 @@ export default function ExpenseManagement() {
     laborCosts: 0,
     rent: 0,
     utilities: 0,
+    trainingExpenses: 0,
+    travelExpenses: 0,
     otherExpenses: 0,
     advertisingMeta: 0,
     advertisingGoogle: 0,
@@ -53,6 +55,8 @@ export default function ExpenseManagement() {
         laborCosts: 0,
         rent: 0,
         utilities: 0,
+        trainingExpenses: 0,
+        travelExpenses: 0,
         otherExpenses: 0,
         advertisingMeta: 0,
         advertisingGoogle: 0,
@@ -328,6 +332,30 @@ export default function ExpenseManagement() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="trainingExpenses">研修費</Label>
+                    <Input
+                      id="trainingExpenses"
+                      type="number"
+                      min="0"
+                      value={formData.trainingExpenses}
+                      onChange={(e) =>
+                        setFormData({ ...formData, trainingExpenses: parseFloat(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="travelExpenses">交通費</Label>
+                    <Input
+                      id="travelExpenses"
+                      type="number"
+                      min="0"
+                      value={formData.travelExpenses}
+                      onChange={(e) =>
+                        setFormData({ ...formData, travelExpenses: parseFloat(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="otherExpenses">その他経費</Label>
                     <Input
                       id="otherExpenses"
@@ -577,6 +605,8 @@ function ExpenseTrendChart() {
                   <Line type="monotone" dataKey="laborCosts" stroke="#8b5cf6" name="人件費" strokeWidth={2} />
                   <Line type="monotone" dataKey="rent" stroke="#3b82f6" name="家賃" strokeWidth={2} />
                   <Line type="monotone" dataKey="utilities" stroke="#10b981" name="水道光熱費" strokeWidth={2} />
+                  <Line type="monotone" dataKey="trainingExpenses" stroke="#ec4899" name="研修費" strokeWidth={2} />
+                  <Line type="monotone" dataKey="travelExpenses" stroke="#06b6d4" name="交通費" strokeWidth={2} />
                   <Line type="monotone" dataKey="advertisingTotal" stroke="#f59e0b" name="広告費" strokeWidth={2} />
                   <Line type="monotone" dataKey="otherExpenses" stroke="#6b7280" name="その他経費" strokeWidth={2} />
                 </LineChart>
@@ -590,6 +620,8 @@ function ExpenseTrendChart() {
                   <Bar dataKey="laborCosts" stackId="a" fill="#8b5cf6" name="人件費" />
                   <Bar dataKey="rent" stackId="a" fill="#3b82f6" name="家賃" />
                   <Bar dataKey="utilities" stackId="a" fill="#10b981" name="水道光熱費" />
+                  <Bar dataKey="trainingExpenses" stackId="a" fill="#ec4899" name="研修費" />
+                  <Bar dataKey="travelExpenses" stackId="a" fill="#06b6d4" name="交通費" />
                   <Bar dataKey="advertisingTotal" stackId="a" fill="#f59e0b" name="広告費" />
                   <Bar dataKey="otherExpenses" stackId="a" fill="#6b7280" name="その他経費" />
                 </BarChart>

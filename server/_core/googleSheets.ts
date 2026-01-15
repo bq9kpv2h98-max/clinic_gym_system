@@ -406,3 +406,90 @@ export async function initializeVisitSheetHeaders() {
     return false;
   }
 }
+
+
+/**
+ * 全データをGoogle Sheetsにバックアップする
+ * 
+ * @param data バックアップするデータ
+ * @param sheetName バックアップ先のシート名
+ * @returns 成功した場合はtrue、失敗した場合はfalse
+ */
+export async function backupDataToSheets(data: any[], sheetName: string): Promise<boolean> {
+  try {
+    const client = await getSheetsClient();
+    if (!client) {
+      console.warn("Google Sheets client not available. Skipping backup.");
+      return false;
+    }
+
+    if (!data || data.length === 0) {
+      console.log(`No data to backup for sheet: ${sheetName}`);
+      return true;
+    }
+
+    // データをCSV形式に変換
+    const headers = Object.keys(data[0]);
+    const rows = data.map((row) => headers.map((header) => {
+      const value = row[header];
+      if (value === null || value === undefined) return "";
+      if (value instanceof Date) return value.toISOString();
+      return String(value);
+    }));
+
+    // シートをクリアしてから新しいデータを書き込む
+    await client.spreadsheets.values.clear({
+      spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+      range: `${sheetName}!A1:ZZ`,
+    });
+
+    await client.spreadsheets.values.update({
+      spreadsheetId: GOOGLE_SHEETS_SPREADSHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: "RAW",
+      resource: {
+        values: [headers, ...rows],
+      },
+    });
+
+    console.log(`Successfully backed up ${data.length} rows to ${sheetName}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to backup data to ${sheetName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * 全データベースをGoogle Sheetsにバックアップする
+ * 
+ * @param db データベースインスタンス
+ * @returns 成功した場合はtrue、失敗した場合はfalse
+ */
+export async function backupAllDataToSheets(db: any): Promise<boolean> {
+  try {
+    console.log("Starting full database backup to Google Sheets...");
+
+    // 顧客データをバックアップ
+    const customers = await db.select().from(db.schema.customers);
+    await backupDataToSheets(customers, "バックアップ：顧客");
+
+    // 売上データをバックアップ
+    const sales = await db.select().from(db.schema.sales);
+    await backupDataToSheets(sales, "バックアップ：売上");
+
+    // 経費データをバックアップ
+    const expenses = await db.select().from(db.schema.monthlyExpenses);
+    await backupDataToSheets(expenses, "バックアップ：経費");
+
+    // 予約データをバックアップ
+    const reservations = await db.select().from(db.schema.reservations);
+    await backupDataToSheets(reservations, "バックアップ：予約");
+
+    console.log("Full database backup completed successfully");
+    return true;
+  } catch (error) {
+    console.error("Failed to backup all data:", error);
+    return false;
+  }
+}

@@ -54,6 +54,8 @@ export const expensesRouter = router({
           laborCosts: 0,
           rent: 0,
           utilities: 0,
+          trainingExpenses: 0,
+          travelExpenses: 0,
           otherExpenses: 0,
           advertisingTotal: 0,
           advertisingMeta: 0,
@@ -76,6 +78,8 @@ export const expensesRouter = router({
       const laborCosts = parseFloat(expense.laborCosts);
       const rent = parseFloat(expense.rent);
       const utilities = parseFloat(expense.utilities);
+      const trainingExpenses = parseFloat(expense.trainingExpenses);
+      const travelExpenses = parseFloat(expense.travelExpenses);
       const otherExpenses = parseFloat(expense.otherExpenses);
       const advertisingTotal = parseFloat(expense.advertisingTotal);
 
@@ -87,13 +91,15 @@ export const expensesRouter = router({
         laborCosts,
         rent,
         utilities,
+        trainingExpenses,
+        travelExpenses,
         otherExpenses,
         advertisingTotal,
         advertisingMeta,
         advertisingGoogle,
         advertisingFlyer,
         grossProfit: revenue - (costProductSales + costTreatmentMaterials),
-        operatingProfit: revenue - (costProductSales + costTreatmentMaterials + laborCosts + rent + utilities + otherExpenses + advertisingTotal),
+        operatingProfit: revenue - (costProductSales + costTreatmentMaterials + laborCosts + rent + utilities + trainingExpenses + travelExpenses + otherExpenses + advertisingTotal),
       };
     });
 
@@ -475,6 +481,8 @@ export const expensesRouter = router({
           laborCosts: 0,
           rent: 0,
           utilities: 0,
+          trainingExpenses: 0,
+          travelExpenses: 0,
           otherExpenses: 0,
           advertisingTotal: 0,
           grossProfit: revenue,
