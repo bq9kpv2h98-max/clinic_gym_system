@@ -25,6 +25,8 @@ import ReservationForm from "./pages/ReservationForm";
 import MonthlyStats from "./pages/MonthlyStats";
 import ExpenseManagement from "./pages/ExpenseManagement";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
+import MyPageLogin from "./pages/MyPageLogin";
+import MyPage from "./pages/MyPage";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -50,6 +52,8 @@ function Router() {
       <Route path="/reservation" component={ReservationForm} />
       <Route path="/monthly-stats" component={MonthlyStats} />
       <Route path="/expenses" component={ExpenseManagement} />
+      <Route path="/mypage-login" component={MyPageLogin} />
+      <Route path="/mypage" component={MyPage} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
