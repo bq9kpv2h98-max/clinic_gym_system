@@ -484,6 +484,66 @@ export default function ReservationForm() {
                 </p>
               </div>
 
+              {/* 予約内容の表示 */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">予約内容</h3>
+                
+                {/* 予約日時 */}
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
+                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    ご希望日時
+                  </h4>
+                  <div className="space-y-2">
+                    {formData.firstChoiceDate && formData.firstChoiceTimeSlot && (
+                      <div className="flex items-start gap-2">
+                        <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded">第1希望</span>
+                        <span className="text-sm text-gray-700">
+                          {formatDate(formData.firstChoiceDate)} {formData.firstChoiceTimeSlot}
+                        </span>
+                      </div>
+                    )}
+                    {formData.secondChoiceDate && formData.secondChoiceTimeSlot && (
+                      <div className="flex items-start gap-2">
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded">第2希望</span>
+                        <span className="text-sm text-gray-700">
+                          {formatDate(formData.secondChoiceDate)} {formData.secondChoiceTimeSlot}
+                        </span>
+                      </div>
+                    )}
+                    {formData.thirdChoiceDate && formData.thirdChoiceTimeSlot && (
+                      <div className="flex items-start gap-2">
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded">第3希望</span>
+                        <span className="text-sm text-gray-700">
+                          {formatDate(formData.thirdChoiceDate)} {formData.thirdChoiceTimeSlot}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* お名前と連絡先 */}
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    お客様情報
+                  </h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p>お名前: {formData.customerName}</p>
+                    <p>電話番号: {formData.customerPhone}</p>
+                    <p>メール: {formData.customerEmail}</p>
+                  </div>
+                </div>
+
+                {/* メモ */}
+                {formData.notes && (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">症状・お悩み</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{formData.notes}</p>
+                  </div>
+                )}
+              </div>
+
               {formData.preferLineContact && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-start gap-3">
