@@ -6,9 +6,10 @@
  */
 
 import { getDb } from "../db";
-import { customers } from "../../drizzle/schema";
+import { customers, notionSyncLogs } from "../../drizzle/schema";
 import { eq, isNotNull } from "drizzle-orm";
 import { getNotionCustomerDetails } from "../notion";
+import { nanoid } from "nanoid";
 
 interface SyncLog {
   timestamp: Date;
@@ -19,7 +20,8 @@ interface SyncLog {
   errors: string[];
 }
 
-export async function syncNotionCustomers(): Promise<SyncLog> {
+export async function syncNotionCustomers(syncType: "manual" | "scheduled" = "scheduled"): Promise<SyncLog> {
+  const startTime = Date.now();
   const log: SyncLog = {
     timestamp: new Date(),
     totalCustomers: 0,
@@ -92,6 +94,27 @@ export async function syncNotionCustomers(): Promise<SyncLog> {
     }
 
     console.log(`[Notion同期完了] 成功: ${log.successCount}, エラー: ${log.errorCount}`);
+    
+    // 同期履歴をデータベースに記録
+    const executionTime = Date.now() - startTime;
+    const syncId = nanoid();
+    
+    try {
+      await db.insert(notionSyncLogs).values({
+        syncId,
+        syncType,
+        status: log.errorCount === 0 ? "success" : (log.successCount > 0 ? "partial" : "failed"),
+        totalCustomers: log.totalCustomers,
+        successCount: log.successCount,
+        errorCount: log.errorCount,
+        updatedFields: JSON.stringify(log.updatedFields),
+        errors: JSON.stringify(log.errors),
+        executionTime,
+      });
+      console.log(`[同期履歴記録] ID: ${syncId}`);
+    } catch (error) {
+      console.error("[同期履歴記録エラー]", error);
+    }
     
     return log;
   } catch (error) {

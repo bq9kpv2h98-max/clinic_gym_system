@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { customers } from "../../drizzle/schema";
+import { customers, notionSyncLogs } from "../../drizzle/schema";
 import { eq, isNull, or, like, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -9,6 +9,8 @@ import {
   getNotionCustomerDetails,
   updateNotionCustomer,
 } from "../notion";
+import { nanoid } from "nanoid";
+import { desc } from "drizzle-orm";
 
 export const notionLinkRouter = router({
   /**
@@ -221,9 +223,34 @@ export const notionLinkRouter = router({
     }),
 
   /**
+   * 同期履歴一覧を取得
+   */
+  getSyncLogs: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().default(20),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const logs = await db
+        .select()
+        .from(notionSyncLogs)
+        .orderBy(desc(notionSyncLogs.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return logs;
+    }),
+
+  /**
    * 全ての紐付け済み顧客をNotionから同期
    */
   syncAllCustomersFromNotion: protectedProcedure.mutation(async () => {
+    const startTime = Date.now();
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
@@ -271,6 +298,26 @@ export const notionLinkRouter = router({
         errorCount++;
         errors.push(`${customer.fullName}: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+
+    // 同期履歴をデータベースに記録
+    const executionTime = Date.now() - startTime;
+    const syncId = nanoid();
+    
+    try {
+      await db.insert(notionSyncLogs).values({
+        syncId,
+        syncType: "manual",
+        status: errorCount === 0 ? "success" : (successCount > 0 ? "partial" : "failed"),
+        totalCustomers: linkedCustomers.length,
+        successCount,
+        errorCount,
+        updatedFields: JSON.stringify({}),
+        errors: JSON.stringify(errors),
+        executionTime,
+      });
+    } catch (error) {
+      console.error("[同期履歴記録エラー]", error);
     }
 
     return {

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Search, Link as LinkIcon, Unlink, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Search, Link as LinkIcon, Unlink, RefreshCw, CheckCircle2, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,11 +19,12 @@ export default function NotionLink() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [notionSearchQuery, setNotionSearchQuery] = useState("");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<"link" | "history">("link");
 
   const utils = trpc.useUtils();
 
   // 未連携顧客一覧を取得
-  const { data: unlinkedCustomers, isLoading: isLoadingUnlinked } = trpc.notionLink.getUnlinkedCustomers.useQuery({
+  const unlinkedCustomersQuery = trpc.notionLink.getUnlinkedCustomers.useQuery({
     search: searchQuery,
     limit: 50,
     offset: 0,
@@ -33,6 +34,12 @@ export default function NotionLink() {
   const { data: notionCustomers, isLoading: isLoadingNotion } = trpc.notionLink.searchNotionCustomers.useQuery(
     { name: notionSearchQuery },
     { enabled: notionSearchQuery.length > 0 }
+  );
+
+  // 同期履歴を取得
+  const syncLogsQuery = trpc.notionLink.getSyncLogs.useQuery(
+    { limit: 20, offset: 0 },
+    { enabled: activeTab === "history" }
   );
 
   // 紐付けMutation
@@ -56,6 +63,7 @@ export default function NotionLink() {
       if (data.errorCount > 0) {
         toast.warning(`${data.errorCount}件のエラーがありました`);
       }
+      syncLogsQuery.refetch();
     },
     onError: (error) => {
       toast.error(`同期に失敗しました: ${error.message}`);
@@ -89,67 +97,191 @@ export default function NotionLink() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Notion連携管理</h1>
         <p className="text-muted-foreground">
-          既存顧客とNotionの顧客マスターを手動で紐付けることができます
+          既存顧客とNotionの顧客マスターを手動で紐付け、同期履歴を確認できます
         </p>
       </div>
 
-      <div className="mb-6 flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="顧客名、電話番号、メールアドレスで検索..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={handleSyncAll} disabled={syncAllMutation.isPending}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${syncAllMutation.isPending ? "animate-spin" : ""}`} />
-          全件同期
-        </Button>
+      {/* タブ */}
+      <div className="flex gap-2 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab("link")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === "link"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          顧客連携
+        </button>
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === "history"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          同期履歴
+        </button>
       </div>
 
-      {isLoadingUnlinked ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">読み込み中...</p>
-        </div>
-      ) : unlinkedCustomers && unlinkedCustomers.length === 0 ? (
+      {activeTab === "link" && (
+        <>
+          <div className="mb-6 flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="顧客名、電話番号、メールアドレスで検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleSyncAll} disabled={syncAllMutation.isPending}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncAllMutation.isPending ? "animate-spin" : ""}`} />
+              全件同期
+            </Button>
+          </div>
+
+          {unlinkedCustomersQuery.isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">読み込み中...</p>
+            </div>
+          ) : unlinkedCustomersQuery.data && unlinkedCustomersQuery.data.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                <p className="text-lg font-medium mb-2">全ての顧客が連携済みです</p>
+                <p className="text-muted-foreground">未連携の顧客はありません</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {unlinkedCustomersQuery.data?.map((customer) => (
+                <Card key={customer.customerId}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{customer.fullName}</CardTitle>
+                        <CardDescription className="mt-2 space-y-1">
+                          <div>電話: {customer.phone}</div>
+                          {customer.email && <div>メール: {customer.email}</div>}
+                          <div>登録日: {new Date(customer.registrationDate).toLocaleDateString("ja-JP")}</div>
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant="secondary">未連携</Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => handleLinkCustomer(customer)}
+                        >
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                          連携
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === "history" && (
         <Card>
-          <CardContent className="py-12 text-center">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-            <p className="text-lg font-medium mb-2">全ての顧客が連携済みです</p>
-            <p className="text-muted-foreground">未連携の顧客はありません</p>
+          <CardHeader>
+            <CardTitle>同期履歴</CardTitle>
+            <CardDescription>
+              Notion顧客情報の同期実行履歴
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {syncLogsQuery.isLoading && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">読み込み中...</p>
+              </div>
+            )}
+
+            {syncLogsQuery.data && syncLogsQuery.data.length === 0 && (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">同期履歴がありません</p>
+              </div>
+            )}
+
+            {syncLogsQuery.data && syncLogsQuery.data.length > 0 && (
+              <div className="space-y-4">
+                {syncLogsQuery.data.map((log: any) => (
+                  <div
+                    key={log.syncId}
+                    className="border rounded-lg p-4 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            log.status === "success"
+                              ? "bg-green-100 text-green-800"
+                              : log.status === "partial"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {log.status === "success"
+                            ? "成功"
+                            : log.status === "partial"
+                            ? "一部失敗"
+                            : "失敗"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {log.syncType === "manual" ? "手動同期" : "自動同期"}
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleString("ja-JP")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">対象:</span>
+                        <span className="ml-2 font-medium">{log.totalCustomers}件</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">成功:</span>
+                        <span className="ml-2 font-medium text-green-600">
+                          {log.successCount}件
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">エラー:</span>
+                        <span className="ml-2 font-medium text-red-600">
+                          {log.errorCount}件
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      実行時間: {(log.executionTime / 1000).toFixed(2)}秒
+                    </div>
+
+                    {log.errors && JSON.parse(log.errors as string).length > 0 && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs">
+                        <p className="font-medium text-red-800 mb-1">エラー詳細:</p>
+                        <ul className="list-disc list-inside text-red-700">
+                          {JSON.parse(log.errors as string).map((error: string, i: number) => (
+                            <li key={i}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4">
-          {unlinkedCustomers?.map((customer) => (
-            <Card key={customer.customerId}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>{customer.fullName}</CardTitle>
-                    <CardDescription className="mt-2 space-y-1">
-                      <div>電話: {customer.phone}</div>
-                      {customer.email && <div>メール: {customer.email}</div>}
-                      <div>登録日: {new Date(customer.registrationDate).toLocaleDateString("ja-JP")}</div>
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary">未連携</Badge>
-                    <Button
-                      size="sm"
-                      onClick={() => handleLinkCustomer(customer)}
-                    >
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      連携
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
       )}
 
       {/* 連携ダイアログ */}

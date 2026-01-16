@@ -7,7 +7,7 @@ import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { saveCustomerRegistrationToSheets, saveVisitToSheets, updateMonthlySummaryInSheets } from "../_core/googleSheets";
-import { createNotionCustomer, searchNotionCustomerByPhone } from "../notion";
+import { createNotionCustomer, searchNotionCustomerByPhone, updateNotionCustomer } from "../notion";
 
 // QRコード生成用の秘密鍵
 const QR_SECRET_KEY = process.env.QR_SECRET_KEY || "default-secret-key";
@@ -269,6 +269,29 @@ export const customerRouter = router({
         .update(customers)
         .set(dataToUpdate)
         .where(eq(customers.customerId, customerId));
+
+      // Notionと紐付けられている場合、Notionにも同期
+      const [customer] = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.customerId, customerId))
+        .limit(1);
+
+      if (customer && customer.notionPageId) {
+        try {
+          const notionUpdates: any = {};
+          if (updateData.phone) notionUpdates.phone = updateData.phone;
+          if (updateData.email !== undefined) notionUpdates.email = updateData.email || "";
+          
+          if (Object.keys(notionUpdates).length > 0) {
+            await updateNotionCustomer(customer.notionPageId, notionUpdates);
+            console.log(`[Notion同期] 顧客 ${customer.fullName} の情報をNotionに同期しました`);
+          }
+        } catch (error) {
+          console.error("[Notion同期エラー]", error);
+          // エラーがあっても顧客更新は成功とする
+        }
+      }
 
       return {
         success: true,

@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date, tinyint, float, text } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, timestamp, varchar, decimal, date, tinyint, float, text, json } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -616,3 +616,34 @@ export const advertisingBreakdown = mysqlTable("advertisingBreakdown", {
 
 export type AdvertisingBreakdown = typeof advertisingBreakdown.$inferSelect;
 export type InsertAdvertisingBreakdown = typeof advertisingBreakdown.$inferInsert;
+
+/**
+ * Notion同期履歴テーブル
+ */
+export const notionSyncLogs = mysqlTable("notionSyncLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  syncId: varchar("syncId", { length: 64 }).notNull().unique(),
+  
+  // 同期種別
+  syncType: mysqlEnum("syncType", ["manual", "scheduled"]).notNull(),
+  
+  // 実行結果
+  status: mysqlEnum("status", ["success", "partial", "failed"]).notNull(),
+  totalCustomers: int("totalCustomers").default(0).notNull(),
+  successCount: int("successCount").default(0).notNull(),
+  errorCount: int("errorCount").default(0).notNull(),
+  
+  // 更新されたフィールド（JSON）
+  updatedFields: json("updatedFields"),
+  
+  // エラー詳細（JSON）
+  errors: json("errors"),
+  
+  // 実行時間
+  executionTime: int("executionTime").default(0).notNull(), // ミリ秒
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type NotionSyncLog = typeof notionSyncLogs.$inferSelect;
+export type InsertNotionSyncLog = typeof notionSyncLogs.$inferInsert;
