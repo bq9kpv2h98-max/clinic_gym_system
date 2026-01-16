@@ -125,7 +125,7 @@ export async function syncNotionCustomers(syncType: "manual" | "scheduled" = "sc
 }
 
 // スクリプトとして直接実行された場合
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   syncNotionCustomers()
     .then((log) => {
       console.log("\n=== 同期結果 ===");
