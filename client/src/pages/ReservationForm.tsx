@@ -496,10 +496,19 @@ export default function ReservationForm() {
                         以下の手順でLINE登録をお願いいたします：
                       </p>
                       <ol className="text-sm text-green-800 list-decimal list-inside space-y-1 ml-2">
-                        <li>公式LINEアカウントを友達追加</li>
+                        <li>下記ボタンから公式LINEアカウントを友達追加</li>
                         <li>お名前（{formData.customerName}）を送信</li>
                         <li>予約ID（{reservationResult?.reservationId?.slice(0, 8)}）を送信</li>
                       </ol>
+                      <a
+                        href="https://lin.ee/9LXLjNI"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        LINE公式アカウントを友達追加
+                      </a>
                       <p className="text-xs text-green-700 mt-2">
                         ※ LINE登録後、確定日時をLINEでご連絡いたします。
                       </p>
