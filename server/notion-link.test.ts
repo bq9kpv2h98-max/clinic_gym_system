@@ -126,3 +126,63 @@ describe("予約紐付け機能", () => {
     }, 30000);
   });
 });
+
+/**
+ * 予約紐付け履歴取得のテスト
+ */
+describe("notionLink.getReservationLinkLogs", () => {
+  it("予約紐付け履歴を取得できる", async () => {
+    const { appRouter } = await import("./routers");
+    const mockContext = {
+      user: {
+        openId: "test-open-id",
+        name: "Test User",
+        email: "test@example.com",
+        avatarUrl: "",
+        role: "admin" as const,
+      },
+    };
+
+    const caller = appRouter.createCaller(mockContext);
+    const result = await caller.notionLink.getReservationLinkLogs({ limit: 10, offset: 0 });
+    
+    expect(Array.isArray(result)).toBe(true);
+    console.log(`予約紐付け履歴: ${result.length}件`);
+  }, 30000);
+
+  it("認証が必要", async () => {
+    const { appRouter } = await import("./routers");
+    const guestCaller = appRouter.createCaller({ user: null });
+    
+    await expect(
+      guestCaller.notionLink.getReservationLinkLogs({ limit: 10, offset: 0 })
+    ).rejects.toThrow();
+  }, 30000);
+});
+
+/**
+ * 手動紐付けのテスト
+ */
+describe("notionLink.linkReservationManually", () => {
+  it("認証が必要", async () => {
+    const { appRouter } = await import("./routers");
+    const guestCaller = appRouter.createCaller({ user: null });
+    
+    await expect(
+      guestCaller.notionLink.linkReservationManually({
+        reservationId: "test-reservation-id",
+        customerPageId: "test-customer-id",
+      })
+    ).rejects.toThrow();
+  }, 30000);
+});
+
+/**
+ * 定期自動紐付けcronジョブのテスト
+ */
+describe("予約紐付けcronジョブ", () => {
+  it("cronジョブが正常にインポートできる", async () => {
+    const { linkReservationsAutomatically } = await import("./cron/link-reservations");
+    expect(typeof linkReservationsAutomatically).toBe("function");
+  });
+});

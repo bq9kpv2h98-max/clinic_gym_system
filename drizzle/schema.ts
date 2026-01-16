@@ -647,3 +647,34 @@ export const notionSyncLogs = mysqlTable("notionSyncLogs", {
 
 export type NotionSyncLog = typeof notionSyncLogs.$inferSelect;
 export type InsertNotionSyncLog = typeof notionSyncLogs.$inferInsert;
+
+/**
+ * 予約紐付け履歴テーブル
+ */
+export const reservationLinkLogs = mysqlTable("reservationLinkLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  linkId: varchar("linkId", { length: 64 }).notNull().unique(),
+  
+  // 紐付け種別
+  linkType: mysqlEnum("linkType", ["manual", "scheduled", "batch"]).notNull(),
+  
+  // 実行結果
+  status: mysqlEnum("status", ["success", "partial", "failed"]).notNull(),
+  totalReservations: int("totalReservations").default(0).notNull(),
+  successCount: int("successCount").default(0).notNull(),
+  failedCount: int("failedCount").default(0).notNull(),
+  
+  // 紐付け詳細（JSON）
+  details: json("details"),
+  
+  // エラー詳細（JSON）
+  errors: json("errors"),
+  
+  // 実行時間
+  executionTime: int("executionTime").default(0).notNull(), // ミリ秒
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ReservationLinkLog = typeof reservationLinkLogs.$inferSelect;
+export type InsertReservationLinkLog = typeof reservationLinkLogs.$inferInsert;

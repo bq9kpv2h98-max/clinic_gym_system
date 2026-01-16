@@ -19,7 +19,9 @@ export default function NotionLink() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [notionSearchQuery, setNotionSearchQuery] = useState("");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<"link" | "history">("link");
+  const [showManualLinkDialog, setShowManualLinkDialog] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"link" | "history" | "reservation-history">("link");
 
   const utils = trpc.useUtils();
 
@@ -40,6 +42,12 @@ export default function NotionLink() {
   const syncLogsQuery = trpc.notionLink.getSyncLogs.useQuery(
     { limit: 20, offset: 0 },
     { enabled: activeTab === "history" }
+  );
+
+  // 予約紐付け履歴を取得
+  const reservationLinkLogsQuery = trpc.notionLink.getReservationLinkLogs.useQuery(
+    { limit: 20, offset: 0 },
+    { enabled: activeTab === "reservation-history" }
   );
 
   // 紐付けMutation
@@ -76,9 +84,23 @@ export default function NotionLink() {
       if (data.failed > 0) {
         toast.warning(`${data.failed}件の予約の紐付けに失敗しました`);
       }
+      reservationLinkLogsQuery.refetch();
     },
     onError: (error) => {
       toast.error(`予約の紐付けに失敗しました: ${error.message}`);
+    },
+  });
+
+  const linkReservationManuallyMutation = trpc.notionLink.linkReservationManually.useMutation({
+    onSuccess: () => {
+      toast.success("予約を手動で紐付けました");
+      setShowManualLinkDialog(false);
+      setSelectedReservation(null);
+      setNotionSearchQuery("");
+      reservationLinkLogsQuery.refetch();
+    },
+    onError: (error) => {
+      toast.error(`手動紐付けに失敗しました: ${error.message}`);
     },
   });
 
@@ -106,8 +128,23 @@ export default function NotionLink() {
 
   const handleLinkReservations = () => {
     if (confirm("既存の予約を顧客マスターと自動で紐付けますか？")) {
-      linkReservationsMutation.mutate();
+      linkReservationsMutation.mutate({ linkType: "batch" });
     }
+  };
+
+  const handleManualLinkReservation = (failedReservation: any) => {
+    setSelectedReservation(failedReservation);
+    setNotionSearchQuery(failedReservation.customerName || "");
+    setShowManualLinkDialog(true);
+  };
+
+  const handleConfirmManualLink = (notionCustomer: any) => {
+    if (!selectedReservation) return;
+
+    linkReservationManuallyMutation.mutate({
+      reservationId: selectedReservation.reservationId,
+      customerPageId: notionCustomer.id,
+    });
   };
 
   return (
@@ -140,6 +177,16 @@ export default function NotionLink() {
           }`}
         >
           同期履歴
+        </button>
+        <button
+          onClick={() => setActiveTab("reservation-history")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === "reservation-history"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          予約紐付け履歴
         </button>
       </div>
 
@@ -208,6 +255,117 @@ export default function NotionLink() {
             </div>
           )}
         </>
+      )}
+
+      {activeTab === "reservation-history" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>予約紐付け履歴</CardTitle>
+            <CardDescription>
+              Notion予約履歴と顧客マスターの紐付け実行履歴
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {reservationLinkLogsQuery.isLoading && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">読み込み中...</p>
+              </div>
+            )}
+
+            {reservationLinkLogsQuery.data && reservationLinkLogsQuery.data.length === 0 && (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">予約紐付け履歴がありません</p>
+              </div>
+            )}
+
+            {reservationLinkLogsQuery.data && reservationLinkLogsQuery.data.length > 0 && (
+              <div className="space-y-4">
+                {reservationLinkLogsQuery.data.map((log: any) => (
+                  <div
+                    key={log.linkId}
+                    className="border rounded-lg p-4 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            log.status === "success"
+                              ? "bg-green-100 text-green-800"
+                              : log.status === "partial"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {log.status === "success"
+                            ? "成功"
+                            : log.status === "partial"
+                            ? "一部失敗"
+                            : "失敗"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {log.linkType === "manual" ? "手動紐付け" : log.linkType === "scheduled" ? "自動紐付け" : "一括紐付け"}
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleString("ja-JP")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">対象:</span>
+                        <span className="ml-2 font-medium">{log.totalReservations}件</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">成功:</span>
+                        <span className="ml-2 font-medium text-green-600">
+                          {log.successCount}件
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">失敗:</span>
+                        <span className="ml-2 font-medium text-red-600">
+                          {log.failedCount}件
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      実行時間: {(log.executionTime / 1000).toFixed(2)}秒
+                    </div>
+
+                    {log.errors && JSON.parse(log.errors as string).length > 0 && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-xs space-y-2">
+                        <p className="font-medium text-red-800 mb-1">失敗した予約:</p>
+                        {JSON.parse(log.errors as string).map((error: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-2 bg-white rounded">
+                            <div className="flex-1">
+                              <p className="font-medium text-red-700">{error.title}</p>
+                              <p className="text-red-600">顧客名: {JSON.parse(log.details as string).find((d: any) => d.reservationTitle === error.title)?.customerName || "N/A"}</p>
+                              <p className="text-red-600">エラー: {error.error}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleManualLinkReservation({
+                                reservationId: JSON.parse(log.details as string).find((d: any) => d.reservationTitle === error.title)?.reservationId,
+                                reservationTitle: error.title,
+                                customerName: JSON.parse(log.details as string).find((d: any) => d.reservationTitle === error.title)?.customerName,
+                              })}
+                            >
+                              手動紐付け
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === "history" && (
@@ -338,6 +496,74 @@ export default function NotionLink() {
                     key={notionCustomer.id}
                     className="cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => handleConfirmLink(notionCustomer)}
+                  >
+                    <CardHeader className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base">{notionCustomer.name}</CardTitle>
+                          <CardDescription className="mt-1 text-sm">
+                            {notionCustomer.phone && <div>電話: {notionCustomer.phone}</div>}
+                            {notionCustomer.email && <div>メール: {notionCustomer.email}</div>}
+                            {notionCustomer.customerNumber && (
+                              <div>顧客番号: {notionCustomer.customerNumber}</div>
+                            )}
+                          </CardDescription>
+                        </div>
+                        <Button size="sm" variant="outline">
+                          選択
+                        </Button>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            ) : notionSearchQuery.length > 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">該当するNotion顧客が見つかりませんでした</p>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 手動紐付けダイアログ */}
+      <Dialog open={showManualLinkDialog} onOpenChange={setShowManualLinkDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>予約を手動で紐付け</DialogTitle>
+            <DialogDescription>
+              {selectedReservation?.reservationTitle} と紐付けるNotion顧客を選択してください
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-muted rounded">
+              <p className="text-sm font-medium">予約情報:</p>
+              <p className="text-sm text-muted-foreground">{selectedReservation?.reservationTitle}</p>
+              <p className="text-sm text-muted-foreground">顧客名: {selectedReservation?.customerName}</p>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Notion顧客を検索..."
+                value={notionSearchQuery}
+                onChange={(e) => setNotionSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {isLoadingNotion ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">検索中...</p>
+              </div>
+            ) : notionCustomers && notionCustomers.length > 0 ? (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {notionCustomers.map((notionCustomer) => (
+                  <Card
+                    key={notionCustomer.id}
+                    className="cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => handleConfirmManualLink(notionCustomer)}
                   >
                     <CardHeader className="py-3">
                       <div className="flex items-center justify-between">

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { customers, notionSyncLogs } from "../../drizzle/schema";
+import { customers, notionSyncLogs, reservationLinkLogs } from "../../drizzle/schema";
 import { eq, isNull, or, like, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -329,8 +329,20 @@ export const notionLinkRouter = router({
     };
   }),
 
-  linkExistingReservations: protectedProcedure.mutation(async () => {
+  linkExistingReservations: protectedProcedure
+    .input(
+      z.object({
+        linkType: z.enum(["manual", "scheduled", "batch"]).default("batch"),
+      }).optional()
+    )
+    .mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
     const { getAllNotionReservationsWithoutCustomer, searchNotionCustomerByName, linkReservationToCustomer } = await import("../notion");
+    
+    const linkId = nanoid();
+    const startTime = Date.now();
     
     try {
       const reservations = await getAllNotionReservationsWithoutCustomer();
@@ -387,6 +399,22 @@ export const notionLinkRouter = router({
         }
       }
 
+      // 履歴を記録
+      const executionTime = Date.now() - startTime;
+      const status = results.failed === 0 ? "success" : results.success === 0 ? "failed" : "partial";
+      
+      await db.insert(reservationLinkLogs).values({
+        linkId,
+        linkType: input?.linkType || "batch",
+        status,
+        totalReservations: results.total,
+        successCount: results.success,
+        failedCount: results.failed,
+        details: results.details,
+        errors: results.details.filter(d => d.status === "failed").map(d => ({ title: d.reservationTitle, error: d.error })),
+        executionTime,
+      });
+
       return results;
     } catch (error) {
       console.error("Link existing reservations error:", error);
@@ -396,4 +424,61 @@ export const notionLinkRouter = router({
       });
     }
   }),
+
+  /**
+   * 予約紐付け履歴一覧を取得
+   */
+  getReservationLinkLogs: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().default(50),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const logs = await db
+        .select()
+        .from(reservationLinkLogs)
+        .orderBy(desc(reservationLinkLogs.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return logs;
+    }),
+
+  /**
+   * 手動で予約と顧客を紐付け
+   */
+  linkReservationManually: protectedProcedure
+    .input(
+      z.object({
+        reservationId: z.string(),
+        customerPageId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { linkReservationToCustomer } = await import("../notion");
+      
+      try {
+        const linked = await linkReservationToCustomer(input.reservationId, input.customerPageId);
+        
+        if (!linked) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to link reservation to customer",
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("Manual link error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to link reservation manually",
+        });
+      }
+    }),
 });
