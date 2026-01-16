@@ -335,3 +335,196 @@ export async function searchNotionCustomerByPhone(phone: string) {
     return null;
   }
 }
+
+
+/**
+ * Notion顧客マスターから顧客を名前で検索
+ * @param name 顧客名
+ * @returns Notion顧客データの配列
+ */
+export async function searchNotionCustomersByName(name: string) {
+  try {
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: name,
+      query_type: "internal",
+      data_source_url: NOTION_CUSTOMER_DATA_SOURCE_ID,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+    
+    // MCPツールの出力からJSONを抽出
+    const lines = stdout.split('\n');
+    let jsonLine = '';
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        jsonLine = line.trim();
+        break;
+      }
+    }
+    
+    if (!jsonLine) {
+      return [];
+    }
+
+    const result = JSON.parse(jsonLine);
+    
+    if (!result.text) {
+      return [];
+    }
+
+    // Markdownから顧客情報を抽出
+    const customers = parseNotionCustomers(result.text);
+    return customers;
+  } catch (error) {
+    console.error("Notion search customers error:", error);
+    return [];
+  }
+}
+
+/**
+ * NotionのMarkdownレスポンスから顧客情報を抽出
+ */
+function parseNotionCustomers(markdown: string): Array<{
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  customerNumber: string;
+  lastVisitDate: string;
+  url: string;
+}> {
+  const customers: Array<any> = [];
+  
+  // <page>タグから情報を抽出
+  const pageRegex = /<page url="{{(https:\/\/www\.notion\.so\/[^}]+)}}"[^>]*>/g;
+  const pages = markdown.match(pageRegex);
+  
+  if (!pages) {
+    return customers;
+  }
+
+  for (const pageTag of pages) {
+    const urlMatch = pageTag.match(/url="{{([^}]+)}}"/);
+    if (!urlMatch) continue;
+
+    const url = urlMatch[1];
+    const pageId = url.split('/').pop() || '';
+
+    // ページのプロパティを抽出
+    const pageSection = markdown.substring(
+      markdown.indexOf(pageTag),
+      markdown.indexOf('</page>', markdown.indexOf(pageTag))
+    );
+
+    customers.push({
+      id: pageId,
+      name: extractProperty(pageSection, 'Name') || '',
+      phone: extractProperty(pageSection, '電話番号') || '',
+      email: extractProperty(pageSection, 'メールアドレス') || '',
+      customerNumber: extractProperty(pageSection, 'お客様番号') || '',
+      lastVisitDate: extractProperty(pageSection, '来店日') || '',
+      url,
+    });
+  }
+
+  return customers;
+}
+
+/**
+ * Notion顧客ページから詳細情報を取得
+ * @param pageId NotionページID
+ * @returns 顧客詳細情報
+ */
+export async function getNotionCustomerDetails(pageId: string) {
+  try {
+    const command = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({
+      id: pageId,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+    
+    // MCPツールの出力からJSONを抽出
+    const lines = stdout.split('\n');
+    let jsonLine = '';
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        jsonLine = line.trim();
+        break;
+      }
+    }
+    
+    if (!jsonLine) {
+      return null;
+    }
+
+    const result = JSON.parse(jsonLine);
+    
+    if (!result.text) {
+      return null;
+    }
+
+    // プロパティを抽出
+    const propertiesMatch = result.text.match(/<properties>\s*({[^}]+})\s*<\/properties>/);
+    if (propertiesMatch) {
+      const properties = JSON.parse(propertiesMatch[1]);
+      return {
+        name: properties.Name || '',
+        phone: properties['電話番号'] ? String(properties['電話番号']) : '',
+        email: properties['メールアドレス'] || '',
+        customerNumber: properties['お客様番号'] ? String(properties['お客様番号']) : '',
+        lastVisitDate: properties['来店日'] || '',
+        url: result.url,
+        pageId,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Notion get customer details error:", error);
+    return null;
+  }
+}
+
+/**
+ * Notion顧客情報を更新
+ * @param pageId NotionページID
+ * @param updates 更新データ
+ */
+export async function updateNotionCustomer(
+  pageId: string,
+  updates: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    lastVisitDate?: string;
+  }
+) {
+  try {
+    const properties: Record<string, any> = {};
+    
+    if (updates.name) {
+      properties["Name"] = updates.name;
+    }
+    if (updates.phone) {
+      properties["電話番号"] = parseFloat(updates.phone.replace(/[^0-9]/g, ""));
+    }
+    if (updates.email !== undefined) {
+      properties["メールアドレス"] = updates.email;
+    }
+    if (updates.lastVisitDate) {
+      properties["来店日"] = updates.lastVisitDate;
+    }
+
+    const command = `manus-mcp-cli tool call notion-update-page --server notion --input '${JSON.stringify({
+      page_id: pageId,
+      command: "update_properties",
+      properties,
+    })}'`;
+
+    await execAsync(command);
+    return true;
+  } catch (error) {
+    console.error("Notion update customer error:", error);
+    return false;
+  }
+}

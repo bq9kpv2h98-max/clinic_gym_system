@@ -27,6 +27,7 @@ import ExpenseManagement from "./pages/ExpenseManagement";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import MyPageLogin from "./pages/MyPageLogin";
 import MyPage from "./pages/MyPage";
+import NotionLink from "./pages/NotionLink";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/expenses" component={ExpenseManagement} />
       <Route path="/mypage-login" component={MyPageLogin} />
       <Route path="/mypage" component={MyPage} />
+      <Route path="/notion-link" component={NotionLink} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
