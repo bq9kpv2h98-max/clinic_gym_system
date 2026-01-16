@@ -151,3 +151,13 @@
 - [x] 来院履歴表示機能
 - [x] ポイント残高表示機能
 - [x] 次回予約情報表示機能
+
+
+## Phase 45: Notion連携機能（顧客・予約）
+- [x] customersテーブルにnotionPageUrl・notionPageIdカラムを追加
+- [x] QR登録時にNotion顧客マスターに自動登録
+- [x] Notion顧客ページURLをシステムに保存
+- [x] 予約フォームからNotion予約履歴に自動登録
+- [x] Notion予約とNotion顧客をリレーションで紐付け
+- [x] マイページにNotion予約情報を表示
+- [x] テストと動作確認

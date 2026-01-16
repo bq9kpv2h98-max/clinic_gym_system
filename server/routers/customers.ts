@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { saveCustomerRegistrationToSheets, saveVisitToSheets, updateMonthlySummaryInSheets } from "../_core/googleSheets";
+import { createNotionCustomer, searchNotionCustomerByPhone } from "../notion";
 
 // QRコード生成用の秘密鍵
 const QR_SECRET_KEY = process.env.QR_SECRET_KEY || "default-secret-key";
@@ -101,6 +102,35 @@ export const customerRouter = router({
         qrCodeImageUrl,
         customFields: input.customFields ? JSON.stringify(input.customFields) : undefined,
       });
+
+      // Notion顧客マスターに登録（エラーがあってもシステムは続行）
+      console.log("=== Notion顧客マスター登録処理開始 ===");
+      try {
+        const notionCustomer = await createNotionCustomer({
+          customerId,
+          fullName: input.fullName,
+          phone: input.phone,
+          email: input.email,
+        });
+        
+        if (notionCustomer) {
+          console.log("Notion顧客ページ作成成功:", notionCustomer.url);
+          // NotionページURLをデータベースに保存
+          await db.update(customers)
+            .set({
+              notionPageUrl: notionCustomer.url,
+              notionPageId: notionCustomer.pageId,
+            })
+            .where(eq(customers.customerId, customerId));
+          console.log("NotionページURLをデータベースに保存完了");
+        } else {
+          console.warn("Notion顧客ページ作成失敗");
+        }
+        console.log("=== Notion顧客マスター登録処理完了 ===");
+      } catch (error) {
+        console.error("=== Notion顧客マスター登録エラー ===");
+        console.error("エラー詳細:", error);
+      }
 
       // Google Sheetsに保存（エラーがあってもシステムは続行）
       console.log("=== Google Sheets保存処理開始 ===");

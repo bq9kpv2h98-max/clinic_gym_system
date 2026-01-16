@@ -54,6 +54,8 @@ export const customers = mysqlTable("customers", {
   customFields: varchar("customFields", { length: 1000 }),
   isActive: int("isActive").default(1).notNull(),
   registrationDate: timestamp("registrationDate").defaultNow().notNull(),
+  notionPageUrl: varchar("notionPageUrl", { length: 512 }),
+  notionPageId: varchar("notionPageId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

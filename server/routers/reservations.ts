@@ -28,6 +28,7 @@ import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { sendReservationConfirmationEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
+import { createNotionReservation, createNotionCustomer } from "../notion";
 
 export const reservationsRouter = router({
   /**
@@ -161,6 +162,64 @@ export const reservationsRouter = router({
             });
           }
         }
+      }
+
+      // Notion予約履歴に同期（エラーがあってもシステムは続行）
+      console.log("=== Notion予約履歴同期処理開始 ===");
+      try {
+        // 顧客情報を取得
+        const db = await getDb();
+        if (db) {
+          const customerData = await db
+            .select()
+            .from(customers)
+            .where(eq(customers.customerId, customerId))
+            .limit(1);
+          
+          if (customerData.length > 0) {
+            const customer = customerData[0];
+            
+            // Notion顧客ページがない場合は作成
+            if (!customer.notionPageUrl) {
+              console.log("顧客のNotionページがないため作成します");
+              const notionCustomer = await createNotionCustomer({
+                customerId: customer.customerId,
+                fullName: customer.fullName,
+                phone: customer.phone,
+                email: customer.email || undefined,
+              });
+              
+              if (notionCustomer) {
+                await db.update(customers)
+                  .set({
+                    notionPageUrl: notionCustomer.url,
+                    notionPageId: notionCustomer.pageId,
+                  })
+                  .where(eq(customers.customerId, customerId));
+                console.log("Notion顧客ページ作成完了:", notionCustomer.url);
+              }
+            }
+            
+            // Notion予約を作成
+            const notionReservationUrl = await createNotionReservation({
+              customerName: input.customerName,
+              serviceType: "整体",
+              status: "pending",
+              reservationDateTime: input.firstChoiceDate,
+              notes: input.notes,
+            });
+            
+            if (notionReservationUrl) {
+              console.log("Notion予約作成成功:", notionReservationUrl);
+            } else {
+              console.warn("Notion予約作成失敗");
+            }
+          }
+        }
+        console.log("=== Notion予約履歴同期処理完了 ===");
+      } catch (error) {
+        console.error("=== Notion予約履歴同期エラー ===");
+        console.error("エラー詳細:", error);
       }
 
       // Google Sheetsに保存（エラーがあってもシステムは続行）
