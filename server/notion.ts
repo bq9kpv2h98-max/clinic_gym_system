@@ -528,3 +528,159 @@ export async function updateNotionCustomer(
     return false;
   }
 }
+
+
+/**
+ * Notion予約履歴から全予約を取得（顧客リレーションが空のもの）
+ */
+export async function getAllNotionReservationsWithoutCustomer() {
+  try {
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: "予約",
+      query_type: "internal",
+      data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+      limit: 100,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+    const lines = stdout.split('\n');
+    let jsonLine = '';
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        jsonLine = line.trim();
+        break;
+      }
+    }
+
+    if (!jsonLine) {
+      return [];
+    }
+
+    const result = JSON.parse(jsonLine);
+    
+    if (!result.results || result.results.length === 0) {
+      return [];
+    }
+
+    // 各予約の詳細を取得して、顧客リレーションが空のものをフィルタ
+    const reservationsWithoutCustomer = [];
+    for (const reservation of result.results) {
+      const pageId = reservation.id;
+      const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({ id: pageId })}'`;
+      const { stdout: fetchStdout } = await execAsync(fetchCommand);
+      
+      const fetchLines = fetchStdout.split('\n');
+      let fetchJsonLine = '';
+      for (const line of fetchLines) {
+        if (line.trim().startsWith('{')) {
+          fetchJsonLine = line.trim();
+          break;
+        }
+      }
+
+      if (fetchJsonLine) {
+        const fetchResult = JSON.parse(fetchJsonLine);
+        // プロパティ部分を抽出
+        const propertiesStartIndex = fetchResult.text?.indexOf('<properties>');
+        const propertiesEndIndex = fetchResult.text?.indexOf('</properties>');
+        if (propertiesStartIndex !== -1 && propertiesEndIndex !== -1) {
+          const propertiesText = fetchResult.text.substring(propertiesStartIndex + '<properties>'.length, propertiesEndIndex).trim();
+          const properties = JSON.parse(propertiesText);
+          
+          // 顧客リレーションが空または存在しない場合
+          const customerRelation = properties["顧客"];
+          if (!customerRelation || customerRelation === "" || customerRelation === "[]" || (Array.isArray(customerRelation) && customerRelation.length === 0)) {
+            reservationsWithoutCustomer.push({
+              id: pageId,
+              url: reservation.url,
+              title: reservation.title,
+              customerName: properties["顧客名"] || "",
+            });
+          }
+        }
+      }
+    }
+
+    return reservationsWithoutCustomer;
+  } catch (error) {
+    console.error("Get reservations without customer error:", error);
+    return [];
+  }
+}
+
+/**
+ * Notion予約の顧客リレーションを更新
+ * @param reservationPageId 予約ページID
+ * @param customerPageId 顧客ページID
+ */
+export async function linkReservationToCustomer(
+  reservationPageId: string,
+  customerPageId: string
+) {
+  try {
+    const command = `manus-mcp-cli tool call notion-update-page --server notion --input '${JSON.stringify({
+      data: {
+        page_id: reservationPageId,
+        command: "update_properties",
+        properties: {
+          "顧客": JSON.stringify([`https://www.notion.so/${customerPageId.replace(/-/g, '')}`]),
+        },
+      },
+    })}'`;
+
+    await execAsync(command);
+    return true;
+  } catch (error) {
+    console.error("Link reservation to customer error:", error);
+    return false;
+  }
+}
+
+/**
+ * 顧客名でNotion顧客マスターを検索
+ * @param customerName 顧客名
+ * @returns 顧客ページID
+ */
+export async function searchNotionCustomerByName(customerName: string) {
+  try {
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: customerName,
+      query_type: "internal",
+      data_source_url: NOTION_CUSTOMER_DATA_SOURCE_ID,
+      limit: 5,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+    const lines = stdout.split('\n');
+    let jsonLine = '';
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        jsonLine = line.trim();
+        break;
+      }
+    }
+
+    if (!jsonLine) {
+      return null;
+    }
+
+    const result = JSON.parse(jsonLine);
+    
+    if (!result.results || result.results.length === 0) {
+      return null;
+    }
+
+    // 完全一致する顧客を探す
+    for (const customer of result.results) {
+      if (customer.title === customerName) {
+        return customer.id;
+      }
+    }
+
+    // 完全一致がない場合は最初の結果を返す
+    return result.results[0].id;
+  } catch (error) {
+    console.error("Search Notion customer error:", error);
+    return null;
+  }
+}

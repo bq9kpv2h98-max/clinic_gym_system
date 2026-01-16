@@ -328,4 +328,72 @@ export const notionLinkRouter = router({
       errors,
     };
   }),
+
+  linkExistingReservations: protectedProcedure.mutation(async () => {
+    const { getAllNotionReservationsWithoutCustomer, searchNotionCustomerByName, linkReservationToCustomer } = await import("../notion");
+    
+    try {
+      const reservations = await getAllNotionReservationsWithoutCustomer();
+      
+      const results = {
+        total: reservations.length,
+        success: 0,
+        failed: 0,
+        details: [] as Array<{ reservationTitle: string; customerName: string; status: string; error?: string }>,
+      };
+
+      for (const reservation of reservations) {
+        if (!reservation.customerName) {
+          results.failed++;
+          results.details.push({
+            reservationTitle: reservation.title,
+            customerName: "",
+            status: "failed",
+            error: "Customer name is empty",
+          });
+          continue;
+        }
+
+        const customerPageId = await searchNotionCustomerByName(reservation.customerName);
+        
+        if (!customerPageId) {
+          results.failed++;
+          results.details.push({
+            reservationTitle: reservation.title,
+            customerName: reservation.customerName,
+            status: "failed",
+            error: "Customer not found in master",
+          });
+          continue;
+        }
+
+        const linked = await linkReservationToCustomer(reservation.id, customerPageId);
+        
+        if (linked) {
+          results.success++;
+          results.details.push({
+            reservationTitle: reservation.title,
+            customerName: reservation.customerName,
+            status: "success",
+          });
+        } else {
+          results.failed++;
+          results.details.push({
+            reservationTitle: reservation.title,
+            customerName: reservation.customerName,
+            status: "failed",
+            error: "Failed to update relation",
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error("Link existing reservations error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to link existing reservations",
+      });
+    }
+  }),
 });

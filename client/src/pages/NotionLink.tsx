@@ -70,6 +70,18 @@ export default function NotionLink() {
     },
   });
 
+  const linkReservationsMutation = trpc.notionLink.linkExistingReservations.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.success}件の予約を紐付けました`);
+      if (data.failed > 0) {
+        toast.warning(`${data.failed}件の予約の紐付けに失敗しました`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`予約の紐付けに失敗しました: ${error.message}`);
+    },
+  });
+
   const handleLinkCustomer = (customer: any) => {
     setSelectedCustomer(customer);
     setNotionSearchQuery(customer.fullName);
@@ -89,6 +101,12 @@ export default function NotionLink() {
   const handleSyncAll = () => {
     if (confirm("全ての紐付け済み顧客をNotionから同期しますか？")) {
       syncAllMutation.mutate();
+    }
+  };
+
+  const handleLinkReservations = () => {
+    if (confirm("既存の予約を顧客マスターと自動で紐付けますか？")) {
+      linkReservationsMutation.mutate();
     }
   };
 
@@ -140,6 +158,10 @@ export default function NotionLink() {
             <Button onClick={handleSyncAll} disabled={syncAllMutation.isPending}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncAllMutation.isPending ? "animate-spin" : ""}`} />
               全件同期
+            </Button>
+            <Button onClick={handleLinkReservations} disabled={linkReservationsMutation.isPending} variant="outline">
+              <LinkIcon className={`h-4 w-4 mr-2 ${linkReservationsMutation.isPending ? "animate-spin" : ""}`} />
+              予約紐付け
             </Button>
           </div>
 
