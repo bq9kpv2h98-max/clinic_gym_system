@@ -7,6 +7,7 @@
 import cron from "node-cron";
 import { syncNotionCustomers } from "../cron/sync-notion-customers";
 import { linkReservationsAutomatically } from "../cron/link-reservations";
+import { cleanupOldLogs } from "../cron/cleanup-old-logs";
 
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing cron jobs...");
@@ -33,7 +34,19 @@ export function initializeScheduler() {
     }
   });
 
+  // 古いログ削除（毎日午前2時に実行）
+  cron.schedule("0 2 * * *", async () => {
+    console.log("[Scheduler] Starting old logs cleanup...");
+    try {
+      await cleanupOldLogs();
+      console.log("[Scheduler] Old logs cleanup completed");
+    } catch (error) {
+      console.error("[Scheduler] Old logs cleanup failed:", error);
+    }
+  });
+
   console.log("[Scheduler] Cron jobs initialized");
+  console.log("  - Old logs cleanup: Daily at 2:00 AM");
   console.log("  - Notion customer sync: Daily at 3:00 AM");
   console.log("  - Reservation linking: Daily at 4:00 AM");
 }

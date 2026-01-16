@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ja } from "date-fns/locale";
 
@@ -31,6 +31,7 @@ export default function ReservationForm() {
     customerName: "",
     customerPhone: "",
     customerEmail: "",
+    preferLineContact: false,
     firstChoiceDate: undefined as Date | undefined,
     firstChoiceTimeSlot: "" as "10:00-13:00" | "13:00-17:00" | "17:00-" | "",
     secondChoiceDate: undefined as Date | undefined,
@@ -183,6 +184,20 @@ export default function ReservationForm() {
                 <p className="text-sm text-muted-foreground">
                   予約リクエスト確認メールをお送りします
                 </p>
+              </div>
+
+              <div className="flex items-center space-x-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="preferLineContact"
+                  checked={formData.preferLineContact}
+                  onChange={(e) => handleInputChange("preferLineContact", e.target.checked)}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <Label htmlFor="preferLineContact" className="flex items-center gap-2 cursor-pointer">
+                  <MessageCircle className="w-4 h-4 text-green-600" />
+                  LINEでの連絡を希望する
+                </Label>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
@@ -468,6 +483,30 @@ export default function ReservationForm() {
                   {formData.customerEmail && "確認メールをお送りしましたのでご確認ください。"}
                 </p>
               </div>
+
+              {formData.preferLineContact && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="font-semibold text-green-900">
+                        LINEでの連絡をご希望いただきありがとうございます
+                      </p>
+                      <p className="text-sm text-green-800">
+                        以下の手順でLINE登録をお願いいたします：
+                      </p>
+                      <ol className="text-sm text-green-800 list-decimal list-inside space-y-1 ml-2">
+                        <li>公式LINEアカウントを友達追加</li>
+                        <li>お名前（{formData.customerName}）を送信</li>
+                        <li>予約ID（{reservationResult?.reservationId?.slice(0, 8)}）を送信</li>
+                      </ol>
+                      <p className="text-xs text-green-700 mt-2">
+                        ※ LINE登録後、確定日時をLINEでご連絡いたします。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-center pt-4">
                 <Button onClick={() => setLocation("/")} size="lg">

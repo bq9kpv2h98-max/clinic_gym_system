@@ -29,6 +29,7 @@ import { eq } from "drizzle-orm";
 import { sendReservationConfirmationEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
 import { createNotionReservation, createNotionCustomer } from "../notion";
+import { notifyOwner } from "../_core/notification";
 
 export const reservationsRouter = router({
   /**
@@ -240,6 +241,40 @@ export const reservationsRouter = router({
         });
       } catch (error) {
         console.error("Failed to save reservation to Google Sheets:", error);
+      }
+
+      // スタッフに通知
+      try {
+        const formatDate = (date: Date) => {
+          return date.toLocaleDateString("ja-JP", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "short",
+          });
+        };
+
+        let notificationContent = `新しい予約リクエストが届きました。\n\n`;
+        notificationContent += `お客様名: ${input.customerName}\n`;
+        notificationContent += `電話番号: ${input.customerPhone}\n`;
+        notificationContent += `メール: ${input.customerEmail}\n\n`;
+        notificationContent += `第1希望: ${formatDate(input.firstChoiceDate)} ${input.firstChoiceTimeSlot}\n`;
+        if (input.secondChoiceDate && input.secondChoiceTimeSlot) {
+          notificationContent += `第2希望: ${formatDate(input.secondChoiceDate)} ${input.secondChoiceTimeSlot}\n`;
+        }
+        if (input.thirdChoiceDate && input.thirdChoiceTimeSlot) {
+          notificationContent += `第3希望: ${formatDate(input.thirdChoiceDate)} ${input.thirdChoiceTimeSlot}\n`;
+        }
+        if (input.notes) {
+          notificationContent += `\n備考: ${input.notes}`;
+        }
+
+        await notifyOwner({
+          title: "新しい予約リクエスト",
+          content: notificationContent,
+        });
+      } catch (error) {
+        console.error("Failed to send notification to owner:", error);
       }
 
       return {

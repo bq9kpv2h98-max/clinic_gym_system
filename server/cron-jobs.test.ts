@@ -130,3 +130,23 @@ describe("cronJobs router", () => {
     }
   }, 120000); // 120秒のタイムアウト
 });
+
+
+  it("古いログ削除スクリプトが正常にインポートできる", async () => {
+    const { cleanupOldLogs } = await import("./cron/cleanup-old-logs");
+    expect(cleanupOldLogs).toBeDefined();
+    expect(typeof cleanupOldLogs).toBe("function");
+  });
+
+  it("古いログを削除できる", async () => {
+    const { cleanupOldLogs } = await import("./cron/cleanup-old-logs");
+    
+    const result = await cleanupOldLogs();
+    
+    expect(result.success).toBe(true);
+    expect(result).toHaveProperty("totalDeleted");
+    expect(result).toHaveProperty("cronLogsCount");
+    expect(result).toHaveProperty("reservationLogsCount");
+    expect(result).toHaveProperty("syncLogsCount");
+    expect(typeof result.totalDeleted).toBe("number");
+  }, 60000); // 60秒のタイムアウト
