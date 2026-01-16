@@ -372,7 +372,6 @@ export async function searchNotionCustomersByName(name: string) {
       return [];
     }
 
-    // Markdownから顧客情報を抽出
     const customers = parseNotionCustomers(result.text);
     return customers;
   } catch (error) {
@@ -682,5 +681,119 @@ export async function searchNotionCustomerByName(customerName: string) {
   } catch (error) {
     console.error("Search Notion customer error:", error);
     return null;
+  }
+}
+
+/**
+ * Notion予約履歴から確定済み予約を取得（翌日が予約日のもの）
+ * @returns 確定済み予約の配列
+ */
+export async function getConfirmedReservationsForTomorrow() {
+  try {
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: "確定済み",
+      query_type: "internal",
+      data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+      limit: 100,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+    const lines = stdout.split('\n');
+    let jsonLine = '';
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        jsonLine = line.trim();
+        break;
+      }
+    }
+
+    if (!jsonLine) {
+      return [];
+    }
+
+    const result = JSON.parse(jsonLine);
+    
+    if (!result.results || result.results.length === 0) {
+      return [];
+    }
+
+    // 明日の日付を計算
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDateString = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // 各予約の詳細を取得して、明日が予約日のものをフィルタ
+    const tomorrowReservations = [];
+    for (const reservation of result.results) {
+      const pageId = reservation.id;
+      const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({ id: pageId })}'`;
+      const { stdout: fetchStdout } = await execAsync(fetchCommand);
+      
+      const fetchLines = fetchStdout.split('\n');
+      let fetchJsonLine = '';
+      for (const line of fetchLines) {
+        if (line.trim().startsWith('{')) {
+          fetchJsonLine = line.trim();
+          break;
+        }
+      }
+
+      if (fetchJsonLine) {
+        const fetchResult = JSON.parse(fetchJsonLine);
+        // プロパティ部分を抽出
+        const propertiesStartIndex = fetchResult.text?.indexOf('<properties>');
+        const propertiesEndIndex = fetchResult.text?.indexOf('</properties>');
+        if (propertiesStartIndex !== -1 && propertiesEndIndex !== -1) {
+          const propertiesText = fetchResult.text.substring(propertiesStartIndex + '<properties>'.length, propertiesEndIndex).trim();
+          const properties = JSON.parse(propertiesText);
+          
+          // ステータスが「確定済み」で、予約日時が明日のもの
+          const status = properties["ステータス"];
+          const reservationDate = properties["確定日時"] || properties["予約日時"];
+          
+          if (status === "確定済み" && reservationDate) {
+            // 日付部分のみを比較
+            const reservationDateString = reservationDate.split('T')[0];
+            if (reservationDateString === tomorrowDateString) {
+              // 顧客リレーションから顧客情報を取得
+              const customerRelation = properties["顧客"];
+              let customerPhone = "";
+              let customerName = properties["顧客名"] || "";
+              
+              if (customerRelation && Array.isArray(customerRelation) && customerRelation.length > 0) {
+                // 顧客ページIDを取得
+                const customerPageUrl = customerRelation[0];
+                const customerPageId = customerPageUrl.split('/').pop()?.replace(/-/g, '');
+                
+                if (customerPageId) {
+                  // 顧客情報を取得
+                  const customerDetails = await getNotionCustomerDetails(customerPageId);
+                  if (customerDetails) {
+                    customerPhone = customerDetails.phone;
+                    customerName = customerDetails.name || customerName;
+                  }
+                }
+              }
+              
+              tomorrowReservations.push({
+                id: pageId,
+                url: reservation.url,
+                title: reservation.title,
+                customerName,
+                customerPhone,
+                serviceType: properties["サービス種別"] || "整体",
+                reservationDateTime: reservationDate,
+                notes: properties["予約メモ"] || "",
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return tomorrowReservations;
+  } catch (error) {
+    console.error("Get confirmed reservations for tomorrow error:", error);
+    return [];
   }
 }

@@ -8,6 +8,7 @@ import cron from "node-cron";
 import { syncNotionCustomers } from "../cron/sync-notion-customers";
 import { linkReservationsAutomatically } from "../cron/link-reservations";
 import { cleanupOldLogs } from "../cron/cleanup-old-logs";
+import { sendReservationReminders } from "../cron/send-reminders";
 
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing cron jobs...");
@@ -45,8 +46,20 @@ export function initializeScheduler() {
     }
   });
 
+  // 予約リマインダー送信（毎日午前9時に実行）
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Starting reservation reminders...");
+    try {
+      await sendReservationReminders();
+      console.log("[Scheduler] Reservation reminders completed");
+    } catch (error) {
+      console.error("[Scheduler] Reservation reminders failed:", error);
+    }
+  });
+
   console.log("[Scheduler] Cron jobs initialized");
   console.log("  - Old logs cleanup: Daily at 2:00 AM");
   console.log("  - Notion customer sync: Daily at 3:00 AM");
   console.log("  - Reservation linking: Daily at 4:00 AM");
+  console.log("  - Reservation reminders: Daily at 9:00 AM");
 }
