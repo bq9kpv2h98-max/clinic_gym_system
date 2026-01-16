@@ -611,13 +611,12 @@ export default function ReservationForm() {
                         LINEでの連絡をご希望いただきありがとうございます
                       </p>
                       <p className="text-sm text-green-800">
-                        以下の手順でLINE登録をお願いいたします：
-                      </p>
-                      <ol className="text-sm text-green-800 list-decimal list-inside space-y-1 ml-2">
-                        <li>下記ボタンから公式LINEアカウントを友達追加</li>
-                        <li>お名前（{formData.customerName}）を送信</li>
-                        <li>予約ID（{reservationResult?.reservationId?.slice(0, 8)}）を送信</li>
-                      </ol>
+                    以下の手順でLINE登録をお願いいたします：
+                  </p>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-green-800">
+                    <li>下記ボタンから公式LINEアカウントを友達追加</li>
+                    <li>お名前（{formData.customerName}）を送信</li>
+                  </ol>
                       <a
                         href="https://lin.ee/9LXLjNI"
                         target="_blank"

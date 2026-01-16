@@ -269,7 +269,15 @@ export const reservationsRouter = router({
           notificationContent += `\n備考: ${input.notes}`;
         }
 
+        // Manusシステム通知
         await notifyOwner({
+          title: "新しい予約リクエスト",
+          content: notificationContent,
+        });
+
+        // LINE Bot通知
+        const { notifyOwnerViaLine } = await import("../_core/line");
+        await notifyOwnerViaLine({
           title: "新しい予約リクエスト",
           content: notificationContent,
         });
