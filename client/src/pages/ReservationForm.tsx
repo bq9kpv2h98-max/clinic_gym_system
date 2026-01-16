@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2, MessageCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2, MessageCircle, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { ja } from "date-fns/locale";
 
@@ -115,6 +115,64 @@ export default function ReservationForm() {
       thirdChoiceTimeSlot: formData.thirdChoiceTimeSlot || undefined as any,
       notes: formData.notes || undefined,
     });
+  };
+
+  // カレンダーイベント生成関数
+  const generateCalendarEvent = (date: Date, timeSlot: string) => {
+    const [startTime] = timeSlot.split("-");
+    const [hours, minutes] = startTime.split(":").map(Number);
+    
+    const startDate = new Date(date);
+    startDate.setHours(hours, minutes, 0, 0);
+    
+    const endDate = new Date(startDate);
+    endDate.setHours(hours + 1, minutes, 0, 0); // 1時間後を終了時刻とする
+    
+    const formatISODate = (d: Date) => {
+      return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    };
+    
+    const title = encodeURIComponent("予約リクエスト - 整体院・パーソナルジム");
+    const description = encodeURIComponent(
+      `予約ID: ${reservationResult?.reservationId?.slice(0, 8) || "処理中"}\n` +
+      `お名前: ${formData.customerName}\n` +
+      `電話番号: ${formData.customerPhone}\n` +
+      `メール: ${formData.customerEmail}\n` +
+      `症状・お悩み: ${formData.notes || "なし"}`
+    );
+    const location = encodeURIComponent("整体院・パーソナルジム");
+    
+    // Google Calendar URL
+    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatISODate(startDate)}/${formatISODate(endDate)}&details=${description}&location=${location}`;
+    
+    // iCalendar形式（Apple Calendar, Outlook用）
+    const icsContent = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      `DTSTART:${formatISODate(startDate)}`,
+      `DTEND:${formatISODate(endDate)}`,
+      `SUMMARY:${decodeURIComponent(title)}`,
+      `DESCRIPTION:${decodeURIComponent(description)}`,
+      `LOCATION:${decodeURIComponent(location)}`,
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n");
+    
+    return { googleUrl, icsContent };
+  };
+  
+  const downloadICS = () => {
+    if (!formData.firstChoiceDate || !formData.firstChoiceTimeSlot) return;
+    
+    const { icsContent } = generateCalendarEvent(formData.firstChoiceDate, formData.firstChoiceTimeSlot);
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "reservation.ics";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatDate = (date: Date | undefined) => {
@@ -574,6 +632,35 @@ export default function ReservationForm() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* カレンダーに追加ボタン */}
+              {formData.firstChoiceDate && formData.firstChoiceTimeSlot && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <h4 className="font-medium text-purple-900 mb-3 flex items-center gap-2">
+                    <CalendarPlus className="w-4 h-4" />
+                    カレンダーに追加
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={generateCalendarEvent(formData.firstChoiceDate, formData.firstChoiceTimeSlot).googleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-purple-300 hover:bg-purple-50 text-purple-700 text-sm font-medium rounded-lg transition-colors"
+                    >
+                      Googleカレンダー
+                    </a>
+                    <button
+                      onClick={downloadICS}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-purple-300 hover:bg-purple-50 text-purple-700 text-sm font-medium rounded-lg transition-colors"
+                    >
+                      Apple / Outlook
+                    </button>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    ※ 第1希望日時がカレンダーに追加されます。確定日時は後ほどご連絡いたします。
+                  </p>
                 </div>
               )}
 
