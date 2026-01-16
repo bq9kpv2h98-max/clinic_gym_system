@@ -6,7 +6,7 @@
  */
 
 import { getDb } from "../db";
-import { customers, notionSyncLogs } from "../../drizzle/schema";
+import { customers, notionSyncLogs, cronJobLogs } from "../../drizzle/schema";
 import { eq, isNotNull } from "drizzle-orm";
 import { getNotionCustomerDetails } from "../notion";
 import { nanoid } from "nanoid";
@@ -34,10 +34,11 @@ export async function syncNotionCustomers(syncType: "manual" | "scheduled" = "sc
   try {
     const db = await getDb();
     if (!db) {
-      throw new Error("Database not available");
+      throw new Error("データベース接続が利用できません");
     }
 
     // Notionと紐付けられている顧客を取得
+    
     const linkedCustomers = await db
       .select()
       .from(customers)
@@ -121,6 +122,30 @@ export async function syncNotionCustomers(syncType: "manual" | "scheduled" = "sc
     console.error("[Notion同期エラー]", error);
     log.errors.push(`システムエラー: ${error instanceof Error ? error.message : String(error)}`);
     return log;
+  } finally {
+    // cronジョブ実行履歴を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    try {
+      const db = await getDb();
+      if (db) {
+        await db.insert(cronJobLogs).values({
+        jobName: "sync-notion-customers",
+        status: log.errorCount === 0 ? "success" : "failed",
+        startedAt: new Date(startTime),
+        completedAt: new Date(endTime),
+        duration,
+        totalItems: log.totalCustomers,
+        successCount: log.successCount,
+        failedCount: log.errorCount,
+        errorMessage: log.errors.length > 0 ? log.errors.join("; ") : null,
+        details: JSON.stringify(log),
+        });
+      }
+    } catch (logError) {
+      console.error("[履歴記録エラー]", logError);
+    }
   }
 }
 

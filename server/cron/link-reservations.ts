@@ -5,6 +5,7 @@
  */
 
 import { getDb } from "../db";
+import { cronJobLogs } from "../../drizzle/schema";
 import { reservationLinkLogs } from "../../drizzle/schema";
 import { getAllNotionReservationsWithoutCustomer, searchNotionCustomerByName, linkReservationToCustomer } from "../notion";
 import { nanoid } from "nanoid";
@@ -126,6 +127,30 @@ export async function linkReservationsAutomatically(): Promise<LinkLog> {
   } catch (error) {
     console.error("[予約紐付けエラー]", error);
     return log;
+  } finally {
+    // cronジョブ実行履歴を記録
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    try {
+      const db = await getDb();
+      if (db) {
+        await db.insert(cronJobLogs).values({
+          jobName: "link-reservations",
+          status: log.failedCount === 0 ? "success" : "failed",
+          startedAt: new Date(startTime),
+          completedAt: new Date(endTime),
+          duration,
+          totalItems: log.totalReservations,
+          successCount: log.successCount,
+          failedCount: log.failedCount,
+          errorMessage: log.details.filter(d => d.status === "failed").map(d => d.error).join("; ") || null,
+          details: JSON.stringify(log),
+        });
+      }
+    } catch (logError) {
+      console.error("[履歴記録エラー]", logError);
+    }
   }
 }
 

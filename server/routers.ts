@@ -21,6 +21,7 @@ import { monthlyStatsRouter } from "./routers/monthly-stats";
 import { expensesRouter } from "./routers/expenses";
 import { mypageRouter } from "./routers/mypage";
 import { notionLinkRouter } from "./routers/notion-link";
+import { cronJobsRouter } from "./routers/cron-jobs";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -44,6 +45,7 @@ export const appRouter = router({
   expenses: expensesRouter,
   mypage: mypageRouter,
   notionLink: notionLinkRouter,
+  cronJobs: cronJobsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

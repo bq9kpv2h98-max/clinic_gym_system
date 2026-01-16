@@ -678,3 +678,24 @@ export const reservationLinkLogs = mysqlTable("reservationLinkLogs", {
 
 export type ReservationLinkLog = typeof reservationLinkLogs.$inferSelect;
 export type InsertReservationLinkLog = typeof reservationLinkLogs.$inferInsert;
+
+/**
+ * cronジョブ実行履歴テーブル
+ */
+export const cronJobLogs = mysqlTable("cronJobLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  jobName: varchar("jobName", { length: 100 }).notNull(), // "sync-notion-customers" | "link-reservations"
+  status: mysqlEnum("status", ["success", "failed"]).notNull(),
+  startedAt: timestamp("startedAt").notNull(),
+  completedAt: timestamp("completedAt").notNull(),
+  duration: int("duration").notNull(), // ミリ秒
+  totalItems: int("totalItems").notNull(),
+  successCount: int("successCount").notNull(),
+  failedCount: int("failedCount").notNull(),
+  errorMessage: varchar("errorMessage", { length: 1000 }),
+  details: text("details"), // JSON文字列
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CronJobLog = typeof cronJobLogs.$inferSelect;
+export type InsertCronJobLog = typeof cronJobLogs.$inferInsert;
