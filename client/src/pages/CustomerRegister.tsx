@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,15 +12,17 @@ import { toast } from "sonner";
 import { Loader2, Check } from "lucide-react";
 
 const registerSchema = z.object({
-  fullName: z.string().min(1, "名前は必須です"),
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "生年月日はYYYY-MM-DD形式です"),
-  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
-  phone: z.string().regex(/^\d{10,11}$/, "電話番号は10-11文字です"),
-  email: z.string().email("有効なメールアドレスを入力してください").optional().or(z.literal("")),
-  postalCode: z.string().min(7, "郵便番号は7文字です"),
-  prefecture: z.string().min(1, "都道府県は必須です"),
-  city: z.string().min(1, "市区町村は必須です"),
-  addressLine1: z.string().min(1, "住所は必須です"),
+  fullName: z.string().trim().min(1, "名前を入力してください"),
+  dateOfBirth: z.string().min(1, "生年月日を選択してください"),
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"], {
+    message: "性別を選択してください",
+  }),
+  phone: z.string().trim().regex(/^\d{10,11}$/, "電話番号は10〜11桁の数字で入力してください"),
+  email: z.string().trim().email("有効なメールアドレスを入力してください").optional().or(z.literal("")),
+  postalCode: z.string().trim().regex(/^\d{7}$/, "郵便番号は7桁の数字で入力してください"),
+  prefecture: z.string().trim().min(1, "都道府県を入力してください"),
+  city: z.string().trim().min(1, "市区町村を入力してください"),
+  addressLine1: z.string().trim().min(1, "住所（番地）を入力してください"),
   addressLine2: z.string().optional(),
 });
 
@@ -30,6 +32,7 @@ export default function CustomerRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredCustomerId, setRegisteredCustomerId] = useState<string | null>(null);
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState<string | null>(null);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
 
   const {
     register,
@@ -39,9 +42,41 @@ export default function CustomerRegister() {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    mode: "onSubmit",
   });
 
   const registerMutation = trpc.customers.register.useMutation();
+
+  // 郵便番号から住所を自動入力
+  const postalCode = watch("postalCode");
+  useEffect(() => {
+    const fetchAddress = async () => {
+      if (postalCode && /^\d{7}$/.test(postalCode)) {
+        setIsLoadingAddress(true);
+        try {
+          const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${postalCode}`);
+          const data = await response.json();
+          
+          if (data.status === 200 && data.results && data.results.length > 0) {
+            const result = data.results[0];
+            setValue("prefecture", result.address1);
+            setValue("city", result.address2 + result.address3);
+            toast.success("住所を自動入力しました");
+          } else {
+            toast.error("郵便番号から住所が見つかりませんでした");
+          }
+        } catch (error) {
+          console.error("Failed to fetch address:", error);
+          toast.error("住所の取得に失敗しました");
+        } finally {
+          setIsLoadingAddress(false);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(fetchAddress, 500);
+    return () => clearTimeout(timeoutId);
+  }, [postalCode, setValue]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsSubmitting(true);
@@ -171,10 +206,12 @@ export default function CustomerRegister() {
                     <Label htmlFor="gender">性別 *</Label>
                     <Select
                       onValueChange={(value) =>
-                        setValue("gender", value as "male" | "female" | "other" | "prefer_not_to_say")
+                        setValue("gender", value as "male" | "female" | "other" | "prefer_not_to_say", {
+                          shouldValidate: true,
+                        })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
                         <SelectValue placeholder="選択してください" />
                       </SelectTrigger>
                       <SelectContent>
@@ -184,6 +221,9 @@ export default function CustomerRegister() {
                         <SelectItem value="prefer_not_to_say">回答しない</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.gender && (
+                      <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -225,7 +265,7 @@ export default function CustomerRegister() {
                 <h3 className="font-semibold text-lg">住所</h3>
 
                 <div>
-                  <Label htmlFor="postalCode">郵便番号 *</Label>
+                  <Label htmlFor="postalCode">郵便番号 * {isLoadingAddress && <span className="text-sm text-gray-500">(住所を取得中...)</span>}</Label>
                   <Input
                     id="postalCode"
                     placeholder="1234567"
@@ -235,6 +275,7 @@ export default function CustomerRegister() {
                   {errors.postalCode && (
                     <p className="text-red-500 text-sm mt-1">{errors.postalCode.message}</p>
                   )}
+                  <p className="text-xs text-gray-500 mt-1">ハイフンなしで入力してください</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
