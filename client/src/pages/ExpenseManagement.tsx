@@ -15,9 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { useLocation } from "wouter";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function ExpenseManagement() {
+  const [, setLocation] = useLocation();
   const [selectedYearMonth, setSelectedYearMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -118,9 +120,15 @@ export default function ExpenseManagement() {
             月次経費を入力して、簡易PLを自動計算します
           </p>
         </div>
-        <Button onClick={() => setIsCreating(!isCreating)}>
-          {isCreating ? "キャンセル" : <><Plus className="mr-2 h-4 w-4" />新規登録</>}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setLocation("/expenses/batch-edit")}>
+            <Pencil className="mr-2 h-4 w-4" />
+            一括編集
+          </Button>
+          <Button onClick={() => setIsCreating(!isCreating)}>
+            {isCreating ? "キャンセル" : <><Plus className="mr-2 h-4 w-4" />新規登録</>}
+          </Button>
+        </div>
       </div>
 
       {/* 簡易PL表示 */}

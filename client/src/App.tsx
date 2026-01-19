@@ -24,6 +24,7 @@ import ReservationManagement from "./pages/ReservationManagement";
 import ReservationForm from "./pages/ReservationForm";
 import MonthlyStats from "./pages/MonthlyStats";
 import ExpenseManagement from "./pages/ExpenseManagement";
+import ExpenseBatchEdit from "./pages/ExpenseBatchEdit";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import MyPageLogin from "./pages/MyPageLogin";
 import MyPage from "./pages/MyPage";
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/reservation" component={ReservationForm} />
       <Route path="/monthly-stats" component={MonthlyStats} />
       <Route path="/expenses" component={ExpenseManagement} />
+      <Route path="/expenses/batch-edit" component={ExpenseBatchEdit} />
       <Route path="/mypage-login" component={MyPageLogin} />
       <Route path="/mypage" component={MyPage} />
       <Route path="/customer-home" component={CustomerHome} />

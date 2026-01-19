@@ -453,6 +453,138 @@ export const expensesRouter = router({
     }),
 
   /**
+   * 複数月の経費を一括更新
+   */
+  batchUpdate: protectedProcedure
+    .input(
+      z.object({
+        updates: z.array(
+          z.object({
+            expenseId: z.string(),
+            costProductSales: z.number().min(0).optional(),
+            costTreatmentMaterials: z.number().min(0).optional(),
+            laborCosts: z.number().min(0).optional(),
+            rent: z.number().min(0).optional(),
+            utilities: z.number().min(0).optional(),
+            trainingExpenses: z.number().min(0).optional(),
+            travelExpenses: z.number().min(0).optional(),
+            otherExpenses: z.number().min(0).optional(),
+            advertisingMeta: z.number().min(0).optional(),
+            advertisingGoogle: z.number().min(0).optional(),
+            advertisingFlyer: z.number().min(0).optional(),
+            notes: z.string().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const results = [];
+
+      for (const update of input.updates) {
+        // 既存の経費データを取得
+        const currentExpense = await db
+          .select()
+          .from(monthlyExpenses)
+          .where(eq(monthlyExpenses.expenseId, update.expenseId))
+          .limit(1);
+
+        if (currentExpense.length === 0) {
+          results.push({ expenseId: update.expenseId, success: false, error: "Expense not found" });
+          continue;
+        }
+
+        const expense = currentExpense[0];
+
+        // 更新する値を決定（指定されていない場合は既存値を使用）
+        const costProductSales = update.costProductSales ?? parseFloat(expense.costProductSales);
+        const costTreatmentMaterials = update.costTreatmentMaterials ?? parseFloat(expense.costTreatmentMaterials);
+        const laborCosts = update.laborCosts ?? parseFloat(expense.laborCosts);
+        const rent = update.rent ?? parseFloat(expense.rent);
+        const utilities = update.utilities ?? parseFloat(expense.utilities);
+        const trainingExpenses = update.trainingExpenses ?? parseFloat(expense.trainingExpenses);
+        const travelExpenses = update.travelExpenses ?? parseFloat(expense.travelExpenses);
+        const otherExpenses = update.otherExpenses ?? parseFloat(expense.otherExpenses);
+
+        // 広告費の処理
+        const advertisingMeta = update.advertisingMeta ?? 0;
+        const advertisingGoogle = update.advertisingGoogle ?? 0;
+        const advertisingFlyer = update.advertisingFlyer ?? 0;
+        const advertisingTotal = advertisingMeta + advertisingGoogle + advertisingFlyer;
+
+        // 売上を取得
+        const revenue = parseFloat(expense.revenue);
+
+        // 簡易PL計算
+        const grossProfit = revenue - (costProductSales + costTreatmentMaterials);
+        const operatingIncome =
+          grossProfit -
+          (laborCosts + rent + utilities + trainingExpenses + travelExpenses + otherExpenses + advertisingTotal);
+
+        // 月次経費を更新
+        await db
+          .update(monthlyExpenses)
+          .set({
+            costProductSales: costProductSales.toString(),
+            costTreatmentMaterials: costTreatmentMaterials.toString(),
+            laborCosts: laborCosts.toString(),
+            rent: rent.toString(),
+            utilities: utilities.toString(),
+            trainingExpenses: trainingExpenses.toString(),
+            travelExpenses: travelExpenses.toString(),
+            otherExpenses: otherExpenses.toString(),
+            advertisingTotal: advertisingTotal.toString(),
+            grossProfit: grossProfit.toString(),
+            operatingIncome: operatingIncome.toString(),
+            notes: update.notes !== undefined ? update.notes : expense.notes,
+          })
+          .where(eq(monthlyExpenses.expenseId, update.expenseId));
+
+        // 広告内訳を更新
+        if (update.advertisingMeta !== undefined || update.advertisingGoogle !== undefined || update.advertisingFlyer !== undefined) {
+          // 既存の広告内訳を削除
+          await db
+            .delete(advertisingBreakdown)
+            .where(eq(advertisingBreakdown.expenseId, update.expenseId));
+
+          // 新しい広告内訳を作成
+          if (advertisingMeta > 0) {
+            await db.insert(advertisingBreakdown).values({
+              breakdownId: nanoid(),
+              expenseId: update.expenseId,
+              channel: "meta",
+              amount: advertisingMeta.toString(),
+            });
+          }
+
+          if (advertisingGoogle > 0) {
+            await db.insert(advertisingBreakdown).values({
+              breakdownId: nanoid(),
+              expenseId: update.expenseId,
+              channel: "google",
+              amount: advertisingGoogle.toString(),
+            });
+          }
+
+          if (advertisingFlyer > 0) {
+            await db.insert(advertisingBreakdown).values({
+              breakdownId: nanoid(),
+              expenseId: update.expenseId,
+              channel: "flyer",
+              amount: advertisingFlyer.toString(),
+            });
+          }
+        }
+
+        results.push({ expenseId: update.expenseId, success: true });
+      }
+
+      return { results };
+    }),
+
+  /**
    * 簡易PLを取得（年月指定）
    */
   getPL: protectedProcedure
