@@ -239,6 +239,112 @@ const Dashboard: React.FC = () => {
             <p className="text-gray-600 mt-2">施設の経営状況を一目で把握できます</p>
           </div>
 
+          {/* クイックアクセスリンク */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Zap className="w-5 h-5 mr-2" />
+                クイックアクセス
+              </CardTitle>
+              <CardDescription>各機能へのリンクをまとめています</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* 顧客マイページ */}
+                <a
+                  href="/customer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <Users className="w-5 h-5 mr-2 text-blue-600" />
+                    <h3 className="font-semibold text-gray-900">顧客マイページ</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">顧客がポイントや予約を確認できるページ</p>
+                  <p className="text-xs text-blue-600 break-all">{window.location.origin}/customer</p>
+                </a>
+
+                {/* スタッフスキャナー */}
+                <a
+                  href="/staff-scanner"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <QrCode className="w-5 h-5 mr-2 text-green-600" />
+                    <h3 className="font-semibold text-gray-900">スタッフスキャナー</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">QRコードを読み取って来院記録を登録</p>
+                  <p className="text-xs text-green-600 break-all">{window.location.origin}/staff-scanner</p>
+                </a>
+
+                {/* 予約フォーム */}
+                <a
+                  href="/reservation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <Calendar className="w-5 h-5 mr-2 text-purple-600" />
+                    <h3 className="font-semibold text-gray-900">予約フォーム</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">顧客が予約を申し込むフォーム</p>
+                  <p className="text-xs text-purple-600 break-all">{window.location.origin}/reservation</p>
+                </a>
+
+                {/* QRコード登録 */}
+                <a
+                  href="/register"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <QrCode className="w-5 h-5 mr-2 text-orange-600" />
+                    <h3 className="font-semibold text-gray-900">QRコード登録</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">新規顧客のQRコードを登録</p>
+                  <p className="text-xs text-orange-600 break-all">{window.location.origin}/register</p>
+                </a>
+
+                {/* スタッフ予約管理 */}
+                <a
+                  href="/staff-reservations"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <CalendarCheck className="w-5 h-5 mr-2 text-red-600" />
+                    <h3 className="font-semibold text-gray-900">スタッフ予約管理</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">予約リクエストを確認・管理</p>
+                  <p className="text-xs text-red-600 break-all">{window.location.origin}/staff-reservations</p>
+                </a>
+
+                {/* LINE公式アカウント */}
+                <a
+                  href="https://lin.ee/9LXLjNI"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 mr-2 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                    </svg>
+                    <h3 className="font-semibold text-gray-900">LINE公式</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">LINE公式アカウントで連絡</p>
+                  <p className="text-xs text-green-500 break-all">https://lin.ee/9LXLjNI</p>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* KPIカード */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <Card>
