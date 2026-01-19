@@ -127,6 +127,7 @@ export default function CustomerHome() {
   const customerData = mypageData?.customer;
   const visits = mypageData?.visitHistory || [];
   const reservations = mypageData?.upcomingReservations || [];
+  const pointHistory = mypageData?.pointHistory || [];
   const totalVisits = visits.length;
   const pointBalance = customerData?.totalPoints || 0;
 
@@ -219,10 +220,46 @@ export default function CustomerHome() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
+            <div className="text-center mb-4">
               <p className="text-4xl font-bold text-blue-600">{pointBalance}</p>
               <p className="text-sm text-gray-500 mt-1">ポイント</p>
             </div>
+            {/* ポイント履歴 */}
+            {pointHistory.length > 0 && (
+              <div className="mt-4 border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">ポイント履歴</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {pointHistory.slice(0, 10).map((transaction: any) => (
+                    <div
+                      key={transaction.transactionId}
+                      className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm"
+                    >
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500">
+                          {new Date(transaction.createdAt).toLocaleDateString("ja-JP")}
+                        </p>
+                        {transaction.description && (
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {transaction.description}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${
+                          transaction.transactionType === "earn" || transaction.transactionType === "add"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {transaction.transactionType === "earn" || transaction.transactionType === "add"
+                          ? `+${transaction.points}`
+                          : `-${transaction.points}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

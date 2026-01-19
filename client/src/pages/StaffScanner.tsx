@@ -30,6 +30,13 @@ export default function StaffScanner() {
   );
 
   const recordVisitMutation = trpc.staff.recordVisit.useMutation();
+  const addPointsMutation = trpc.staff.addPoints.useMutation();
+  const redeemPointsMutation = trpc.staff.redeemPoints.useMutation();
+
+  const [pointsToAdd, setPointsToAdd] = useState(10);
+  const [pointsToRedeem, setPointsToRedeem] = useState(10);
+  const [showAddPoints, setShowAddPoints] = useState(false);
+  const [showRedeemPoints, setShowRedeemPoints] = useState(false);
 
   const handleLogin = () => {
     // 簡易パスワード認証（環境変数から取得）
@@ -111,12 +118,45 @@ export default function StaffScanner() {
     try {
       await recordVisitMutation.mutateAsync({
         customerId: scannedCustomerId,
-        pointsEarned: 10, // デフォルトで10ポイント付与
       });
-      toast.success("来院記録を登録しました（+10ポイント）");
+      toast.success("来院記録を登録しました");
       refetch();
     } catch (error) {
       toast.error("来院記録の登録に失敗しました");
+    }
+  };
+
+  const handleAddPoints = async () => {
+    if (!scannedCustomerId) return;
+
+    try {
+      await addPointsMutation.mutateAsync({
+        customerId: scannedCustomerId,
+        points: pointsToAdd,
+        description: `スタッフが${pointsToAdd}ポイントを付与`,
+      });
+      toast.success(`${pointsToAdd}ポイントを付与しました`);
+      setShowAddPoints(false);
+      refetch();
+    } catch (error) {
+      toast.error("ポイント付与に失敗しました");
+    }
+  };
+
+  const handleRedeemPoints = async () => {
+    if (!scannedCustomerId) return;
+
+    try {
+      await redeemPointsMutation.mutateAsync({
+        customerId: scannedCustomerId,
+        points: pointsToRedeem,
+        description: `スタッフが${pointsToRedeem}ポイントを使用`,
+      });
+      toast.success(`${pointsToRedeem}ポイントを使用しました`);
+      setShowRedeemPoints(false);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "ポイント使用に失敗しました");
     }
   };
 
@@ -323,8 +363,102 @@ export default function StaffScanner() {
             ) : (
               <UserCheck className="w-4 h-4 mr-2" />
             )}
-            来院記録を登録（+10ポイント）
+            来院記録を登録
           </Button>
+
+          {/* ポイント付与 */}
+          {!showAddPoints ? (
+            <Button
+              onClick={() => setShowAddPoints(true)}
+              variant="outline"
+              className="w-full border-blue-500 text-blue-600 hover:bg-blue-50"
+            >
+              <Coins className="w-4 h-4 mr-2" />
+              ポイント付与
+            </Button>
+          ) : (
+            <Card className="border-blue-500">
+              <CardContent className="pt-4 space-y-2">
+                <Label htmlFor="pointsToAdd">付与ポイント数</Label>
+                <Input
+                  id="pointsToAdd"
+                  type="number"
+                  min="1"
+                  value={pointsToAdd}
+                  onChange={(e) => setPointsToAdd(Number(e.target.value))}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleAddPoints}
+                    disabled={addPointsMutation.isPending}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {addPointsMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Coins className="w-4 h-4 mr-2" />
+                    )}
+                    付与
+                  </Button>
+                  <Button
+                    onClick={() => setShowAddPoints(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    キャンセル
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ポイント消化 */}
+          {!showRedeemPoints ? (
+            <Button
+              onClick={() => setShowRedeemPoints(true)}
+              variant="outline"
+              className="w-full border-red-500 text-red-600 hover:bg-red-50"
+            >
+              <Coins className="w-4 h-4 mr-2" />
+              ポイント使用
+            </Button>
+          ) : (
+            <Card className="border-red-500">
+              <CardContent className="pt-4 space-y-2">
+                <Label htmlFor="pointsToRedeem">使用ポイント数</Label>
+                <Input
+                  id="pointsToRedeem"
+                  type="number"
+                  min="1"
+                  max={pointBalance}
+                  value={pointsToRedeem}
+                  onChange={(e) => setPointsToRedeem(Number(e.target.value))}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRedeemPoints}
+                    disabled={redeemPointsMutation.isPending}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    {redeemPointsMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Coins className="w-4 h-4 mr-2" />
+                    )}
+                    使用
+                  </Button>
+                  <Button
+                    onClick={() => setShowRedeemPoints(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    キャンセル
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Button onClick={handleReset} variant="outline" className="w-full">
             <Scan className="w-4 h-4 mr-2" />
             別の顧客をスキャン

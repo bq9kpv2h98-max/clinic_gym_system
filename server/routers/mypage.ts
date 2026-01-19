@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { customers, visits, reservations } from "../../drizzle/schema";
+import { customers, visits, reservations, pointTransactions } from "../../drizzle/schema";
 import { eq, desc, and, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { getNotionReservationsByCustomer } from "../notion";
@@ -126,10 +126,19 @@ export const mypageRouter = router({
         })
         .slice(0, 5);
 
+      // ポイント履歴を取得
+      const pointHistory = await db
+        .select()
+        .from(pointTransactions)
+        .where(eq(pointTransactions.customerId, input.customerId))
+        .orderBy(desc(pointTransactions.createdAt))
+        .limit(20);
+
       return {
         customer,
         visitHistory,
         upcomingReservations,
+        pointHistory,
       };
     }),
 
