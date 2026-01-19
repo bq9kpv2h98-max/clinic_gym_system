@@ -5,51 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Loader2, QrCode, Coins, Calendar, LogOut } from "lucide-react";
+import { Loader2, QrCode, Coins, Calendar, LogOut, CalendarCheck } from "lucide-react";
 
 export default function CustomerHome() {
   const [phone, setPhone] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
 
-  // ローカルストレージから電話番号を復元
-  useEffect(() => {
-    const savedPhone = localStorage.getItem("customerPhone");
-    if (savedPhone) {
-      setPhone(savedPhone);
-      setIsLoggedIn(true);
-    }
-  }, []);
-
   const loginMutation = trpc.mypage.login.useMutation();
   const { data: mypageData, isLoading: isLoadingMypage, refetch } = trpc.mypage.getMyPageData.useQuery(
     { customerId: customerId || "" },
     { enabled: !!customerId }
   );
-
-  const handleLogin = async () => {
-    if (phone.length >= 10) {
-      try {
-        const result = await loginMutation.mutateAsync({ phone });
-        localStorage.setItem("customerPhone", phone);
-        setCustomerId(result.customerId);
-        setIsLoggedIn(true);
-        toast.success("ログインしました");
-      } catch (error) {
-        toast.error("登録されていない電話番号です");
-      }
-    } else {
-      toast.error("正しい電話番号を入力してください");
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("customerPhone");
-    setPhone("");
-    setIsLoggedIn(false);
-    setCustomerId(null);
-    toast.success("ログアウトしました");
-  };
 
   // 保存された電話番号で自動ログイン
   useEffect(() => {
@@ -60,11 +27,36 @@ export default function CustomerHome() {
         setCustomerId(result.customerId);
         setIsLoggedIn(true);
       }).catch(() => {
+        // ログイン失敗時はローカルストレージをクリア
         localStorage.removeItem("customerPhone");
         setIsLoggedIn(false);
       });
     }
   }, []);
+
+  const handleLogin = async () => {
+    if (phone.length >= 10) {
+      try {
+        const result = await loginMutation.mutateAsync({ phone });
+        localStorage.setItem("customerPhone", phone);
+        setCustomerId(result.customerId);
+        setIsLoggedIn(true);
+        toast.success("ログインしました");
+      } catch (error) {
+        toast.error("登録されていない電話畯号です");
+      }
+    } else {
+      toast.error("正しい電話畯号を入力してください");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("customerPhone");
+    setPhone("");
+    setIsLoggedIn(false);
+    setCustomerId(null);
+    toast.success("ログアウトしました");
+  };
 
   // ログイン画面
   if (!isLoggedIn) {
@@ -134,8 +126,41 @@ export default function CustomerHome() {
 
   const customerData = mypageData?.customer;
   const visits = mypageData?.visitHistory || [];
+  const reservations = mypageData?.upcomingReservations || [];
   const totalVisits = visits.length;
   const pointBalance = customerData?.totalPoints || 0;
+
+  // 予約ステータスの色分け
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "confirmed":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "completed":
+        return "bg-blue-100 text-blue-800 border-blue-300";
+      case "cancelled":
+        return "bg-gray-100 text-gray-800 border-gray-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
+  // 予約ステータスの表示名
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "保留中";
+      case "confirmed":
+        return "確定済み";
+      case "completed":
+        return "完了";
+      case "cancelled":
+        return "キャンセル";
+      default:
+        return status;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
@@ -198,6 +223,81 @@ export default function CustomerHome() {
               <p className="text-4xl font-bold text-blue-600">{pointBalance}</p>
               <p className="text-sm text-gray-500 mt-1">ポイント</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* 予約履歴カード */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarCheck className="w-5 h-5" />
+              予約履歴
+            </CardTitle>
+            <CardDescription>
+              Notion予約履歴と連携しています
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingMypage ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              </div>
+            ) : reservations.length > 0 ? (
+              <div className="space-y-3">
+                {reservations.map((reservation: any) => (
+                  <div
+                    key={reservation.reservationId}
+                    className="p-3 bg-gray-50 rounded-lg border"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {reservation.confirmedDate
+                            ? new Date(reservation.confirmedDate).toLocaleDateString("ja-JP", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                                weekday: "short",
+                              })
+                            : new Date(reservation.firstChoiceDate).toLocaleDateString("ja-JP", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                                weekday: "short",
+                              })}
+                        </p>
+                        {reservation.notes && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            {reservation.notes}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full border ${
+                          getStatusColor(reservation.status)
+                        }`}
+                      >
+                        {getStatusLabel(reservation.status)}
+                      </span>
+                    </div>
+                    {reservation.notionUrl && (
+                      <a
+                        href={reservation.notionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Notionで詳細を見る →
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-4">
+                予約履歴がありません
+              </p>
+            )}
           </CardContent>
         </Card>
 

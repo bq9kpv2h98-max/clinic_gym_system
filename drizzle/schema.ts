@@ -699,3 +699,19 @@ export const cronJobLogs = mysqlTable("cronJobLogs", {
 
 export type CronJobLog = typeof cronJobLogs.$inferSelect;
 export type InsertCronJobLog = typeof cronJobLogs.$inferInsert;
+
+/**
+ * プッシュ通知購読テーブル
+ */
+export const pushSubscriptions = mysqlTable("pushSubscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  endpoint: varchar("endpoint", { length: 512 }).notNull(),
+  p256dh: varchar("p256dh", { length: 256 }).notNull(),
+  auth: varchar("auth", { length: 256 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
