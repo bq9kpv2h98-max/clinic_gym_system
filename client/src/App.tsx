@@ -29,6 +29,7 @@ import MyPageLogin from "./pages/MyPageLogin";
 import MyPage from "./pages/MyPage";
 import NotionLink from "./pages/NotionLink";
 import CronJobs from "./pages/CronJobs";
+import CustomerHome from "./pages/CustomerHome";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/expenses" component={ExpenseManagement} />
       <Route path="/mypage-login" component={MyPageLogin} />
       <Route path="/mypage" component={MyPage} />
+      <Route path="/customer-home" component={CustomerHome} />
       <Route path="/notion-link" component={NotionLink} />
       <Route path="/cron-jobs" component={CronJobs} />
       <Route path="/404" component={NotFound} />

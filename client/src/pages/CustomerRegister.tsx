@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Smartphone } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const registerSchema = z.object({
   fullName: z.string().trim().min(1, "名前を入力してください"),
@@ -33,6 +34,7 @@ export default function CustomerRegister() {
   const [registeredCustomerId, setRegisteredCustomerId] = useState<string | null>(null);
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState<string | null>(null);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [showPWAPrompt, setShowPWAPrompt] = useState(false);
 
   const {
     register,
@@ -90,6 +92,9 @@ export default function CustomerRegister() {
       setRegisteredCustomerId(result.customerId);
       setQrCodeImageUrl(result.qrCodeImageUrl);
       toast.success("顧客登録が完了しました！");
+      
+      // PWAインストール案内を表示
+      setTimeout(() => setShowPWAPrompt(true), 1000);
     } catch (error) {
       toast.error("登録に失敗しました。もう一度お試しください。");
       console.error(error);
@@ -135,11 +140,14 @@ export default function CustomerRegister() {
                   const link = document.createElement("a");
                   link.href = qrCodeImageUrl;
                   link.download = `qr-code-${registeredCustomerId}.png`;
+                  document.body.appendChild(link);
                   link.click();
+                  document.body.removeChild(link);
+                  toast.success("QRコードを保存しました");
                 }}
                 className="w-full"
               >
-                QRコードをダウンロード
+                QRコードを保存
               </Button>
 
               <Button
@@ -154,6 +162,47 @@ export default function CustomerRegister() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* PWAインストール案内ポップアップ */}
+          <Dialog open={showPWAPrompt} onOpenChange={setShowPWAPrompt}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5" />
+                  ホーム画面に追加しませんか？
+                </DialogTitle>
+                <DialogDescription className="space-y-3 pt-2">
+                  <p>
+                    ホーム画面に追加すると、いつでも簡単にQRコードとポイントを確認できます！
+                  </p>
+                  <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                    <p className="font-semibold mb-2">追加方法：</p>
+                    <ol className="space-y-1 text-gray-700">
+                      <li>・ iOS: 共有ボタン → 「ホーム画面に追加」</li>
+                      <li>・ Android: メニュー → 「ホーム画面に追加」</li>
+                    </ol>
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        window.location.href = "/customer-home";
+                      }}
+                      className="w-full"
+                    >
+                      顧客マイページを開く
+                    </Button>
+                    <Button
+                      onClick={() => setShowPWAPrompt(false)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      後で追加する
+                    </Button>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     );
