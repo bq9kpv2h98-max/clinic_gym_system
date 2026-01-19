@@ -118,6 +118,8 @@ export const expensesRouter = router({
         laborCosts: z.number().min(0).default(0),
         rent: z.number().min(0).default(0),
         utilities: z.number().min(0).default(0),
+        trainingExpenses: z.number().min(0).default(0),
+        travelExpenses: z.number().min(0).default(0),
         otherExpenses: z.number().min(0).default(0),
         advertisingMeta: z.number().min(0).default(0),
         advertisingGoogle: z.number().min(0).default(0),
@@ -154,6 +156,8 @@ export const expensesRouter = router({
         (input.laborCosts +
           input.rent +
           input.utilities +
+          input.trainingExpenses +
+          input.travelExpenses +
           input.otherExpenses +
           advertisingTotal);
 
@@ -167,6 +171,8 @@ export const expensesRouter = router({
         laborCosts: input.laborCosts.toString(),
         rent: input.rent.toString(),
         utilities: input.utilities.toString(),
+        trainingExpenses: input.trainingExpenses.toString(),
+        travelExpenses: input.travelExpenses.toString(),
         otherExpenses: input.otherExpenses.toString(),
         advertisingTotal: advertisingTotal.toString(),
         grossProfit: grossProfit.toString(),
