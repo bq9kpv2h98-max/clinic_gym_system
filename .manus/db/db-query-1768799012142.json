@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE cronJobLogs DROP COLUMN startedAt, DROP COLUMN completedAt, DROP COLUMN totalItems, DROP COLUMN failedCount;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute ALTER TABLE cronJobLogs DROP COLUMN startedAt, DROP COLUMN completedAt, DROP COLUMN totalItems, DROP COLUMN failedCount;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2817
+}

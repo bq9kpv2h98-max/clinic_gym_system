@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM __drizzle_migrations WHERE hash = 'eb6d2ec74dfb2dfb4d8a8376904e363eb68efc0274241b0f63ef930ed9fb839e';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute DELETE FROM __drizzle_migrations WHERE hash = 'eb6d2ec74dfb2dfb4d8a8376904e363eb68efc0274241b0f63ef930ed9fb839e';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1524
+}

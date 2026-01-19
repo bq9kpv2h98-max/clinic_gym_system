@@ -37,6 +37,21 @@ export default function StaffScanner() {
   const [pointsToRedeem, setPointsToRedeem] = useState(10);
   const [showAddPoints, setShowAddPoints] = useState(false);
   const [showRedeemPoints, setShowRedeemPoints] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string>("");
+
+  // デフォルトの有効期限6ヶ月後を計算
+  const getDefaultExpiryDate = () => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 6);
+    return date.toISOString().split("T")[0];
+  };
+
+  // ポイント付与フォームを開いたときにデフォルト値を設定
+  useEffect(() => {
+    if (showAddPoints && !expiresAt) {
+      setExpiresAt(getDefaultExpiryDate());
+    }
+  }, [showAddPoints]);
 
   const handleLogin = () => {
     // 簡易パスワード認証（環境変数から取得）
@@ -134,6 +149,7 @@ export default function StaffScanner() {
         customerId: scannedCustomerId,
         points: pointsToAdd,
         description: `スタッフが${pointsToAdd}ポイントを付与`,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       });
       toast.success(`${pointsToAdd}ポイントを付与しました`);
       setShowAddPoints(false);
@@ -386,6 +402,13 @@ export default function StaffScanner() {
                   min="1"
                   value={pointsToAdd}
                   onChange={(e) => setPointsToAdd(Number(e.target.value))}
+                />
+                <Label htmlFor="expiresAt">有効期限（デフォルト6ヶ月後）</Label>
+                <Input
+                  id="expiresAt"
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
                 />
                 <div className="flex gap-2">
                   <Button

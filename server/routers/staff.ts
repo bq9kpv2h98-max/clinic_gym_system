@@ -93,6 +93,7 @@ export const staffRouter = router({
         customerId: z.string().min(1),
         points: z.number().int().min(1),
         description: z.string().optional(),
+        expiresAt: z.string().optional(), // ISO 8601形式の日時文字列
       })
     )
     .mutation(async ({ input }) => {
@@ -115,6 +116,11 @@ export const staffRouter = router({
 
       const newTotalPoints = customer.totalPoints + input.points;
 
+      // 有効期限を設定（デフォルト6ヶ月後）
+      const expiresAt = input.expiresAt
+        ? new Date(input.expiresAt)
+        : new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // 6ヶ月後
+
       // ポイント取引履歴を記録
       const transactionId = nanoid();
       await db
@@ -126,6 +132,7 @@ export const staffRouter = router({
           points: input.points,
           balanceAfter: newTotalPoints,
           description: input.description || "ポイント付与",
+          expiresAt,
         });
 
       // 顧客のポイント残高を更新

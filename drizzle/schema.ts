@@ -97,6 +97,7 @@ export const pointTransactions = mysqlTable("pointTransactions", {
   staffName: varchar("staffName", { length: 100 }),
   adjustmentReason: varchar("adjustmentReason", { length: 500 }),
   extendedExpirationTo: date("extendedExpirationTo"),
+  expiresAt: timestamp("expiresAt"),
   transactionDate: timestamp("transactionDate").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -684,14 +685,15 @@ export type InsertReservationLinkLog = typeof reservationLinkLogs.$inferInsert;
  */
 export const cronJobLogs = mysqlTable("cronJobLogs", {
   id: int("id").autoincrement().primaryKey(),
+  logId: varchar("logId", { length: 64 }).notNull().unique(),
   jobName: varchar("jobName", { length: 100 }).notNull(), // "sync-notion-customers" | "link-reservations"
-  status: mysqlEnum("status", ["success", "failed"]).notNull(),
-  startedAt: timestamp("startedAt").notNull(),
-  completedAt: timestamp("completedAt").notNull(),
+  jobDescription: varchar("jobDescription", { length: 200 }),
+  status: mysqlEnum("status", ["success", "partial_success", "error", "failed"]).notNull(),
+  startTime: timestamp("startTime").notNull(),
+  endTime: timestamp("endTime").notNull(),
   duration: int("duration").notNull(), // ミリ秒
-  totalItems: int("totalItems").notNull(),
-  successCount: int("successCount").notNull(),
-  failedCount: int("failedCount").notNull(),
+  successCount: int("successCount").default(0).notNull(),
+  errorCount: int("errorCount").default(0).notNull(),
   errorMessage: varchar("errorMessage", { length: 1000 }),
   details: text("details"), // JSON文字列
   createdAt: timestamp("createdAt").defaultNow().notNull(),

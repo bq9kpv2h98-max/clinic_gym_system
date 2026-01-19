@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, jobName, status FROM cronJobLogs LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute SELECT id, jobName, status FROM cronJobLogs LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "jobName": "sync-notion-customers",
+      "status": "success"
+    },
+    {
+      "id": "2",
+      "jobName": "link-reservations",
+      "status": "failed"
+    },
+    {
+      "id": "3",
+      "jobName": "link-reservations",
+      "status": "success"
+    },
+    {
+      "id": "4",
+      "jobName": "sync-notion-customers",
+      "status": "success"
+    },
+    {
+      "id": "5",
+      "jobName": "sync-notion-customers",
+      "status": "success"
+    },
+    {
+      "id": "6",
+      "jobName": "link-reservations",
+      "status": "success"
+    },
+    {
+      "id": "7",
+      "jobName": "link-reservations",
+      "status": "success"
+    },
+    {
+      "id": "8",
+      "jobName": "link-reservations",
+      "status": "success"
+    },
+    {
+      "id": "9",
+      "jobName": "link-reservations",
+      "status": "success"
+    },
+    {
+      "id": "10",
+      "jobName": "link-reservations",
+      "status": "success"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tjobName\tstatus\n1\tsync-notion-customers\tsuccess\n2\tlink-reservations\tfailed\n3\tlink-reservations\tsuccess\n4\tsync-notion-customers\tsuccess\n5\tsync-notion-customers\tsuccess\n6\tlink-reservations\tsuccess\n7\tlink-reservations\tsuccess\n8\tlink-reservations\tsuccess\n9\tlink-reservations\tsuccess\n10\tlink-reservations\tsuccess\n",
+  "stderr": "",
+  "execution_time_ms": 1495
+}

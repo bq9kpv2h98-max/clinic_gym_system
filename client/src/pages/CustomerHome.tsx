@@ -243,6 +243,11 @@ export default function CustomerHome() {
                             {transaction.description}
                           </p>
                         )}
+                        {transaction.expiresAt && transaction.transactionType === "earn" && (
+                          <p className="text-xs text-orange-600 mt-0.5">
+                            有効期限: {new Date(transaction.expiresAt).toLocaleDateString("ja-JP")}
+                          </p>
+                        )}
                       </div>
                       <span
                         className={`text-sm font-medium ${

@@ -1,0 +1,34 @@
+{
+  "query": "SHOW CREATE TABLE cronJobLogs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute SHOW CREATE TABLE cronJobLogs;",
+  "rows": [
+    {
+      "Table": "cronJobLogs",
+      "Create Table": "CREATE TABLE `cronJobLogs` ("
+    }
+  ],
+  "messages": [
+    "  `id` int(11) NOT NULL AUTO_INCREMENT,",
+    "  `jobName` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,",
+    "  `status` enum('success','partial_success','error','failed') COLLATE utf8mb4_unicode_ci NOT NULL,",
+    "  `startedAt` timestamp NOT NULL,",
+    "  `completedAt` timestamp NOT NULL,",
+    "  `duration` int(11) NOT NULL,",
+    "  `totalItems` int(11) NOT NULL,",
+    "  `successCount` int(11) NOT NULL DEFAULT '0',",
+    "  `failedCount` int(11) NOT NULL,",
+    "  `errorMessage` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,",
+    "  `details` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,",
+    "  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,",
+    "  `logId` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,",
+    "  `jobDescription` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,",
+    "  `startTime` timestamp NOT NULL,",
+    "  `endTime` timestamp NOT NULL,",
+    "  `errorCount` int(11) NOT NULL DEFAULT '0',",
+    "  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */",
+    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+  ],
+  "stdout": "Table\tCreate Table\ncronJobLogs\tCREATE TABLE `cronJobLogs` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  `jobName` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `status` enum('success','partial_success','error','failed') COLLATE utf8mb4_unicode_ci NOT NULL,\n  `startedAt` timestamp NOT NULL,\n  `completedAt` timestamp NOT NULL,\n  `duration` int(11) NOT NULL,\n  `totalItems` int(11) NOT NULL,\n  `successCount` int(11) NOT NULL DEFAULT '0',\n  `failedCount` int(11) NOT NULL,\n  `errorMessage` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `details` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `logId` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `jobDescription` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `startTime` timestamp NOT NULL,\n  `endTime` timestamp NOT NULL,\n  `errorCount` int(11) NOT NULL DEFAULT '0',\n  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci\n",
+  "stderr": "",
+  "execution_time_ms": 1522
+}

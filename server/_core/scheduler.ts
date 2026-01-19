@@ -9,6 +9,8 @@ import { syncNotionCustomers } from "../cron/sync-notion-customers";
 import { linkReservationsAutomatically } from "../cron/link-reservations";
 import { cleanupOldLogs } from "../cron/cleanup-old-logs";
 import { sendReservationReminders } from "../cron/send-reminders";
+import { expirePoints } from "../cron/expire-points";
+import { notifyExpiringPoints } from "../cron/notify-expiring-points";
 
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing cron jobs...");
@@ -57,9 +59,33 @@ export function initializeScheduler() {
     }
   });
 
+  // ポイント有効期限事前通知（毎日午前10時に実行）
+  cron.schedule("0 10 * * *", async () => {
+    console.log("[Scheduler] Starting expiring points notification...");
+    try {
+      await notifyExpiringPoints();
+      console.log("[Scheduler] Expiring points notification completed");
+    } catch (error) {
+      console.error("[Scheduler] Expiring points notification failed:", error);
+    }
+  });
+
+  // 期限切れポイント自動失効（毎日午前11時に実行）
+  cron.schedule("0 11 * * *", async () => {
+    console.log("[Scheduler] Starting expired points cleanup...");
+    try {
+      await expirePoints();
+      console.log("[Scheduler] Expired points cleanup completed");
+    } catch (error) {
+      console.error("[Scheduler] Expired points cleanup failed:", error);
+    }
+  });
+
   console.log("[Scheduler] Cron jobs initialized");
   console.log("  - Old logs cleanup: Daily at 2:00 AM");
   console.log("  - Notion customer sync: Daily at 3:00 AM");
   console.log("  - Reservation linking: Daily at 4:00 AM");
   console.log("  - Reservation reminders: Daily at 9:00 AM");
+  console.log("  - Expiring points notification: Daily at 10:00 AM");
+  console.log("  - Expired points cleanup: Daily at 11:00 AM");
 }
