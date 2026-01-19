@@ -1,7 +1,7 @@
 /**
  * 経費管理ページ
  * 
- * 10カテゴリの経費入力と簡易PL表示を提供します。
+ * 16カテゴリの経費入力と簡易PL表示を提供します。
  */
 
 import { useState } from "react";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { useLocation } from "wouter";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { EXPENSE_CATEGORIES, DEFAULT_EXPENSE_VALUES } from "../../../shared/expenseCategories";
 
 export default function ExpenseManagement() {
   const [, setLocation] = useLocation();
@@ -29,12 +30,7 @@ export default function ExpenseManagement() {
   const [formData, setFormData] = useState({
     costProductSales: 0,
     costTreatmentMaterials: 0,
-    laborCosts: 0,
-    rent: 0,
-    utilities: 0,
-    trainingExpenses: 0,
-    travelExpenses: 0,
-    otherExpenses: 0,
+    ...DEFAULT_EXPENSE_VALUES,
     advertisingMeta: 0,
     advertisingGoogle: 0,
     advertisingFlyer: 0,
@@ -54,12 +50,7 @@ export default function ExpenseManagement() {
       setFormData({
         costProductSales: 0,
         costTreatmentMaterials: 0,
-        laborCosts: 0,
-        rent: 0,
-        utilities: 0,
-        trainingExpenses: 0,
-        travelExpenses: 0,
-        otherExpenses: 0,
+        ...DEFAULT_EXPENSE_VALUES,
         advertisingMeta: 0,
         advertisingGoogle: 0,
         advertisingFlyer: 0,
@@ -101,181 +92,131 @@ export default function ExpenseManagement() {
     return new Intl.NumberFormat("ja-JP", {
       style: "currency",
       currency: "JPY",
+      minimumFractionDigits: 0,
     }).format(num);
   };
 
-  const formatPercent = (value: string | number, total: string | number) => {
-    const numValue = typeof value === "string" ? parseFloat(value) : value;
-    const numTotal = typeof total === "string" ? parseFloat(total) : total;
-    if (numTotal === 0) return "0%";
-    return `${((numValue / numTotal) * 100).toFixed(1)}%`;
+  const generateYearMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 24; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      options.push(yearMonth);
+    }
+    return options;
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">経費管理</h1>
           <p className="text-muted-foreground mt-2">
-            月次経費を入力して、簡易PLを自動計算します
+            月次経費を登録して簡易PLを自動計算します
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setLocation("/expenses/batch-edit")}>
-            <Pencil className="mr-2 h-4 w-4" />
-            一括編集
-          </Button>
-          <Button onClick={() => setIsCreating(!isCreating)}>
-            {isCreating ? "キャンセル" : <><Plus className="mr-2 h-4 w-4" />新規登録</>}
-          </Button>
-        </div>
+        <Button onClick={() => setLocation("/expenses/batch-edit")}>
+          <BarChart3 className="mr-2 h-4 w-4" />
+          一括編集
+        </Button>
       </div>
 
       {/* 簡易PL表示 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>簡易PL（{selectedYearMonth}）</CardTitle>
-          <CardDescription>売上総利益と営業利益を確認できます</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {currentPL ? (
-            <div className="space-y-6">
-              {/* 売上 */}
-              <div className="border-b pb-4">
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span>売上高</span>
-                  <span className="text-blue-600">{formatCurrency(currentPL.revenue)}</span>
-                </div>
-              </div>
-
-              {/* 原価 */}
-              <div className="border-b pb-4 space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">売上原価</div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>物販仕入</span>
-                  <span>{formatCurrency(currentPL.costProductSales)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>施術材料</span>
-                  <span>{formatCurrency(currentPL.costTreatmentMaterials)}</span>
-                </div>
-              </div>
-
-              {/* 売上総利益 */}
-              <div className="border-b pb-4">
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span className="flex items-center gap-2">
-                    売上総利益（粗利）
-                    {(typeof currentPL.grossProfit === 'string' ? parseFloat(currentPL.grossProfit) : currentPL.grossProfit) >= 0 ? (
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-red-600" />
-                    )}
-                  </span>
-                  <span className={(typeof currentPL.grossProfit === 'string' ? parseFloat(currentPL.grossProfit) : currentPL.grossProfit) >= 0 ? "text-green-600" : "text-red-600"}>
-                    {formatCurrency(currentPL.grossProfit)}
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  粗利率: {formatPercent(currentPL.grossProfit, currentPL.revenue)}
-                </div>
-              </div>
-
-              {/* 販管費 */}
-              <div className="border-b pb-4 space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">販売管理費</div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>人件費</span>
-                  <span>{formatCurrency(currentPL.laborCosts)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>家賃</span>
-                  <span>{formatCurrency(currentPL.rent)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>水道光熱費</span>
-                  <span>{formatCurrency(currentPL.utilities)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>その他経費</span>
-                  <span>{formatCurrency(currentPL.otherExpenses)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm pl-4">
-                  <span>広告宣伝費</span>
-                  <span>{formatCurrency(currentPL.advertisingTotal)}</span>
-                </div>
-                {currentPL.advertisingBreakdown && currentPL.advertisingBreakdown.length > 0 && (
-                  <div className="pl-8 space-y-1 text-xs text-muted-foreground">
-                    {currentPL.advertisingBreakdown.map((item: any) => (
-                      <div key={item.breakdownId} className="flex justify-between">
-                        <span>
-                          {item.channel === "meta" && "Meta"}
-                          {item.channel === "google" && "Google"}
-                          {item.channel === "flyer" && "チラシ"}
-                        </span>
-                        <span>{formatCurrency(item.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 営業利益 */}
-              <div>
-                <div className="flex justify-between items-center text-xl font-bold">
-                  <span className="flex items-center gap-2">
-                    営業利益
-                    {(typeof currentPL.operatingIncome === 'string' ? parseFloat(currentPL.operatingIncome) : currentPL.operatingIncome) >= 0 ? (
-                      <TrendingUp className="h-6 w-6 text-green-600" />
-                    ) : (
-                      <TrendingDown className="h-6 w-6 text-red-600" />
-                    )}
-                  </span>
-                  <span className={(typeof currentPL.operatingIncome === 'string' ? parseFloat(currentPL.operatingIncome) : currentPL.operatingIncome) >= 0 ? "text-green-600" : "text-red-600"}>
-                    {formatCurrency(currentPL.operatingIncome)}
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  営業利益率: {formatPercent(currentPL.operatingIncome, currentPL.revenue)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {selectedYearMonth}の経費データがありません
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 新規登録フォーム */}
-      {isCreating && (
-        <Card>
+      {currentPL && (
+        <Card className="mb-8">
           <CardHeader>
-            <CardTitle>経費データ登録</CardTitle>
+            <CardTitle>簡易PL（{selectedYearMonth}）</CardTitle>
             <CardDescription>
-              月次経費を入力してください（売上は自動集計されます）
+              売上から経費を差し引いた営業利益を表示します
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">売上高</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentPL.revenue)}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">売上総利益（粗利）</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentPL.grossProfit)}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">営業利益</p>
+                <p className={`text-2xl font-bold ${parseFloat(currentPL.operatingIncome) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {formatCurrency(currentPL.operatingIncome)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <h3 className="font-semibold">経費内訳</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">物販仕入:</span>{" "}
+                  <span className="font-medium">{formatCurrency(currentPL.costProductSales)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">施術材料:</span>{" "}
+                  <span className="font-medium">{formatCurrency(currentPL.costTreatmentMaterials)}</span>
+                </div>
+                {EXPENSE_CATEGORIES.map((category) => (
+                  <div key={category.key}>
+                    <span className="text-muted-foreground">{category.label}:</span>{" "}
+                    <span className="font-medium">{formatCurrency(currentPL[category.key] || 0)}</span>
+                  </div>
+                ))}
+                <div>
+                  <span className="text-muted-foreground">広告宣伝費:</span>{" "}
+                  <span className="font-medium">{formatCurrency(currentPL.advertisingTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 経費登録フォーム */}
+      {isCreating ? (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>新規経費登録</CardTitle>
+            <CardDescription>
+              月次経費を入力してください
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="yearMonth">年月</Label>
-                  <Input
-                    id="yearMonth"
-                    type="month"
-                    value={selectedYearMonth}
-                    onChange={(e) => setSelectedYearMonth(e.target.value)}
-                    required
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="yearMonth">対象年月</Label>
+                  <Select value={selectedYearMonth} onValueChange={setSelectedYearMonth}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {generateYearMonthOptions().map((ym) => (
+                        <SelectItem key={ym} value={ym}>
+                          {ym}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold">原価</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <h3 className="font-semibold text-lg">原価</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                     <Label htmlFor="costProductSales">物販仕入</Label>
                     <Input
                       id="costProductSales"
@@ -287,7 +228,7 @@ export default function ExpenseManagement() {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="costTreatmentMaterials">施術材料</Label>
                     <Input
                       id="costTreatmentMaterials"
@@ -303,86 +244,30 @@ export default function ExpenseManagement() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold">経費</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="laborCosts">人件費</Label>
-                    <Input
-                      id="laborCosts"
-                      type="number"
-                      min="0"
-                      value={formData.laborCosts}
-                      onChange={(e) =>
-                        setFormData({ ...formData, laborCosts: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rent">家賃</Label>
-                    <Input
-                      id="rent"
-                      type="number"
-                      min="0"
-                      value={formData.rent}
-                      onChange={(e) => setFormData({ ...formData, rent: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="utilities">水道光熱費</Label>
-                    <Input
-                      id="utilities"
-                      type="number"
-                      min="0"
-                      value={formData.utilities}
-                      onChange={(e) =>
-                        setFormData({ ...formData, utilities: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="trainingExpenses">研修費</Label>
-                    <Input
-                      id="trainingExpenses"
-                      type="number"
-                      min="0"
-                      value={formData.trainingExpenses}
-                      onChange={(e) =>
-                        setFormData({ ...formData, trainingExpenses: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="travelExpenses">交通費</Label>
-                    <Input
-                      id="travelExpenses"
-                      type="number"
-                      min="0"
-                      value={formData.travelExpenses}
-                      onChange={(e) =>
-                        setFormData({ ...formData, travelExpenses: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="otherExpenses">その他経費</Label>
-                    <Input
-                      id="otherExpenses"
-                      type="number"
-                      min="0"
-                      value={formData.otherExpenses}
-                      onChange={(e) =>
-                        setFormData({ ...formData, otherExpenses: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
+                <h3 className="font-semibold text-lg">経費</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {EXPENSE_CATEGORIES.map((category) => (
+                    <div key={category.key}>
+                      <Label htmlFor={category.key}>{category.label}</Label>
+                      <Input
+                        id={category.key}
+                        type="number"
+                        min="0"
+                        value={formData[category.key]}
+                        onChange={(e) =>
+                          setFormData({ ...formData, [category.key]: parseFloat(e.target.value) || 0 })
+                        }
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold">広告宣伝費</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="advertisingMeta">Meta</Label>
+                <h3 className="font-semibold text-lg">広告宣伝費</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="advertisingMeta">Meta広告</Label>
                     <Input
                       id="advertisingMeta"
                       type="number"
@@ -393,8 +278,8 @@ export default function ExpenseManagement() {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="advertisingGoogle">Google</Label>
+                  <div>
+                    <Label htmlFor="advertisingGoogle">Google広告</Label>
                     <Input
                       id="advertisingGoogle"
                       type="number"
@@ -405,7 +290,7 @@ export default function ExpenseManagement() {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="advertisingFlyer">チラシ</Label>
                     <Input
                       id="advertisingFlyer"
@@ -420,8 +305,8 @@ export default function ExpenseManagement() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">メモ</Label>
+              <div>
+                <Label htmlFor="notes">備考</Label>
                 <Textarea
                   id="notes"
                   value={formData.notes}
@@ -430,7 +315,7 @@ export default function ExpenseManagement() {
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-2">
                 <Button type="submit" disabled={createMutation.isPending}>
                   {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   登録
@@ -442,57 +327,44 @@ export default function ExpenseManagement() {
             </form>
           </CardContent>
         </Card>
+      ) : (
+        <Button onClick={() => setIsCreating(true)} className="mb-8">
+          <Plus className="mr-2 h-4 w-4" />
+          新規登録
+        </Button>
       )}
-
-      {/* 経費推移グラフ */}
-      <ExpenseTrendChart />
 
       {/* 経費一覧 */}
       <Card>
         <CardHeader>
           <CardTitle>経費履歴</CardTitle>
-          <CardDescription>過去の経費データを確認できます</CardDescription>
+          <CardDescription>
+            過去の経費データを確認できます
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : expenses && expenses.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>年月</TableHead>
-                  <TableHead className="text-right">売上高</TableHead>
-                  <TableHead className="text-right">売上総利益</TableHead>
-                  <TableHead className="text-right">営業利益</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {expenses.map((expense: any) => (
-                  <TableRow key={expense.expenseId}>
-                    <TableCell className="font-medium">{expense.yearMonth}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(expense.revenue)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={parseFloat(expense.grossProfit) >= 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(expense.grossProfit)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={parseFloat(expense.operatingIncome) >= 0 ? "text-green-600" : "text-red-600"}>
+          {expenses && expenses.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>年月</TableHead>
+                    <TableHead className="text-right">売上高</TableHead>
+                    <TableHead className="text-right">粗利</TableHead>
+                    <TableHead className="text-right">営業利益</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {expenses.map((expense: any) => (
+                    <TableRow key={expense.expenseId}>
+                      <TableCell className="font-medium">{expense.yearMonth}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(expense.revenue)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(expense.grossProfit)}</TableCell>
+                      <TableCell className={`text-right ${parseFloat(expense.operatingIncome) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {formatCurrency(expense.operatingIncome)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedYearMonth(expense.yearMonth)}
-                        >
-                          詳細
-                        </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -501,177 +373,19 @@ export default function ExpenseManagement() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              経費データがありません
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              経費データがありません
+            </p>
           )}
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-/**
- * 経費推移グラフコンポーネント
- */
-function ExpenseTrendChart() {
-  const { data: trendData, isLoading } = trpc.expenses.getTrend.useQuery();
-  const [chartType, setChartType] = useState<"line" | "bar">("line");
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            経費推移（過去12ヶ月）
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!trendData || trendData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            経費推移（過去12ヶ月）
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            経費データがありません
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      style: "currency",
-      currency: "JPY",
-      notation: "compact",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            経費推移（過去12ヶ月）
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant={chartType === "line" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartType("line")}
-            >
-              折れ線グラフ
-            </Button>
-            <Button
-              variant={chartType === "bar" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartType("bar")}
-            >
-              棒グラフ
-            </Button>
-          </div>
-        </div>
-        <CardDescription>カテゴリ別の経費推移を確認できます</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-8">
-          {/* カテゴリ別推移グラフ */}
-          <div>
-            <h3 className="text-sm font-semibold mb-4">カテゴリ別経費推移</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              {chartType === "line" ? (
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="yearMonth" />
-                  <YAxis tickFormatter={formatCurrency} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Line type="monotone" dataKey="laborCosts" stroke="#8b5cf6" name="人件費" strokeWidth={2} />
-                  <Line type="monotone" dataKey="rent" stroke="#3b82f6" name="家賃" strokeWidth={2} />
-                  <Line type="monotone" dataKey="utilities" stroke="#10b981" name="水道光熱費" strokeWidth={2} />
-                  <Line type="monotone" dataKey="trainingExpenses" stroke="#ec4899" name="研修費" strokeWidth={2} />
-                  <Line type="monotone" dataKey="travelExpenses" stroke="#06b6d4" name="交通費" strokeWidth={2} />
-                  <Line type="monotone" dataKey="advertisingTotal" stroke="#f59e0b" name="広告費" strokeWidth={2} />
-                  <Line type="monotone" dataKey="otherExpenses" stroke="#6b7280" name="その他経費" strokeWidth={2} />
-                </LineChart>
-              ) : (
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="yearMonth" />
-                  <YAxis tickFormatter={formatCurrency} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="laborCosts" stackId="a" fill="#8b5cf6" name="人件費" />
-                  <Bar dataKey="rent" stackId="a" fill="#3b82f6" name="家賃" />
-                  <Bar dataKey="utilities" stackId="a" fill="#10b981" name="水道光熱費" />
-                  <Bar dataKey="trainingExpenses" stackId="a" fill="#ec4899" name="研修費" />
-                  <Bar dataKey="travelExpenses" stackId="a" fill="#06b6d4" name="交通費" />
-                  <Bar dataKey="advertisingTotal" stackId="a" fill="#f59e0b" name="広告費" />
-                  <Bar dataKey="otherExpenses" stackId="a" fill="#6b7280" name="その他経費" />
-                </BarChart>
-              )}
-            </ResponsiveContainer>
-          </div>
-
-          {/* 売上・利益推移グラフ */}
-          <div>
-            <h3 className="text-sm font-semibold mb-4">売上・利益推移</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="yearMonth" />
-                <YAxis tickFormatter={formatCurrency} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#22c55e" name="売上高" strokeWidth={3} />
-                <Line type="monotone" dataKey="grossProfit" stroke="#3b82f6" name="売上総利益" strokeWidth={2} />
-                <Line type="monotone" dataKey="operatingProfit" stroke="#f59e0b" name="営業利益" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* 広告費内訳グラフ */}
-          <div>
-            <h3 className="text-sm font-semibold mb-4">広告費内訳</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="yearMonth" />
-                <YAxis tickFormatter={formatCurrency} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="advertisingMeta" stackId="a" fill="#0084ff" name="Meta" />
-                <Bar dataKey="advertisingGoogle" stackId="a" fill="#34a853" name="Google" />
-                <Bar dataKey="advertisingFlyer" stackId="a" fill="#fbbc04" name="チラシ" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

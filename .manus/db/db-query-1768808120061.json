@@ -1,0 +1,31 @@
+{
+  "query": "SHOW TABLES LIKE '%migration%'; SELECT * FROM __drizzle_migrations LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute SHOW TABLES LIKE '%migration%'; SELECT * FROM __drizzle_migrations LIMIT 5;",
+  "rows": [
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "id\thash\tcreated_at"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "1\t814a08e40d7fc2bcfd458759d18319198ca8ae394f2fa15617a78678e9c9c93b\t1768145950448"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "221055\tdd8c933107a5e5e2c80fb394063b46c397e95430b5962474dabf70a8b4dd4c54\t1768182396708"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "251055\t2282d59e84fc5abd32dcf2f8a9294fc50364f61fbb973132555dbe73e48e1dee\t1768184272758"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "281055\tac6681f5bf1cee2181bb98142fdbb0c2c03ab341ea47c991938eaf2c2a398b78\t1768192447989"
+    },
+    {
+      "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)": "410744\t662ff102ff28c1af962fb483145b8f32e28fae6ffb689ca4282c6388fda96355\t1768222695723"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_NdUP7w5xBfCzAuDZco4hbr (%migration%)\n__drizzle_migrations\nid\thash\tcreated_at\n1\t814a08e40d7fc2bcfd458759d18319198ca8ae394f2fa15617a78678e9c9c93b\t1768145950448\n221055\tdd8c933107a5e5e2c80fb394063b46c397e95430b5962474dabf70a8b4dd4c54\t1768182396708\n251055\t2282d59e84fc5abd32dcf2f8a9294fc50364f61fbb973132555dbe73e48e1dee\t1768184272758\n281055\tac6681f5bf1cee2181bb98142fdbb0c2c03ab341ea47c991938eaf2c2a398b78\t1768192447989\n410744\t662ff102ff28c1af962fb483145b8f32e28fae6ffb689ca4282c6388fda96355\t1768222695723\n",
+  "stderr": "",
+  "execution_time_ms": 1761
+}

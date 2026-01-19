@@ -1,0 +1,8 @@
+{
+  "query": "DELETE FROM __drizzle_migrations WHERE name >= '0013_chief_mystique.sql';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute DELETE FROM __drizzle_migrations WHERE name >= '0013_chief_mystique.sql';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'name' in 'where clause'"
+  ]
+}

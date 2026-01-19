@@ -547,11 +547,11 @@ export type InsertReservation = typeof reservations.$inferInsert;
 
 
 /**
- * 月次経費テーブル（10カテゴリ・暦月運用）
+ * 月次経費テーブル（16カテゴリ・暦月運用）
  * 
  * 簡易PL計算式:
  * - 売上総利益（粗利）= 売上高 - (costProductSales + costTreatmentMaterials)
- * - 営業利益 = 粗利 - (laborCosts + rent + utilities + otherExpenses + advertisingTotal)
+ * - 営業利益 = 粗利 - (laborCosts + rent + utilities + communicationCosts + consumablesCosts + trainingExpenses + travelExpenses + bankRepayment + insuranceCosts + leaseCosts + repairCosts + welfareCosts + depreciationCosts + accountingCosts + miscellaneousCosts + otherExpenses + advertisingTotal)
  */
 export const monthlyExpenses = mysqlTable("monthlyExpenses", {
   id: int("id").autoincrement().primaryKey(),
@@ -567,12 +567,22 @@ export const monthlyExpenses = mysqlTable("monthlyExpenses", {
   costProductSales: decimal("costProductSales", { precision: 12, scale: 2 }).default("0").notNull(), // 物販仕入
   costTreatmentMaterials: decimal("costTreatmentMaterials", { precision: 12, scale: 2 }).default("0").notNull(), // 施術材料
   
-  // 経費（6種）
+  // 経費（16種）
   laborCosts: decimal("laborCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 人件費
   rent: decimal("rent", { precision: 12, scale: 2 }).default("0").notNull(), // 家賃
   utilities: decimal("utilities", { precision: 12, scale: 2 }).default("0").notNull(), // 水道光熱費
+  communicationCosts: decimal("communicationCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 通信費
+  consumablesCosts: decimal("consumablesCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 消耗品費
   trainingExpenses: decimal("trainingExpenses", { precision: 12, scale: 2 }).default("0").notNull(), // 研修費
   travelExpenses: decimal("travelExpenses", { precision: 12, scale: 2 }).default("0").notNull(), // 交通費
+  bankRepayment: decimal("bankRepayment", { precision: 12, scale: 2 }).default("0").notNull(), // 銀行返済
+  insuranceCosts: decimal("insuranceCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 保険料
+  leaseCosts: decimal("leaseCosts", { precision: 12, scale: 2 }).default("0").notNull(), // リース料
+  repairCosts: decimal("repairCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 修繕費
+  welfareCosts: decimal("welfareCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 福利厚生費
+  depreciationCosts: decimal("depreciationCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 減価償却費
+  accountingCosts: decimal("accountingCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 税理士・会計士費用
+  miscellaneousCosts: decimal("miscellaneousCosts", { precision: 12, scale: 2 }).default("0").notNull(), // 雑費
   otherExpenses: decimal("otherExpenses", { precision: 12, scale: 2 }).default("0").notNull(), // その他経費
   
   // 広告宣伝費（合計）

@@ -9,12 +9,12 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Loader2, Save, X } from "lucide-react";
 import { useLocation } from "wouter";
+import { EXPENSE_CATEGORIES } from "../../../shared/expenseCategories";
 
 interface ExpenseEdit {
   expenseId: string;
@@ -24,8 +24,18 @@ interface ExpenseEdit {
   laborCosts: number;
   rent: number;
   utilities: number;
+  communicationCosts: number;
+  consumablesCosts: number;
   trainingExpenses: number;
   travelExpenses: number;
+  bankRepayment: number;
+  insuranceCosts: number;
+  leaseCosts: number;
+  repairCosts: number;
+  welfareCosts: number;
+  depreciationCosts: number;
+  accountingCosts: number;
+  miscellaneousCosts: number;
   otherExpenses: number;
   advertisingMeta: number;
   advertisingGoogle: number;
@@ -58,9 +68,9 @@ export default function ExpenseBatchEdit() {
   useEffect(() => {
     if (expenses) {
       const initialData: ExpenseEdit[] = expenses.map((expense) => {
-        const metaBreakdown = expense.advertisingBreakdown?.find((b) => b.channel === "meta");
-        const googleBreakdown = expense.advertisingBreakdown?.find((b) => b.channel === "google");
-        const flyerBreakdown = expense.advertisingBreakdown?.find((b) => b.channel === "flyer");
+        const metaBreakdown = expense.advertisingBreakdown?.find((b: any) => b.channel === "meta");
+        const googleBreakdown = expense.advertisingBreakdown?.find((b: any) => b.channel === "google");
+        const flyerBreakdown = expense.advertisingBreakdown?.find((b: any) => b.channel === "flyer");
 
         return {
           expenseId: expense.expenseId,
@@ -70,8 +80,18 @@ export default function ExpenseBatchEdit() {
           laborCosts: parseFloat(expense.laborCosts),
           rent: parseFloat(expense.rent),
           utilities: parseFloat(expense.utilities),
+          communicationCosts: parseFloat(expense.communicationCosts || "0"),
+          consumablesCosts: parseFloat(expense.consumablesCosts || "0"),
           trainingExpenses: parseFloat(expense.trainingExpenses),
           travelExpenses: parseFloat(expense.travelExpenses),
+          bankRepayment: parseFloat(expense.bankRepayment || "0"),
+          insuranceCosts: parseFloat(expense.insuranceCosts || "0"),
+          leaseCosts: parseFloat(expense.leaseCosts || "0"),
+          repairCosts: parseFloat(expense.repairCosts || "0"),
+          welfareCosts: parseFloat(expense.welfareCosts || "0"),
+          depreciationCosts: parseFloat(expense.depreciationCosts || "0"),
+          accountingCosts: parseFloat(expense.accountingCosts || "0"),
+          miscellaneousCosts: parseFloat(expense.miscellaneousCosts || "0"),
           otherExpenses: parseFloat(expense.otherExpenses),
           advertisingMeta: metaBreakdown ? parseFloat(metaBreakdown.amount) : 0,
           advertisingGoogle: googleBreakdown ? parseFloat(googleBreakdown.amount) : 0,
@@ -104,8 +124,18 @@ export default function ExpenseBatchEdit() {
       laborCosts: item.laborCosts,
       rent: item.rent,
       utilities: item.utilities,
+      communicationCosts: item.communicationCosts,
+      consumablesCosts: item.consumablesCosts,
       trainingExpenses: item.trainingExpenses,
       travelExpenses: item.travelExpenses,
+      bankRepayment: item.bankRepayment,
+      insuranceCosts: item.insuranceCosts,
+      leaseCosts: item.leaseCosts,
+      repairCosts: item.repairCosts,
+      welfareCosts: item.welfareCosts,
+      depreciationCosts: item.depreciationCosts,
+      accountingCosts: item.accountingCosts,
+      miscellaneousCosts: item.miscellaneousCosts,
       otherExpenses: item.otherExpenses,
       advertisingMeta: item.advertisingMeta,
       advertisingGoogle: item.advertisingGoogle,
@@ -117,214 +147,170 @@ export default function ExpenseBatchEdit() {
     setShowConfirmDialog(false);
   };
 
-  const handleCancel = () => {
-    if (hasChanges) {
-      if (confirm("変更が保存されていません。編集を破棄しますか？")) {
-        setLocation("/expenses");
-      }
-    } else {
-      setLocation("/expenses");
-    }
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("ja-JP", {
+      style: "currency",
+      currency: "JPY",
+      minimumFractionDigits: 0,
+    }).format(value);
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">経費一括編集</h1>
+          <p className="text-muted-foreground mt-2">
+            複数月の経費データを一括で編集できます
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={!hasChanges || batchUpdateMutation.isPending}>
+            {batchUpdateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Save className="mr-2 h-4 w-4" />
+            保存
+          </Button>
+          <Button variant="outline" onClick={() => setLocation("/expenses")}>
+            <X className="mr-2 h-4 w-4" />
+            キャンセル
+          </Button>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>経費一括編集</CardTitle>
-              <CardDescription>複数月の経費データを一括で編集できます</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCancel}>
-                <X className="h-4 w-4 mr-2" />
-                キャンセル
-              </Button>
-              <Button onClick={handleSave} disabled={!hasChanges || batchUpdateMutation.isPending}>
-                {batchUpdateMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                保存
-              </Button>
-            </div>
-          </div>
+          <CardTitle>経費データ編集</CardTitle>
+          <CardDescription>
+            各フィールドをクリックして編集してください
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[100px]">年月</TableHead>
-                  <TableHead className="min-w-[120px]">物販仕入</TableHead>
-                  <TableHead className="min-w-[120px]">施術材料</TableHead>
-                  <TableHead className="min-w-[120px]">人件費</TableHead>
-                  <TableHead className="min-w-[120px]">家賃</TableHead>
-                  <TableHead className="min-w-[120px]">水道光熱費</TableHead>
-                  <TableHead className="min-w-[120px]">研修費</TableHead>
-                  <TableHead className="min-w-[120px]">交通費</TableHead>
-                  <TableHead className="min-w-[120px]">その他経費</TableHead>
-                  <TableHead className="min-w-[120px]">Meta広告</TableHead>
-                  <TableHead className="min-w-[120px]">Google広告</TableHead>
-                  <TableHead className="min-w-[120px]">チラシ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {editData.map((item) => (
-                  <TableRow key={item.expenseId}>
-                    <TableCell className="font-medium">{item.yearMonth}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.costProductSales}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "costProductSales", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.costTreatmentMaterials}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "costTreatmentMaterials", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.laborCosts}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "laborCosts", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.rent}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "rent", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.utilities}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "utilities", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.trainingExpenses}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "trainingExpenses", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.travelExpenses}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "travelExpenses", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.otherExpenses}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "otherExpenses", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.advertisingMeta}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "advertisingMeta", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.advertisingGoogle}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "advertisingGoogle", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.advertisingFlyer}
-                        onChange={(e) =>
-                          handleFieldChange(item.expenseId, "advertisingFlyer", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
-                      />
-                    </TableCell>
+          {editData.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background z-10">年月</TableHead>
+                    <TableHead>物販仕入</TableHead>
+                    <TableHead>施術材料</TableHead>
+                    {EXPENSE_CATEGORIES.map((category) => (
+                      <TableHead key={category.key}>{category.label}</TableHead>
+                    ))}
+                    <TableHead>Meta広告</TableHead>
+                    <TableHead>Google広告</TableHead>
+                    <TableHead>チラシ</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {editData.slice(0, 3).map((expense) => (
+                    <TableRow key={expense.expenseId}>
+                      <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                        {expense.yearMonth}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={expense.costProductSales}
+                          onChange={(e) =>
+                            handleFieldChange(expense.expenseId, "costProductSales", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={expense.costTreatmentMaterials}
+                          onChange={(e) =>
+                            handleFieldChange(expense.expenseId, "costTreatmentMaterials", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24"
+                        />
+                      </TableCell>
+                      {EXPENSE_CATEGORIES.map((category) => (
+                        <TableCell key={category.key}>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={expense[category.key]}
+                            onChange={(e) =>
+                              handleFieldChange(expense.expenseId, category.key, parseFloat(e.target.value) || 0)
+                            }
+                            className="w-24"
+                          />
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={expense.advertisingMeta}
+                          onChange={(e) =>
+                            handleFieldChange(expense.expenseId, "advertisingMeta", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={expense.advertisingGoogle}
+                          onChange={(e) =>
+                            handleFieldChange(expense.expenseId, "advertisingGoogle", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={expense.advertisingFlyer}
+                          onChange={(e) =>
+                            handleFieldChange(expense.expenseId, "advertisingFlyer", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              編集可能な経費データがありません
+            </p>
+          )}
         </CardContent>
       </Card>
 
+      {/* 確認ダイアログ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>変更を保存しますか？</DialogTitle>
+            <DialogTitle>経費データを一括更新しますか？</DialogTitle>
             <DialogDescription>
-              {editData.length}件の経費データを一括更新します。この操作は元に戻せません。
+              {editData.slice(0, 3).length}件の経費データを更新します。この操作は取り消せません。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
               キャンセル
             </Button>
-            <Button onClick={handleConfirmSave}>
+            <Button onClick={handleConfirmSave} disabled={batchUpdateMutation.isPending}>
+              {batchUpdateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               保存
             </Button>
           </DialogFooter>

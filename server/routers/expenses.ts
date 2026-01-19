@@ -118,8 +118,18 @@ export const expensesRouter = router({
         laborCosts: z.number().min(0).default(0),
         rent: z.number().min(0).default(0),
         utilities: z.number().min(0).default(0),
+        communicationCosts: z.number().min(0).default(0),
+        consumablesCosts: z.number().min(0).default(0),
         trainingExpenses: z.number().min(0).default(0),
         travelExpenses: z.number().min(0).default(0),
+        bankRepayment: z.number().min(0).default(0),
+        insuranceCosts: z.number().min(0).default(0),
+        leaseCosts: z.number().min(0).default(0),
+        repairCosts: z.number().min(0).default(0),
+        welfareCosts: z.number().min(0).default(0),
+        depreciationCosts: z.number().min(0).default(0),
+        accountingCosts: z.number().min(0).default(0),
+        miscellaneousCosts: z.number().min(0).default(0),
         otherExpenses: z.number().min(0).default(0),
         advertisingMeta: z.number().min(0).default(0),
         advertisingGoogle: z.number().min(0).default(0),
@@ -156,8 +166,18 @@ export const expensesRouter = router({
         (input.laborCosts +
           input.rent +
           input.utilities +
+          input.communicationCosts +
+          input.consumablesCosts +
           input.trainingExpenses +
           input.travelExpenses +
+          input.bankRepayment +
+          input.insuranceCosts +
+          input.leaseCosts +
+          input.repairCosts +
+          input.welfareCosts +
+          input.depreciationCosts +
+          input.accountingCosts +
+          input.miscellaneousCosts +
           input.otherExpenses +
           advertisingTotal);
 
@@ -171,8 +191,18 @@ export const expensesRouter = router({
         laborCosts: input.laborCosts.toString(),
         rent: input.rent.toString(),
         utilities: input.utilities.toString(),
+        communicationCosts: input.communicationCosts.toString(),
+        consumablesCosts: input.consumablesCosts.toString(),
         trainingExpenses: input.trainingExpenses.toString(),
         travelExpenses: input.travelExpenses.toString(),
+        bankRepayment: input.bankRepayment.toString(),
+        insuranceCosts: input.insuranceCosts.toString(),
+        leaseCosts: input.leaseCosts.toString(),
+        repairCosts: input.repairCosts.toString(),
+        welfareCosts: input.welfareCosts.toString(),
+        depreciationCosts: input.depreciationCosts.toString(),
+        accountingCosts: input.accountingCosts.toString(),
+        miscellaneousCosts: input.miscellaneousCosts.toString(),
         otherExpenses: input.otherExpenses.toString(),
         advertisingTotal: advertisingTotal.toString(),
         grossProfit: grossProfit.toString(),
@@ -466,8 +496,18 @@ export const expensesRouter = router({
             laborCosts: z.number().min(0).optional(),
             rent: z.number().min(0).optional(),
             utilities: z.number().min(0).optional(),
+            communicationCosts: z.number().min(0).optional(),
+            consumablesCosts: z.number().min(0).optional(),
             trainingExpenses: z.number().min(0).optional(),
             travelExpenses: z.number().min(0).optional(),
+            bankRepayment: z.number().min(0).optional(),
+            insuranceCosts: z.number().min(0).optional(),
+            leaseCosts: z.number().min(0).optional(),
+            repairCosts: z.number().min(0).optional(),
+            welfareCosts: z.number().min(0).optional(),
+            depreciationCosts: z.number().min(0).optional(),
+            accountingCosts: z.number().min(0).optional(),
+            miscellaneousCosts: z.number().min(0).optional(),
             otherExpenses: z.number().min(0).optional(),
             advertisingMeta: z.number().min(0).optional(),
             advertisingGoogle: z.number().min(0).optional(),
@@ -504,8 +544,18 @@ export const expensesRouter = router({
         const laborCosts = update.laborCosts ?? parseFloat(expense.laborCosts);
         const rent = update.rent ?? parseFloat(expense.rent);
         const utilities = update.utilities ?? parseFloat(expense.utilities);
+        const communicationCosts = update.communicationCosts ?? parseFloat(expense.communicationCosts);
+        const consumablesCosts = update.consumablesCosts ?? parseFloat(expense.consumablesCosts);
         const trainingExpenses = update.trainingExpenses ?? parseFloat(expense.trainingExpenses);
         const travelExpenses = update.travelExpenses ?? parseFloat(expense.travelExpenses);
+        const bankRepayment = update.bankRepayment ?? parseFloat(expense.bankRepayment);
+        const insuranceCosts = update.insuranceCosts ?? parseFloat(expense.insuranceCosts);
+        const leaseCosts = update.leaseCosts ?? parseFloat(expense.leaseCosts);
+        const repairCosts = update.repairCosts ?? parseFloat(expense.repairCosts);
+        const welfareCosts = update.welfareCosts ?? parseFloat(expense.welfareCosts);
+        const depreciationCosts = update.depreciationCosts ?? parseFloat(expense.depreciationCosts);
+        const accountingCosts = update.accountingCosts ?? parseFloat(expense.accountingCosts);
+        const miscellaneousCosts = update.miscellaneousCosts ?? parseFloat(expense.miscellaneousCosts);
         const otherExpenses = update.otherExpenses ?? parseFloat(expense.otherExpenses);
 
         // 広告費の処理
@@ -521,7 +571,7 @@ export const expensesRouter = router({
         const grossProfit = revenue - (costProductSales + costTreatmentMaterials);
         const operatingIncome =
           grossProfit -
-          (laborCosts + rent + utilities + trainingExpenses + travelExpenses + otherExpenses + advertisingTotal);
+          (laborCosts + rent + utilities + communicationCosts + consumablesCosts + trainingExpenses + travelExpenses + bankRepayment + insuranceCosts + leaseCosts + repairCosts + welfareCosts + depreciationCosts + accountingCosts + miscellaneousCosts + otherExpenses + advertisingTotal);
 
         // 月次経費を更新
         await db
@@ -532,8 +582,18 @@ export const expensesRouter = router({
             laborCosts: laborCosts.toString(),
             rent: rent.toString(),
             utilities: utilities.toString(),
+            communicationCosts: communicationCosts.toString(),
+            consumablesCosts: consumablesCosts.toString(),
             trainingExpenses: trainingExpenses.toString(),
             travelExpenses: travelExpenses.toString(),
+            bankRepayment: bankRepayment.toString(),
+            insuranceCosts: insuranceCosts.toString(),
+            leaseCosts: leaseCosts.toString(),
+            repairCosts: repairCosts.toString(),
+            welfareCosts: welfareCosts.toString(),
+            depreciationCosts: depreciationCosts.toString(),
+            accountingCosts: accountingCosts.toString(),
+            miscellaneousCosts: miscellaneousCosts.toString(),
             otherExpenses: otherExpenses.toString(),
             advertisingTotal: advertisingTotal.toString(),
             grossProfit: grossProfit.toString(),
