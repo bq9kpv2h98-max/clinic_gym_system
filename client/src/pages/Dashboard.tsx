@@ -267,7 +267,7 @@ const Dashboard: React.FC = () => {
 
                 {/* スタッフスキャナー */}
                 <a
-                  href="/staff-scanner"
+                  href="/staff/scanner"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -277,7 +277,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">スタッフスキャナー</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">QRコードを読み取って来院記録を登録</p>
-                  <p className="text-xs text-green-600 break-all">{window.location.origin}/staff-scanner</p>
+                  <p className="text-xs text-green-600 break-all">{window.location.origin}/staff/scanner</p>
                 </a>
 
                 {/* 予約フォーム */}
