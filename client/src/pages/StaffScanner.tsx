@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Loader2, QrCode, Scan, UserCheck, Coins, Calendar, LogOut } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import { saveVisitHistory, getTodayVisitHistory, savePendingVisit, syncPendingVisits, type VisitHistoryRecord } from "@/lib/indexedDB";
 
 export default function StaffScanner() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,6 +39,24 @@ export default function StaffScanner() {
   const [showAddPoints, setShowAddPoints] = useState(false);
   const [showRedeemPoints, setShowRedeemPoints] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string>("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [todayHistory, setTodayHistory] = useState<VisitHistoryRecord[]>([]);
+
+  // 当日の履歴を読み込む
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadTodayHistory();
+    }
+  }, [isAuthenticated]);
+
+  const loadTodayHistory = async () => {
+    try {
+      const history = await getTodayVisitHistory();
+      setTodayHistory(history);
+    } catch (error) {
+      console.error("Failed to load today's history:", error);
+    }
+  };
 
   // デフォルトの有効期限6ヶ月後を計算
   const getDefaultExpiryDate = () => {
@@ -82,8 +101,9 @@ export default function StaffScanner() {
       await html5QrCode.start(
         { facingMode: "environment" },
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
+          fps: 30,
+          qrbox: { width: 300, height: 300 },
+          aspectRatio: 1.0,
         },
         (decodedText) => {
           // QRコードから顧客IDを抽出
@@ -126,21 +146,56 @@ export default function StaffScanner() {
       }
     }
   };
-
   const handleRecordVisit = async () => {
-    if (!scannedCustomerId) return;
+    if (!scannedCustomerId || !customerData) return;
 
     try {
-      await recordVisitMutation.mutateAsync({
+      // オンラインの場合は通常通り登録
+      await recordVisitMutation.mutateAsync({ customerId: scannedCustomerId });
+      
+      // IndexedDBに履歴を保存
+      await saveVisitHistory({
         customerId: scannedCustomerId,
+        customerName: customerData.customer.fullName,
+        date: new Date().toISOString().split('T')[0],
+        timestamp: Date.now(),
+        synced: true,
       });
+      
+      await loadTodayHistory();
       toast.success("来院記録を登録しました");
       refetch();
-    } catch (error) {
-      toast.error("来院記録の登録に失敗しました");
+    } catch (error: any) {
+      // オフラインの場合はIndexedDBに保存
+      if (!navigator.onLine) {
+        try {
+          await savePendingVisit({
+            customerId: scannedCustomerId,
+            timestamp: Date.now(),
+            data: { customerId: scannedCustomerId },
+          });
+          
+          await saveVisitHistory({
+            customerId: scannedCustomerId,
+            customerName: customerData.customer.fullName,
+            date: new Date().toISOString().split('T')[0],
+            timestamp: Date.now(),
+            synced: false,
+          });
+          
+          await loadTodayHistory();
+          toast.success("オフライン: 来院記録を一時保存しました\nオンライン復帰時に自動同期されます");
+          
+          // バックグラウンド同期を登録
+          await syncPendingVisits();
+        } catch (offlineError) {
+          toast.error("オフライン保存に失敗しました");
+        }
+      } else {
+        toast.error(error.message || "登録に失敗しました");
+      }
     }
   };
-
   const handleAddPoints = async () => {
     if (!scannedCustomerId) return;
 
@@ -227,11 +282,60 @@ export default function StaffScanner() {
         <div className="max-w-md mx-auto space-y-4 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">QRコードスキャナー</h1>
-            <Button onClick={handleLogout} variant="ghost" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
-              ログアウト
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowHistory(!showHistory)} variant="ghost" size="sm">
+                <Calendar className="w-4 h-4 mr-2" />
+                履歴 ({todayHistory.length})
+              </Button>
+              <Button onClick={handleLogout} variant="ghost" size="sm">
+                <LogOut className="w-4 h-4 mr-2" />
+                ログアウト
+              </Button>
+            </div>
           </div>
+
+          {/* 当日の来院履歴 */}
+          {showHistory && (
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  本日の来院履歴
+                </CardTitle>
+                <CardDescription>
+                  {new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {todayHistory.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {todayHistory.map((record) => (
+                      <div
+                        key={record.id}
+                        className="flex justify-between items-center p-3 bg-gray-50 rounded border"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900">{record.customerName}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(record.timestamp).toLocaleTimeString("ja-JP")}
+                          </p>
+                        </div>
+                        {!record.synced && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                            未同期
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">
+                    本日の来院記録はまだありません
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="shadow-lg">
             <CardHeader>

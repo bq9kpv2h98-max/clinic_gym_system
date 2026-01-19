@@ -3,6 +3,7 @@ const OFFLINE_CACHE = 'offline-v1';
 const urlsToCache = [
   '/',
   '/customer-home',
+  '/staff/scanner',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
@@ -112,6 +113,76 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, options)
   );
 });
+
+// Background sync for offline visit records
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-visit-records') {
+    event.waitUntil(syncVisitRecords());
+  }
+});
+
+async function syncVisitRecords() {
+  try {
+    // Open IndexedDB and get pending records
+    const db = await openDB();
+    const tx = db.transaction('pendingVisits', 'readonly');
+    const store = tx.objectStore('pendingVisits');
+    const records = await getAllRecords(store);
+    
+    // Send each record to the server
+    for (const record of records) {
+      try {
+        const response = await fetch('/api/trpc/staff.recordVisit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(record.data),
+        });
+        
+        if (response.ok) {
+          // Remove from IndexedDB after successful sync
+          const deleteTx = db.transaction('pendingVisits', 'readwrite');
+          const deleteStore = deleteTx.objectStore('pendingVisits');
+          await deleteStore.delete(record.id);
+        }
+      } catch (error) {
+        console.error('[Service Worker] Failed to sync record:', error);
+      }
+    }
+  } catch (error) {
+    console.error('[Service Worker] Failed to sync visit records:', error);
+  }
+}
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('ClinicGymDB', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('pendingVisits')) {
+        db.createObjectStore('pendingVisits', { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains('visitHistory')) {
+        const historyStore = db.createObjectStore('visitHistory', { keyPath: 'id', autoIncrement: true });
+        historyStore.createIndex('date', 'date', { unique: false });
+        historyStore.createIndex('customerId', 'customerId', { unique: false });
+      }
+    };
+  });
+}
+
+function getAllRecords(store) {
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
 // Notification click event
 self.addEventListener('notificationclick', (event) => {
