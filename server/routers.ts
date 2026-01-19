@@ -22,6 +22,7 @@ import { expensesRouter } from "./routers/expenses";
 import { mypageRouter } from "./routers/mypage";
 import { notionLinkRouter } from "./routers/notion-link";
 import { cronJobsRouter } from "./routers/cron-jobs";
+import { staffRouter } from "./routers/staff";
 
 
 export const appRouter = router({
@@ -47,6 +48,7 @@ export const appRouter = router({
   mypage: mypageRouter,
   notionLink: notionLinkRouter,
   cronJobs: cronJobsRouter,
+  staff: staffRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
