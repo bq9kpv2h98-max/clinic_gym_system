@@ -62,6 +62,14 @@ export default function ReservationForm() {
   };
 
   const validateStep1 = () => {
+    if (!formData.firstChoiceDate || !formData.firstChoiceTimeSlot) {
+      toast.error("第1希望の日時を選択してください");
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
     if (!formData.customerName.trim()) {
       toast.error("お名前を入力してください");
       return false;
@@ -76,14 +84,6 @@ export default function ReservationForm() {
     }
     if (!formData.customerEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       toast.error("有効なメールアドレスを入力してください");
-      return false;
-    }
-    return true;
-  };
-
-  const validateStep2 = () => {
-    if (!formData.firstChoiceDate || !formData.firstChoiceTimeSlot) {
-      toast.error("第1希望の日時を選択してください");
       return false;
     }
     return true;
@@ -185,93 +185,8 @@ export default function ReservationForm() {
     });
   };
 
-  // ステップ1: 顧客情報入力
+  // ステップ1: 希望日時選択
   if (step === 1) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約リクエストフォーム</h1>
-            <p className="text-gray-600">お客様情報をご入力ください</p>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                お客様情報（ステップ 1/3）
-              </CardTitle>
-              <CardDescription>
-                ご予約リクエストに必要な情報をご入力ください
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">お名前 *</Label>
-                <Input
-                  id="name"
-                  placeholder="山田 太郎"
-                  value={formData.customerName}
-                  onChange={(e) => handleInputChange("customerName", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">電話番号 *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="09012345678"
-                  value={formData.customerPhone}
-                  onChange={(e) => handleInputChange("customerPhone", e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  ハイフンなしで入力してください
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">メールアドレス *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@email.com"
-                  value={formData.customerEmail}
-                  onChange={(e) => handleInputChange("customerEmail", e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  予約リクエスト確認メールをお送りします
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="preferLineContact"
-                  checked={formData.preferLineContact}
-                  onChange={(e) => handleInputChange("preferLineContact", e.target.checked)}
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <Label htmlFor="preferLineContact" className="flex items-center gap-2 cursor-pointer">
-                  <MessageCircle className="w-4 h-4 text-green-600" />
-                  LINEでの連絡を希望する
-                </Label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button onClick={handleNext} size="lg" className="px-8">
-                  次へ
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // ステップ2: 希望日時選択
-  if (step === 2) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-4xl mx-auto">
@@ -284,7 +199,7 @@ export default function ReservationForm() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5" />
-                ご希望日時（ステップ 2/3）
+                ご希望日時（ステップ 1/3）
               </CardTitle>
               <CardDescription>
                 第3希望まで選択いただけます（第1希望は必須）
@@ -399,6 +314,91 @@ export default function ReservationForm() {
                     </Select>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button onClick={handleNext} size="lg" className="px-8">
+                  次へ
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // ステップ2: 顧客情報入力
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">ご予約リクエストフォーム</h1>
+            <p className="text-gray-600">お客様情報をご入力ください</p>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                お客様情報（ステップ 2/3）
+              </CardTitle>
+              <CardDescription>
+                ご予約リクエストに必要な情報をご入力ください
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">お名前 *</Label>
+                <Input
+                  id="name"
+                  placeholder="山田 太郎"
+                  value={formData.customerName}
+                  onChange={(e) => handleInputChange("customerName", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">電話番号 *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="09012345678"
+                  value={formData.customerPhone}
+                  onChange={(e) => handleInputChange("customerPhone", e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  ハイフンなしで入力してください
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">メールアドレス *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="example@email.com"
+                  value={formData.customerEmail}
+                  onChange={(e) => handleInputChange("customerEmail", e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  予約リクエスト確認メールをお送りします
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="preferLineContact"
+                  checked={formData.preferLineContact}
+                  onChange={(e) => handleInputChange("preferLineContact", e.target.checked)}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <Label htmlFor="preferLineContact" className="flex items-center gap-2 cursor-pointer">
+                  <MessageCircle className="w-4 h-4 text-green-600" />
+                  LINEでの連絡を希望する
+                </Label>
               </div>
 
               <div className="flex justify-between gap-3 pt-4">
