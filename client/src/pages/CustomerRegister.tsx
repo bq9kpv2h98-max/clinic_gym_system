@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Loader2, Check, Smartphone } from "lucide-react";
+import { Loader2, Check, Smartphone, UserPlus, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const registerSchema = z.object({
+// 既存顧客用のスキーマ
+const existingCustomerSchema = z.object({
   fullName: z.string().trim().min(1, "名前を入力してください"),
   dateOfBirth: z.string().min(1, "生年月日を選択してください"),
   gender: z.enum(["male", "female", "other", "prefer_not_to_say"], {
@@ -27,9 +30,22 @@ const registerSchema = z.object({
   addressLine2: z.string().optional(),
 });
 
-type RegisterFormData = z.infer<typeof registerSchema>;
+// 新規顧客用のスキーマ（既存顧客のフィールド + 追加フィールド）
+const newCustomerSchema = existingCustomerSchema.extend({
+  howDidYouKnow: z.string().trim().min(1, "当院を知った理由を入力してください"),
+  concerns: z.string().trim().min(1, "悩み・症状を入力してください"),
+  medicalHistory: z.string().optional(),
+  isPregnant: z.enum(["0", "1"], {
+    message: "妊娠の有無を選択してください",
+  }),
+  postpartumPeriod: z.string().optional(),
+});
+
+type ExistingCustomerFormData = z.infer<typeof existingCustomerSchema>;
+type NewCustomerFormData = z.infer<typeof newCustomerSchema>;
 
 export default function CustomerRegister() {
+  const [customerType, setCustomerType] = useState<"new" | "existing" | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredCustomerId, setRegisteredCustomerId] = useState<string | null>(null);
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState<string | null>(null);
@@ -42,8 +58,9 @@ export default function CustomerRegister() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    reset,
+  } = useForm<NewCustomerFormData>({
+    resolver: zodResolver(customerType === "new" ? newCustomerSchema : existingCustomerSchema),
     mode: "onSubmit",
   });
 
@@ -80,14 +97,26 @@ export default function CustomerRegister() {
     return () => clearTimeout(timeoutId);
   }, [postalCode, setValue]);
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: NewCustomerFormData | ExistingCustomerFormData) => {
     setIsSubmitting(true);
     try {
-      const result = await registerMutation.mutateAsync({
+      const payload: any = {
         ...data,
         email: data.email || undefined,
         customFields: {},
-      });
+      };
+
+      // 新規顧客の場合のみ追加フィールドを送信
+      if (customerType === "new") {
+        const newData = data as NewCustomerFormData;
+        payload.howDidYouKnow = newData.howDidYouKnow;
+        payload.concerns = newData.concerns;
+        payload.medicalHistory = newData.medicalHistory || undefined;
+        payload.isPregnant = parseInt(newData.isPregnant);
+        payload.postpartumPeriod = newData.postpartumPeriod || undefined;
+      }
+
+      const result = await registerMutation.mutateAsync(payload);
 
       setRegisteredCustomerId(result.customerId);
       setQrCodeImageUrl(result.qrCodeImageUrl);
@@ -103,6 +132,7 @@ export default function CustomerRegister() {
     }
   };
 
+  // 登録完了画面
   if (registeredCustomerId && qrCodeImageUrl) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
@@ -154,6 +184,8 @@ export default function CustomerRegister() {
                 onClick={() => {
                   setRegisteredCustomerId(null);
                   setQrCodeImageUrl(null);
+                  setCustomerType(null);
+                  reset();
                 }}
                 variant="outline"
                 className="w-full"
@@ -169,7 +201,7 @@ export default function CustomerRegister() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5" />
-                  ホーム画面に追加しませんか？
+                  ホーム画面に追加しませんか?
                 </DialogTitle>
                 <DialogDescription className="space-y-3 pt-2">
                   <p>
@@ -208,15 +240,81 @@ export default function CustomerRegister() {
     );
   }
 
+  // 顧客タイプ選択画面
+  if (!customerType) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
+        <div className="max-w-2xl mx-auto mt-8">
+          <Card className="shadow-lg">
+            <CardHeader className="text-center">
+              <CardTitle>診察券登録</CardTitle>
+              <CardDescription>
+                新規顧客か既存顧客かを選択してください
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={() => setCustomerType("new")}
+                  variant="outline"
+                  className="h-auto py-8 flex flex-col items-center gap-4 hover:bg-blue-50 hover:border-blue-500"
+                >
+                  <UserPlus className="w-12 h-12 text-blue-500" />
+                  <div>
+                    <div className="font-semibold text-lg">新規顧客</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      初めてご来院される方
+                    </div>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={() => setCustomerType("existing")}
+                  variant="outline"
+                  className="h-auto py-8 flex flex-col items-center gap-4 hover:bg-green-50 hover:border-green-500"
+                >
+                  <Users className="w-12 h-12 text-green-500" />
+                  <div>
+                    <div className="font-semibold text-lg">既存顧客</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      以前にご来院されたことがある方
+                    </div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // 登録フォーム
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
       <div className="max-w-2xl mx-auto mt-8">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>診察券登録</CardTitle>
-            <CardDescription>
-              基本情報を入力して、QRコード診察券を発行します
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {customerType === "new" ? "新規顧客登録" : "既存顧客登録"}
+                </CardTitle>
+                <CardDescription>
+                  基本情報を入力して、QRコード診察券を発行します
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => {
+                  setCustomerType(null);
+                  reset();
+                }}
+                variant="outline"
+                size="sm"
+              >
+                戻る
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -295,7 +393,7 @@ export default function CustomerRegister() {
                 </div>
 
                 <div>
-                  <Label htmlFor="email">メールアドレス</Label>
+                  <Label htmlFor="email">メールアドレス（任意）</Label>
                   <Input
                     id="email"
                     type="email"
@@ -314,7 +412,7 @@ export default function CustomerRegister() {
                 <h3 className="font-semibold text-lg">住所</h3>
 
                 <div>
-                  <Label htmlFor="postalCode">郵便番号 * {isLoadingAddress && <span className="text-sm text-gray-500">(住所を取得中...)</span>}</Label>
+                  <Label htmlFor="postalCode">郵便番号 *</Label>
                   <Input
                     id="postalCode"
                     placeholder="1234567"
@@ -324,7 +422,9 @@ export default function CustomerRegister() {
                   {errors.postalCode && (
                     <p className="text-red-500 text-sm mt-1">{errors.postalCode.message}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">ハイフンなしで入力してください</p>
+                  {isLoadingAddress && (
+                    <p className="text-blue-500 text-sm mt-1">住所を検索中...</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -369,34 +469,102 @@ export default function CustomerRegister() {
                 </div>
 
                 <div>
-                  <Label htmlFor="addressLine2">住所（建物名など）</Label>
+                  <Label htmlFor="addressLine2">建物名・部屋番号（任意）</Label>
                   <Input
                     id="addressLine2"
-                    placeholder="○○ビル 101号室"
+                    placeholder="○○マンション101号室"
                     {...register("addressLine2")}
                   />
                 </div>
               </div>
 
-              {/* 送信ボタン */}
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isSubmitting}
-              >
+              {/* 新規顧客のみ: 追加情報 */}
+              {customerType === "new" && (
+                <div className="space-y-4 border-t pt-6">
+                  <h3 className="font-semibold text-lg">詳細情報</h3>
+
+                  <div>
+                    <Label htmlFor="howDidYouKnow">当院を知った理由 *</Label>
+                    <Input
+                      id="howDidYouKnow"
+                      placeholder="例: Google検索、友人の紹介、SNS など"
+                      {...register("howDidYouKnow")}
+                      className={errors.howDidYouKnow ? "border-red-500" : ""}
+                    />
+                    {errors.howDidYouKnow && (
+                      <p className="text-red-500 text-sm mt-1">{errors.howDidYouKnow.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="concerns">悩み・症状 *</Label>
+                    <Textarea
+                      id="concerns"
+                      placeholder="例: 腰痛、肩こり、姿勢改善 など"
+                      {...register("concerns")}
+                      className={errors.concerns ? "border-red-500" : ""}
+                      rows={3}
+                    />
+                    {errors.concerns && (
+                      <p className="text-red-500 text-sm mt-1">{errors.concerns.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="medicalHistory">既往歴（任意）</Label>
+                    <Textarea
+                      id="medicalHistory"
+                      placeholder="例: 高血圧、糖尿病、手術歴 など"
+                      {...register("medicalHistory")}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>妊娠の有無 *</Label>
+                    <RadioGroup
+                      onValueChange={(value) => setValue("isPregnant", value as "0" | "1", { shouldValidate: true })}
+                      className="flex gap-4 mt-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="0" id="not-pregnant" />
+                        <Label htmlFor="not-pregnant" className="font-normal cursor-pointer">
+                          妊娠していない
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="1" id="pregnant" />
+                        <Label htmlFor="pregnant" className="font-normal cursor-pointer">
+                          妊娠している
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    {errors.isPregnant && (
+                      <p className="text-red-500 text-sm mt-1">{errors.isPregnant.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="postpartumPeriod">産後の期間（任意）</Label>
+                    <Input
+                      id="postpartumPeriod"
+                      placeholder="例: 産後3ヶ月"
+                      {...register("postpartumPeriod")}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     登録中...
                   </>
                 ) : (
-                  "QRコード診察券を発行"
+                  "登録する"
                 )}
               </Button>
-
-              <p className="text-xs text-gray-500 text-center">
-                * は必須項目です
-              </p>
             </form>
           </CardContent>
         </Card>

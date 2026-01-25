@@ -27,6 +27,13 @@ const createCustomerSchema = z.object({
   addressLine1: z.string().min(1, "住所は必須です"),
   addressLine2: z.string().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
+  // New customer fields
+  isNewCustomer: z.boolean().optional(),
+  howDidYouKnow: z.string().optional(),
+  concerns: z.string().optional(),
+  medicalHistory: z.string().optional(),
+  isPregnant: z.number().optional(),
+  postpartumPeriod: z.string().optional(),
 });
 
 /**
@@ -101,6 +108,12 @@ export const customerRouter = router({
         qrCodeData,
         qrCodeImageUrl,
         customFields: input.customFields ? JSON.stringify(input.customFields) : undefined,
+        // New customer fields
+        howDidYouKnow: input.howDidYouKnow || undefined,
+        concerns: input.concerns || undefined,
+        medicalHistory: input.medicalHistory || undefined,
+        isPregnant: input.isPregnant || 0,
+        postpartumPeriod: input.postpartumPeriod || undefined,
       });
 
       // Notion顧客マスターに登録（エラーがあってもシステムは続行）

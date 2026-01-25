@@ -120,6 +120,13 @@
       "when": 1768808082379,
       "tag": "0016_first_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1769340969496,
+      "tag": "0017_curvy_valkyrie",
+      "breakpoints": true
     }
   ]
 }

@@ -56,6 +56,12 @@ export const customers = mysqlTable("customers", {
   registrationDate: timestamp("registrationDate").defaultNow().notNull(),
   notionPageUrl: varchar("notionPageUrl", { length: 512 }),
   notionPageId: varchar("notionPageId", { length: 64 }),
+  // New customer information
+  howDidYouKnow: varchar("howDidYouKnow", { length: 100 }),
+  concerns: text("concerns"),
+  medicalHistory: text("medicalHistory"),
+  isPregnant: int("isPregnant").default(0),
+  postpartumPeriod: varchar("postpartumPeriod", { length: 50 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

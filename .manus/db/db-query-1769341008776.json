@@ -1,0 +1,21 @@
+{
+  "query": "SHOW CREATE TABLE __drizzle_migrations;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute SHOW CREATE TABLE __drizzle_migrations;",
+  "rows": [
+    {
+      "Table": "__drizzle_migrations",
+      "Create Table": "CREATE TABLE `__drizzle_migrations` ("
+    }
+  ],
+  "messages": [
+    "  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,",
+    "  `hash` text COLLATE utf8mb4_unicode_ci NOT NULL,",
+    "  `created_at` bigint(20) DEFAULT NULL,",
+    "  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */,",
+    "  UNIQUE KEY `id` (`id`)",
+    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=673832"
+  ],
+  "stdout": "Table\tCreate Table\n__drizzle_migrations\tCREATE TABLE `__drizzle_migrations` (\n  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,\n  `hash` text COLLATE utf8mb4_unicode_ci NOT NULL,\n  `created_at` bigint(20) DEFAULT NULL,\n  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */,\n  UNIQUE KEY `id` (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=673832\n",
+  "stderr": "",
+  "execution_time_ms": 1499
+}
