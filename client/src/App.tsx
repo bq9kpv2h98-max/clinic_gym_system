@@ -32,6 +32,9 @@ import NotionLink from "./pages/NotionLink";
 import CronJobs from "./pages/CronJobs";
 import CustomerHome from "./pages/CustomerHome";
 import StaffScanner from "./pages/StaffScanner";
+import MedicalRecordsList from "./pages/MedicalRecordsList";
+import MedicalRecordForm from "./pages/MedicalRecordForm";
+import MedicalRecordDetail from "./pages/MedicalRecordDetail";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -64,6 +67,10 @@ function Router() {
       <Route path="/staff/scanner" component={StaffScanner} />
       <Route path="/notion-link" component={NotionLink} />
       <Route path="/cron-jobs" component={CronJobs} />
+      <Route path="/medical-records" component={MedicalRecordsList} />
+      <Route path="/medical-records/new" component={MedicalRecordForm} />
+      <Route path="/medical-records/edit" component={MedicalRecordForm} />
+      <Route path="/medical-records/:id" component={MedicalRecordDetail} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

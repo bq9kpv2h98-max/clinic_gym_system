@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `medicalRecords` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`recordId` varchar(64) NOT NULL,\n\t`customerId` varchar(64) NOT NULL,\n\t`visitDate` timestamp NOT NULL,\n\t`staffId` varchar(64),\n\t`staffName` varchar(100),\n\t`transcription` text,\n\t`summary` text,\n\t`notes` text,\n\t`tags` varchar(500),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `medicalRecords_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `medicalRecords_recordId_unique` UNIQUE(`recordId`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute CREATE TABLE IF NOT EXISTS `medicalRecords` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`recordId` varchar(64) NOT NULL,\n\t`customerId` varchar(64) NOT NULL,\n\t`visitDate` timestamp NOT NULL,\n\t`staffId` varchar(64),\n\t`staffName` varchar(100),\n\t`transcription` text,\n\t`summary` text,\n\t`notes` text,\n\t`tags` varchar(500),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `medicalRecords_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `medicalRecords_recordId_unique` UNIQUE(`recordId`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1710
+}

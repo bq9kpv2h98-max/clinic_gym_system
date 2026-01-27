@@ -733,3 +733,28 @@ export const pushSubscriptions = mysqlTable("pushSubscriptions", {
 
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
+/**
+ * カルテ（施術記録）テーブル
+ */
+export const medicalRecords = mysqlTable("medicalRecords", {
+  id: int("id").autoincrement().primaryKey(),
+  recordId: varchar("recordId", { length: 64 }).notNull().unique(),
+  customerId: varchar("customerId", { length: 64 }).notNull(),
+  visitDate: timestamp("visitDate").notNull(),
+  staffId: varchar("staffId", { length: 64 }),
+  staffName: varchar("staffName", { length: 100 }),
+  // Proud PINからの書き起こしテキスト
+  transcription: text("transcription"),
+  // Proud PINからのAI要約
+  summary: text("summary"),
+  // スタッフの手動メモ
+  notes: text("notes"),
+  // 施術内容・症状タグ（検索用）
+  tags: varchar("tags", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MedicalRecord = typeof medicalRecords.$inferSelect;
+export type InsertMedicalRecord = typeof medicalRecords.$inferInsert;

@@ -34,6 +34,7 @@ import {
   Clock,
   CalendarCheck,
   Calendar,
+  ClipboardList,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -118,6 +119,7 @@ const Dashboard: React.FC = () => {
     { id: "analytics", label: "分析", icon: TrendingUp },
     { id: "monthly-stats", label: "月次統計", icon: Calendar },
     { id: "expenses", label: "経費管理", icon: DollarSign },
+    { id: "medical-records", label: "カルテ管理", icon: ClipboardList },
     { id: "advertising", label: "広告効果測定", icon: Target },
     { id: "advertising-expense", label: "広告費登録", icon: DollarSign },
     { id: "settlement", label: "決算報告書", icon: FileText },
@@ -162,6 +164,9 @@ const Dashboard: React.FC = () => {
         break;
       case "expenses":
         setLocation("/expenses");
+        break;
+      case "medical-records":
+        setLocation("/medical-records");
         break;
       case "backup":
         setLocation("/backup");
