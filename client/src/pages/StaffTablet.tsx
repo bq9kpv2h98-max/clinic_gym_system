@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { QrCode, Users, Camera, FileText, Copy, Check } from "lucide-react";
+import { QrCode, Users, Camera, FileText, Copy, Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
@@ -43,6 +43,57 @@ export default function StaffTablet() {
   const baseUrl = window.location.origin;
   const newCustomerUrl = `${baseUrl}/register?type=new`;
   const existingCustomerUrl = `${baseUrl}/register?type=existing`;
+
+  // PDF印刷機能
+  const handlePrintQRCodes = async () => {
+    console.log("[DEBUG] PDF印刷ボタンがクリックされました");
+    try {
+      console.log("[DEBUG] jsPDFをインポートします...");
+      const jsPDF = (await import("jspdf")).default;
+      console.log("[DEBUG] jsPDFインポート成功");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // 新規顧客QRコード
+      console.log("[DEBUG] 新規QRコードを生成します...", newCustomerUrl);
+      const newQRData = await trpc.qrPrint.generateQRCodeImage.query({ url: newCustomerUrl });
+      console.log("[DEBUG] 新規QRコード生成成功", newQRData);
+      pdf.setFontSize(20);
+      pdf.text("新規顧客登録", 105, 20, { align: "center" });
+      pdf.setFontSize(12);
+      pdf.text("初めての方はこちらのQRコードを読み取ってください", 105, 30, { align: "center" });
+      pdf.addImage(newQRData.dataUrl, "PNG", 55, 40, 100, 100);
+      pdf.setFontSize(10);
+      pdf.text(newCustomerUrl, 105, 150, { align: "center", maxWidth: 180 });
+
+      // 新しいページを追加
+      pdf.addPage();
+
+      // 既存顧客QRコード
+      console.log("[DEBUG] 既存QRコードを生成します...", existingCustomerUrl);
+      const existingQRData = await trpc.qrPrint.generateQRCodeImage.query({ url: existingCustomerUrl });
+      console.log("[DEBUG] 既存QRコード生成成功", existingQRData);
+      pdf.setFontSize(20);
+      pdf.text("既存顧客登録", 105, 20, { align: "center" });
+      pdf.setFontSize(12);
+      pdf.text("以前に来院されたことがある方はこちらのQRコードを読み取ってください", 105, 30, { align: "center" });
+      pdf.addImage(existingQRData.dataUrl, "PNG", 55, 40, 100, 100);
+      pdf.setFontSize(10);
+      pdf.text(existingCustomerUrl, 105, 150, { align: "center", maxWidth: 180 });
+
+      // PDFをダウンロード
+      console.log("[DEBUG] PDFを保存します...");
+      pdf.save("顧客登録QRコード.pdf");
+      console.log("[DEBUG] PDF保存成功");
+      toast.success("PDFをダウンロードしました");
+    } catch (error) {
+      console.error("[DEBUG] PDF生成エラー:", error);
+      toast.error("PDF生成に失敗しました");
+    }
+  };
 
   // URLコピー機能
   const copyToClipboard = async (url: string, label: string) => {
@@ -94,6 +145,18 @@ export default function StaffTablet() {
 
           {/* QRコード表示タブ */}
           <TabsContent value="qr-codes" className="mt-6">
+            <div className="mb-4 flex justify-end">
+              <Button 
+                onClick={() => {
+                  console.log("[TEST] ボタンがクリックされました");
+                  handlePrintQRCodes();
+                }} 
+                className="flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                PDFで印刷
+              </Button>
+            </div>
             <div className="grid md:grid-cols-2 gap-6">
               {/* 新規顧客QRコード */}
               <Card>
