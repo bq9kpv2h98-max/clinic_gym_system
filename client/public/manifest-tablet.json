@@ -1,0 +1,24 @@
+{
+  "name": "ULU GROUP 施術者用タブレット",
+  "short_name": "施術者用",
+  "description": "施術者用タブレット - 顧客登録・管理・カルテ作成を1ページで",
+  "start_url": "/staff/tablet",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -6,8 +6,32 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { QrCode, Users, Camera, FileText, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export default function StaffTablet() {
+  // 施術者用タブレット専用のPWAマニフェストを設定
+  useEffect(() => {
+    // 既存のマニフェストリンクを削除
+    const existingManifest = document.querySelector('link[rel="manifest"]');
+    if (existingManifest) {
+      existingManifest.remove();
+    }
+
+    // 施術者用タブレット専用のマニフェストを追加
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = '/manifest-tablet.json';
+    document.head.appendChild(manifestLink);
+
+    // クリーンアップ: コンポーネントがアンマウントされたら元のマニフェストに戻す
+    return () => {
+      manifestLink.remove();
+      const defaultManifest = document.createElement('link');
+      defaultManifest.rel = 'manifest';
+      defaultManifest.href = '/manifest.json';
+      document.head.appendChild(defaultManifest);
+    };
+  }, []);
   const [activeTab, setActiveTab] = useState("qr-codes");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
