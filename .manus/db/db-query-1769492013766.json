@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `customers` ADD `symptoms` text;\nALTER TABLE `customers` ADD `symptomsOther` varchar(500);\nALTER TABLE `customers` ADD `treatmentApproach` varchar(200);\nALTER TABLE `customers` ADD `treatmentPreferences` text;\nALTER TABLE `customers` ADD `pastIllnesses` text;\nALTER TABLE `customers` ADD `pastIllnessesDetail` varchar(500);\nALTER TABLE `customers` ADD `pastTreatments` text;\nALTER TABLE `customers` ADD `pastTreatmentsOther` varchar(500);\nALTER TABLE `customers` ADD `pregnancyStatus` varchar(50);\nALTER TABLE `customers` ADD `postpartumMonths` int;\nALTER TABLE `customers` ADD `photoConsent` varchar(50);\nALTER TABLE `customers` ADD `preferredDays` text;\nALTER TABLE `customers` ADD `preferredTimes` text;\nALTER TABLE `customers` ADD `howDidYouKnowDetail` varchar(500);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute ALTER TABLE `customers` ADD `symptoms` text;\nALTER TABLE `customers` ADD `symptomsOther` varchar(500);\nALTER TABLE `customers` ADD `treatmentApproach` varchar(200);\nALTER TABLE `customers` ADD `treatmentPreferences` text;\nALTER TABLE `customers` ADD `pastIllnesses` text;\nALTER TABLE `customers` ADD `pastIllnessesDetail` varchar(500);\nALTER TABLE `customers` ADD `pastTreatments` text;\nALTER TABLE `customers` ADD `pastTreatmentsOther` varchar(500);\nALTER TABLE `customers` ADD `pregnancyStatus` varchar(50);\nALTER TABLE `customers` ADD `postpartumMonths` int;\nALTER TABLE `customers` ADD `photoConsent` varchar(50);\nALTER TABLE `customers` ADD `preferredDays` text;\nALTER TABLE `customers` ADD `preferredTimes` text;\nALTER TABLE `customers` ADD `howDidYouKnowDetail` varchar(500);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 10225
+}

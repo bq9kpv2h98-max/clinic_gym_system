@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/lib/trpc";
@@ -57,6 +57,7 @@ export default function CustomerRegister() {
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
     reset,
   } = useForm<NewCustomerFormData>({
@@ -484,12 +485,27 @@ export default function CustomerRegister() {
                   <h3 className="font-semibold text-lg">詳細情報</h3>
 
                   <div>
-                    <Label htmlFor="howDidYouKnow">当院を知った理由 *</Label>
-                    <Input
-                      id="howDidYouKnow"
-                      placeholder="例: Google検索、友人の紹介、SNS など"
-                      {...register("howDidYouKnow")}
-                      className={errors.howDidYouKnow ? "border-red-500" : ""}
+                    <Label htmlFor="howDidYouKnow">ご来店きっかけ *</Label>
+                    <Controller
+                      name="howDidYouKnow"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className={errors.howDidYouKnow ? "border-red-500" : ""}>
+                            <SelectValue placeholder="選択してください" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ご紹介">ご紹介</SelectItem>
+                            <SelectItem value="ホームページ">ホームページ</SelectItem>
+                            <SelectItem value="インスタグラム">インスタグラム</SelectItem>
+                            <SelectItem value="その他SNS">その他SNS</SelectItem>
+                            <SelectItem value="Googleマップ">Googleマップ</SelectItem>
+                            <SelectItem value="通りすがり">通りすがり</SelectItem>
+                            <SelectItem value="チラシ">チラシ</SelectItem>
+                            <SelectItem value="その他">その他</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
                     {errors.howDidYouKnow && (
                       <p className="text-red-500 text-sm mt-1">{errors.howDidYouKnow.message}</p>

@@ -29,11 +29,26 @@ const createCustomerSchema = z.object({
   customFields: z.record(z.string(), z.any()).optional(),
   // New customer fields
   isNewCustomer: z.boolean().optional(),
-  howDidYouKnow: z.string().optional(),
-  concerns: z.string().optional(),
-  medicalHistory: z.string().optional(),
-  isPregnant: z.number().optional(),
-  postpartumPeriod: z.string().optional(),
+  howDidYouKnow: z.string().optional(), // 選択肢値
+  howDidYouKnowDetail: z.string().optional(), // 詳細（紹介者名、その他）
+  concerns: z.string().optional(), // 旧フィールド
+  medicalHistory: z.string().optional(), // 旧フィールド
+  isPregnant: z.number().optional(), // 旧フィールド
+  postpartumPeriod: z.string().optional(), // 旧フィールド
+  // 選択肢形式の新フィールド
+  symptoms: z.array(z.string()).optional(), // 症状（複数選択）
+  symptomsOther: z.string().optional(), // 症状のその他
+  treatmentApproach: z.string().optional(), // 考え方（単一選択）
+  treatmentPreferences: z.array(z.string()).optional(), // 施術希望（複数選択）
+  pastIllnesses: z.array(z.string()).optional(), // 病歴（複数選択）
+  pastIllnessesDetail: z.string().optional(), // 病歴の詳細
+  pastTreatments: z.array(z.string()).optional(), // 通院歴（複数選択）
+  pastTreatmentsOther: z.string().optional(), // 通院歴のその他
+  pregnancyStatus: z.string().optional(), // 妊娠状況（単一選択）
+  postpartumMonths: z.number().optional(), // 産後の月数
+  photoConsent: z.string().optional(), // 画像投稿同意（単一選択）
+  preferredDays: z.array(z.string()).optional(), // 希望曜日（複数選択）
+  preferredTimes: z.array(z.string()).optional(), // 希望時間帯（複数選択）
 });
 
 /**
@@ -110,10 +125,25 @@ export const customerRouter = router({
         customFields: input.customFields ? JSON.stringify(input.customFields) : undefined,
         // New customer fields
         howDidYouKnow: input.howDidYouKnow || undefined,
+        howDidYouKnowDetail: input.howDidYouKnowDetail || undefined,
         concerns: input.concerns || undefined,
         medicalHistory: input.medicalHistory || undefined,
         isPregnant: input.isPregnant || 0,
         postpartumPeriod: input.postpartumPeriod || undefined,
+        // 選択肢形式の新フィールド
+        symptoms: input.symptoms ? JSON.stringify(input.symptoms) : undefined,
+        symptomsOther: input.symptomsOther || undefined,
+        treatmentApproach: input.treatmentApproach || undefined,
+        treatmentPreferences: input.treatmentPreferences ? JSON.stringify(input.treatmentPreferences) : undefined,
+        pastIllnesses: input.pastIllnesses ? JSON.stringify(input.pastIllnesses) : undefined,
+        pastIllnessesDetail: input.pastIllnessesDetail || undefined,
+        pastTreatments: input.pastTreatments ? JSON.stringify(input.pastTreatments) : undefined,
+        pastTreatmentsOther: input.pastTreatmentsOther || undefined,
+        pregnancyStatus: input.pregnancyStatus || undefined,
+        postpartumMonths: input.postpartumMonths || undefined,
+        photoConsent: input.photoConsent || undefined,
+        preferredDays: input.preferredDays ? JSON.stringify(input.preferredDays) : undefined,
+        preferredTimes: input.preferredTimes ? JSON.stringify(input.preferredTimes) : undefined,
       });
 
       // Notion顧客マスターに登録（エラーがあってもシステムは続行）

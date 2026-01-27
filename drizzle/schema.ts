@@ -57,11 +57,26 @@ export const customers = mysqlTable("customers", {
   notionPageUrl: varchar("notionPageUrl", { length: 512 }),
   notionPageId: varchar("notionPageId", { length: 64 }),
   // New customer information
-  howDidYouKnow: varchar("howDidYouKnow", { length: 100 }),
-  concerns: text("concerns"),
-  medicalHistory: text("medicalHistory"),
-  isPregnant: int("isPregnant").default(0),
-  postpartumPeriod: varchar("postpartumPeriod", { length: 50 }),
+  howDidYouKnow: varchar("howDidYouKnow", { length: 100 }), // 選択肢: ご紹介、ホームページ、インスタグラム、その他SNS、Googleマップ、通りすがり、チラシ、その他
+  concerns: text("concerns"), // 旧フィールド（後方互換性のため残す）
+  medicalHistory: text("medicalHistory"), // 旧フィールド（後方互換性のため残す）
+  isPregnant: int("isPregnant").default(0), // 旧フィールド（後方互換性のため残す）
+  postpartumPeriod: varchar("postpartumPeriod", { length: 50 }), // 旧フィールド（後方互換性のため残す）
+  // 選択肢形式の新フィールド
+  symptoms: text("symptoms"), // JSON配列: 私生活に支障、仕事に支障、家事に支障、家族に迷惑、趣味が続けられない、ストレス、スポーツができない、その他
+  symptomsOther: varchar("symptomsOther", { length: 500 }), // その他の詳細
+  treatmentApproach: varchar("treatmentApproach", { length: 200 }), // 単一選択: スタッフに任せる、ゆっくり改善、早く改善、自分に合った施術、体質改善
+  treatmentPreferences: text("treatmentPreferences"), // JSON配列: 歪みをみてほしい、状態を教えてほしい、セルフケア、トレーニング希望、トレーニング不要、矯正不要
+  pastIllnesses: text("pastIllnesses"), // JSON配列: 特になし、病気、ケガ、その他
+  pastIllnessesDetail: varchar("pastIllnessesDetail", { length: 500 }), // 病気・ケガの詳細
+  pastTreatments: text("pastTreatments"), // JSON配列: 特になし、整骨院、鍼灸院、マッサージ、カイロ、整形外科、内科、心療内科、パーソナルジム、24時間ジム、カーブス、その他
+  pastTreatmentsOther: varchar("pastTreatmentsOther", { length: 500 }), // その他の詳細
+  pregnancyStatus: varchar("pregnancyStatus", { length: 50 }), // 単一選択: していない、現在妊娠、可能性あり、妊活中、最近出産
+  postpartumMonths: int("postpartumMonths"), // 産後の月数
+  photoConsent: varchar("photoConsent", { length: 50 }), // 単一選択: 可、顔モザイクあり、不可
+  preferredDays: text("preferredDays"), // JSON配列: 月、火、水、木、金、土、日、祝、調整できる
+  preferredTimes: text("preferredTimes"), // JSON配列: 午前中、お昼前後、午後、何時でも大丈夫
+  howDidYouKnowDetail: varchar("howDidYouKnowDetail", { length: 500 }), // ご紹介の場合の紹介者名、その他の詳細
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
