@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Loader2, Check, Smartphone, UserPlus, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CustomerDetailsForm } from "@/components/CustomerDetailsForm";
 
 // 既存顧客用のスキーマ
 const existingCustomerSchema = z.object({
@@ -33,12 +34,16 @@ const existingCustomerSchema = z.object({
 // 新規顧客用のスキーマ（既存顧客のフィールド + 追加フィールド）
 const newCustomerSchema = existingCustomerSchema.extend({
   howDidYouKnow: z.string().trim().min(1, "当院を知った理由を入力してください"),
-  concerns: z.string().trim().min(1, "悩み・症状を入力してください"),
-  medicalHistory: z.string().optional(),
-  isPregnant: z.enum(["0", "1"], {
-    message: "妊娠の有無を選択してください",
-  }),
-  postpartumPeriod: z.string().optional(),
+  // 詳細情報フィールド（全て任意）
+  symptoms: z.array(z.string()).optional(),
+  approach: z.string().optional(),
+  treatmentPreferences: z.array(z.string()).optional(),
+  medicalHistoryItems: z.array(z.string()).optional(),
+  visitHistory: z.array(z.string()).optional(),
+  pregnancyStatus: z.string().optional(),
+  imageConsent: z.string().optional(),
+  preferredDays: z.array(z.string()).optional(),
+  preferredTimes: z.array(z.string()).optional(),
 });
 
 type ExistingCustomerFormData = z.infer<typeof existingCustomerSchema>;
@@ -111,10 +116,16 @@ export default function CustomerRegister() {
       if (customerType === "new") {
         const newData = data as NewCustomerFormData;
         payload.howDidYouKnow = newData.howDidYouKnow;
-        payload.concerns = newData.concerns;
-        payload.medicalHistory = newData.medicalHistory || undefined;
-        payload.isPregnant = parseInt(newData.isPregnant);
-        payload.postpartumPeriod = newData.postpartumPeriod || undefined;
+        // 詳細情報フィールド
+        payload.symptoms = newData.symptoms || undefined;
+        payload.approach = newData.approach || undefined;
+        payload.treatmentPreferences = newData.treatmentPreferences || undefined;
+        payload.medicalHistoryItems = newData.medicalHistoryItems || undefined;
+        payload.visitHistory = newData.visitHistory || undefined;
+        payload.pregnancyStatus = newData.pregnancyStatus || undefined;
+        payload.imageConsent = newData.imageConsent || undefined;
+        payload.preferredDays = newData.preferredDays || undefined;
+        payload.preferredTimes = newData.preferredTimes || undefined;
       }
 
       const result = await registerMutation.mutateAsync(payload);
@@ -512,62 +523,12 @@ export default function CustomerRegister() {
                     )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="concerns">悩み・症状 *</Label>
-                    <Textarea
-                      id="concerns"
-                      placeholder="例: 腰痛、肩こり、姿勢改善 など"
-                      {...register("concerns")}
-                      className={errors.concerns ? "border-red-500" : ""}
-                      rows={3}
-                    />
-                    {errors.concerns && (
-                      <p className="text-red-500 text-sm mt-1">{errors.concerns.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="medicalHistory">既往歴（任意）</Label>
-                    <Textarea
-                      id="medicalHistory"
-                      placeholder="例: 高血圧、糖尿病、手術歴 など"
-                      {...register("medicalHistory")}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>妊娠の有無 *</Label>
-                    <RadioGroup
-                      onValueChange={(value) => setValue("isPregnant", value as "0" | "1", { shouldValidate: true })}
-                      className="flex gap-4 mt-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="0" id="not-pregnant" />
-                        <Label htmlFor="not-pregnant" className="font-normal cursor-pointer">
-                          妊娠していない
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="1" id="pregnant" />
-                        <Label htmlFor="pregnant" className="font-normal cursor-pointer">
-                          妊娠している
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    {errors.isPregnant && (
-                      <p className="text-red-500 text-sm mt-1">{errors.isPregnant.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="postpartumPeriod">産後の期間（任意）</Label>
-                    <Input
-                      id="postpartumPeriod"
-                      placeholder="例: 産後3ヶ月"
-                      {...register("postpartumPeriod")}
-                    />
-                  </div>
+                  {/* 詳細情報フォームコンポーネント */}
+                  <CustomerDetailsForm
+                    control={control}
+                    setValue={setValue}
+                    watchPregnancyStatus={watch("pregnancyStatus")}
+                  />
                 </div>
               )}
 

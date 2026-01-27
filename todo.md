@@ -490,3 +490,9 @@
 - [ ] CustomerRegister.tsxに詳細情報フォームコンポーネントを統合（次回実装予定）
 - [ ] TypeScriptメモリエラーを解消
 - [ ] テストと動作確認
+
+## Phase 82: CustomerRegister.tsxに詳細情報フォームコンポーネントを統合
+- [x] CustomerRegister.tsxにCustomerDetailsFormコンポーネントをインポート
+- [x] CustomerRegister.tsxで詳細情報フォームを表示
+- [x] フォーム送信処理を更新して全ての選択肢フィールドを含める
+- [x] ブラウザで動作確認とテスト
