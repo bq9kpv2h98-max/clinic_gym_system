@@ -36,6 +36,7 @@ import MedicalRecordsList from "./pages/MedicalRecordsList";
 import MedicalRecordForm from "./pages/MedicalRecordForm";
 import MedicalRecordDetail from "./pages/MedicalRecordDetail";
 import StaffTablet from "./pages/StaffTablet";
+import StaffHome from "./pages/StaffHome";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -72,6 +73,7 @@ function Router() {
       <Route path="/medical-records/new" component={MedicalRecordForm} />
       <Route path="/medical-records/edit" component={MedicalRecordForm} />
       <Route path="/medical-records/:id" component={MedicalRecordDetail} />
+      <Route path="/staff/home" component={StaffHome} />
       <Route path="/staff/tablet" component={StaffTablet} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
