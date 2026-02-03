@@ -496,3 +496,45 @@
 - [x] CustomerRegister.tsxで詳細情報フォームを表示
 - [x] フォーム送信処理を更新して全ての選択肢フィールドを含める
 - [x] ブラウザで動作確認とテスト
+
+## Phase 83: Atlassian連携実装（3フェーズ）
+
+### Phase 1: カルテ管理 → Confluence自動バックアップ
+- [ ] Confluence連携用ヘルパー関数を実装（server/atlassian.ts）
+- [ ] カルテ作成時のConfluence自動バックアップ
+- [ ] カルテ更新時のConfluence自動更新
+- [ ] エラーハンドリングと通知機能
+- [ ] テストと動作確認
+
+### Phase 2: システムエラー → Jira自動チケット化
+- [ ] Jira連携用ヘルパー関数を実装（server/atlassian.ts）
+- [ ] cronジョブエラー時のJira自動チケット作成
+- [ ] Notion同期エラー時のJira自動チケット作成
+- [ ] エラー解決時の自動クローズ機能
+- [ ] テストと動作確認
+
+### Phase 3: 月次レポート → Confluence自動投稿
+- [ ] 月次レポート生成機能を実装
+- [ ] 売上・経費・来院数・広告ROIの統合レポート
+- [ ] Confluence自動投稿機能（毎月1日実行）
+- [ ] グラフ・表を含む見やすいフォーマット
+- [ ] テストと動作確認
+
+### Phase 1: カルテ管理 → Confluence自動バックアップ
+- [x] Confluence連携用ヘルパー関数を実装（server/atlassian.ts）
+- [x] カルテ作成時のConfluence自動バックアップ
+- [x] カルテ更新時のConfluence自動更新
+- [ ] テストと動作確認
+
+### Phase 2: システムエラー → Jira自動チケット化
+- [x] Jira連携用ヘルパー関数を実装（server/atlassian.ts）
+- [x] エラートラッキング用ヘルパー関数を実装（server/errorTracking.ts）
+- [ ] cronジョブエラーのJira自動チケット化
+- [ ] Notion同期エラーのJira自動チケット化
+- [ ] テストと動作確認
+
+### Phase 3: 月次レポート → Confluence自動投稿
+- [x] 月次レポート生成機能を実装（server/monthlyReport.ts）
+- [x] 月次レポートルーターを実装（server/routers/monthly-reports.ts）
+- [x] 月次レポートのConfluence自動投稿機能
+- [ ] テストと動作確認

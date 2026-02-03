@@ -25,6 +25,7 @@ import { cronJobsRouter } from "./routers/cron-jobs";
 import { staffRouter } from "./routers/staff";
 import { medicalRecordsRouter } from "./routers/medical-records";
 import { qrPrintRouter } from "./routers/qr-print";
+import { monthlyReportsRouter } from "./routers/monthly-reports";
 
 
 export const appRouter = router({
@@ -51,8 +52,9 @@ export const appRouter = router({
   notionLink: notionLinkRouter,
   cronJobs: cronJobsRouter,
   staff: staffRouter,
-    medicalRecords: medicalRecordsRouter,
-    qrPrint: qrPrintRouter,
+  medicalRecords: medicalRecordsRouter,
+  qrPrint: qrPrintRouter,
+  monthlyReports: monthlyReportsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
