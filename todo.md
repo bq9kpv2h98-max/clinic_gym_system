@@ -538,3 +538,7 @@
 - [x] 月次レポートルーターを実装（server/routers/monthly-reports.ts）
 - [x] 月次レポートのConfluence自動投稿機能
 - [ ] テストと動作確認
+
+## Phase 84: 管理画面ダッシュボードの認証を一時的に無効化（運用前）
+- [x] DashboardLayoutの認証チェックを無効化
+- [x] テストと動作確認
