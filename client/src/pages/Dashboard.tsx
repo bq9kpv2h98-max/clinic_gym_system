@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { useErrorHandler } from "@/hooks/useErrorHandler";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,15 +61,38 @@ const Dashboard: React.FC = () => {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const { handleError } = useErrorHandler();
 
-  // ダミーデータ
+  // リアルタイムデータを取得
+  const { data: dashboardMetrics, isLoading: isLoadingMetrics, error: metricsError } = trpc.analytics.getDashboardMetrics.useQuery();
+  const { data: realtimeStats, isLoading: isLoadingStats, error: statsError } = trpc.analytics.getRealtimeStats.useQuery();
+
+  // エラーハンドリング
+  React.useEffect(() => {
+    if (metricsError) handleError(metricsError, "ダッシュボードメトリクスの読み込み");
+    if (statsError) handleError(statsError, "リアルタイム統計の読み込み");
+  }, [metricsError, statsError, handleError]);
+
+  // ローディング中
+  if (isLoadingMetrics || isLoadingStats) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">ダッシュボードを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // メトリクスを設定
   const metrics: DashboardMetrics = {
-    totalCustomers: 1250,
-    newCustomersThisMonth: 85,
-    totalRevenue: 2850000,
-    averageOrderValue: 45000,
-    conversionRate: 12.5,
-    customerRetentionRate: 78,
+    totalCustomers: dashboardMetrics?.totalCustomers || 0,
+    newCustomersThisMonth: dashboardMetrics?.thisMonthNewCustomers || 0,
+    totalRevenue: dashboardMetrics?.thisMonthTotalSales || 0,
+    averageOrderValue: dashboardMetrics?.thisMonthAvgSale || 0,
+    conversionRate: 0, // TODO: 将来的に実装
+    customerRetentionRate: 0, // TODO: 将来的に実装
   };
 
   const channelMetrics: ChannelMetrics[] = [
@@ -368,9 +393,19 @@ const Dashboard: React.FC = () => {
                 <div className="text-3xl font-bold text-gray-900">
                   {metrics.totalCustomers.toLocaleString()}
                 </div>
-                <p className="text-sm text-green-600 mt-2">
-                  今月: +{metrics.newCustomersThisMonth}人
-                </p>
+                <div className="flex items-center mt-2">
+                  <p className="text-sm text-gray-600 mr-2">
+                    今月: +{metrics.newCustomersThisMonth}人
+                  </p>
+                  {dashboardMetrics && dashboardMetrics.newCustomersChange !== 0 && (
+                    <span className={`text-xs flex items-center ${
+                      dashboardMetrics.newCustomersChange > 0 ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {dashboardMetrics.newCustomersChange > 0 ? "▲" : "▼"}
+                      {Math.abs(dashboardMetrics.newCustomersChange)}%
+                    </span>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -378,16 +413,26 @@ const Dashboard: React.FC = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
                   <DollarSign className="w-4 h-4 mr-2" />
-                  総売上
+                  今月の売上
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900">
-                  ¥{(metrics.totalRevenue / 1000000).toFixed(1)}M
+                  ¥{metrics.totalRevenue.toLocaleString()}
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  平均: ¥{metrics.averageOrderValue.toLocaleString()}
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-gray-600">
+                    平均: ¥{metrics.averageOrderValue.toLocaleString()}
+                  </p>
+                  {dashboardMetrics && dashboardMetrics.salesChange !== 0 && (
+                    <span className={`text-xs flex items-center ${
+                      dashboardMetrics.salesChange > 0 ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {dashboardMetrics.salesChange > 0 ? "▲" : "▼"}
+                      {Math.abs(dashboardMetrics.salesChange)}%
+                    </span>
+                  )}
+                </div>
               </CardContent>
             </Card>
 

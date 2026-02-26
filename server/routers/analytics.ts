@@ -1,10 +1,140 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { customers, visits, pointTransactions, sales } from "../../drizzle/schema";
-import { eq, and, sql, count, sum, avg } from "drizzle-orm";
+import { customers, visits, pointTransactions, sales, reservations } from "../../drizzle/schema";
+import { eq, and, sql, count, sum, avg, gte, lte } from "drizzle-orm";
 
 export const analyticsRouter = router({
+  /**
+   * ダッシュボードメトリクスを取得（前月比付き）
+   */
+  getDashboardMetrics: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    // 総顧客数
+    const [totalCustomersResult] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(customers);
+    const totalCustomers = totalCustomersResult?.count || 0;
+
+    // 今月の新規顧客数
+    const [thisMonthNewCustomersResult] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(customers)
+      .where(gte(customers.createdAt, thisMonthStart));
+    const thisMonthNewCustomers = thisMonthNewCustomersResult?.count || 0;
+
+    // 先月の新規顧客数
+    const [lastMonthNewCustomersResult] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(customers)
+      .where(
+        and(
+          gte(customers.createdAt, lastMonthStart),
+          lte(customers.createdAt, lastMonthEnd)
+        )
+      );
+    const lastMonthNewCustomers = lastMonthNewCustomersResult?.count || 0;
+
+    // 今月の総売上
+    const [thisMonthSalesResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
+      .from(sales)
+      .where(gte(sales.saleDate, thisMonthStart));
+    const thisMonthTotalSales = thisMonthSalesResult?.total || 0;
+
+    // 先月の総売上
+    const [lastMonthSalesResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
+      .from(sales)
+      .where(
+        and(
+          gte(sales.saleDate, lastMonthStart),
+          lte(sales.saleDate, lastMonthEnd)
+        )
+      );
+    const lastMonthTotalSales = lastMonthSalesResult?.total || 0;
+
+    // 今月の平均単価
+    const [thisMonthAvgResult] = await db
+      .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
+      .from(sales)
+      .where(gte(sales.saleDate, thisMonthStart));
+    const thisMonthAvgSale = thisMonthAvgResult?.avg || 0;
+
+    // 先月の平均単価
+    const [lastMonthAvgResult] = await db
+      .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
+      .from(sales)
+      .where(
+        and(
+          gte(sales.saleDate, lastMonthStart),
+          lte(sales.saleDate, lastMonthEnd)
+        )
+      );
+    const lastMonthAvgSale = lastMonthAvgResult?.avg || 0;
+
+    // 前月比計算
+    const newCustomersChange =
+      lastMonthNewCustomers > 0
+        ? ((thisMonthNewCustomers - lastMonthNewCustomers) / lastMonthNewCustomers) * 100
+        : 0;
+    const salesChange =
+      lastMonthTotalSales > 0
+        ? ((thisMonthTotalSales - lastMonthTotalSales) / lastMonthTotalSales) * 100
+        : 0;
+    const avgSaleChange =
+      lastMonthAvgSale > 0
+        ? ((thisMonthAvgSale - lastMonthAvgSale) / lastMonthAvgSale) * 100
+        : 0;
+
+    return {
+      totalCustomers,
+      thisMonthNewCustomers,
+      newCustomersChange: Math.round(newCustomersChange * 10) / 10,
+      thisMonthTotalSales,
+      salesChange: Math.round(salesChange * 10) / 10,
+      thisMonthAvgSale: Math.round(thisMonthAvgSale),
+      avgSaleChange: Math.round(avgSaleChange * 10) / 10,
+    };
+  }),
+
+  /**
+   * リアルタイム統計を取得
+   */
+  getRealtimeStats: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 今日の来院数
+    const [todayVisitsResult] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(visits)
+      .where(gte(visits.visitDate, today));
+    const todayVisits = todayVisitsResult?.count || 0;
+
+    // 未確認予約数（ステータスが"pending"の予約）
+    const [pendingReservationsResult] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(reservations)
+      .where(eq(reservations.status, "pending"));
+    const pendingReservations = pendingReservationsResult?.count || 0;
+
+    return {
+      todayVisits,
+      pendingReservations,
+    };
+  }),
+
   /**
    * 年齢別顧客分析
    */

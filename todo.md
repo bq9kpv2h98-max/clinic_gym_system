@@ -542,3 +542,27 @@
 ## Phase 84: 管理画面ダッシュボードの認証を一時的に無効化（運用前）
 - [x] DashboardLayoutの認証チェックを無効化
 - [x] テストと動作確認
+
+## Phase 85: システム改善提案書の実装（フェーズ1: 緊急改善）
+### フェーズ1a: 基盤整備
+- [x] sonnerトーストライブラリ（既にインストール済み）
+- [x] エラーハンドリング用の共通フック（useErrorHandler）を作成
+- [x] データベースインデックスを追加（customers、visits、sales、reservations、pointTransactions、medicalRecords）
+
+### フェーズ1b: Dashboard.tsxのリアルタイムデータ統合
+- [x] getDashboardMetrics APIとgetRealtimeStats APIを実装（analytics.ts）
+- [x] Dashboard.tsxにtrpcとuseErrorHandlerをインポート
+- [x] ダミーメトリクスをリアルタイムデータに置き換え
+- [x] ローディング状態を追加（スピナー表示）
+- [x] エラーハンドリングを追加（トースト通知）
+- [x] 前月比表示を追加（緑の▲または赤の▼とパーセンテージ）
+- [x] ブラウザで動作確認
+
+### フェーズ1c: 他のダミーデータの段階的置き換え
+- [ ] 売上推移データ（revenueData）を実データに置き換え
+- [ ] 顧客獲得データ（customerAcquisitionData）を実データに置き換え
+- [ ] チャネルメトリクス（channelMetrics）を実データに置き換え
+
+### フェーズ1d: 認証の有効化
+- [ ] DashboardLayoutの認証を有効化
+- [ ] オーナーのメールアドレスを登録
