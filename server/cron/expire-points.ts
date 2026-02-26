@@ -47,7 +47,7 @@ export async function expirePoints() {
     }
 
     // 各顧客のポイントを失効
-    for (const [customerId, transactions] of customerGroups.entries()) {
+    for (const [customerId, transactions] of Array.from(customerGroups.entries())) {
       try {
         // 顧客情報を取得
         const [customer] = await db
@@ -64,7 +64,7 @@ export async function expirePoints() {
         }
 
         // 失効するポイント数を計算
-        const expiredPoints = transactions.reduce((sum, t) => sum + t.points, 0);
+        const expiredPoints = transactions.reduce((sum: number, t: any) => sum + t.points, 0);
         totalExpiredPoints += expiredPoints;
 
         // ポイント残高を更新

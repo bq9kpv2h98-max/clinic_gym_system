@@ -65,7 +65,7 @@ export default function CustomerRegister() {
     control,
     formState: { errors },
     reset,
-  } = useForm<NewCustomerFormData>({
+  } = useForm<any>({
     resolver: zodResolver(customerType === "new" ? newCustomerSchema : existingCustomerSchema),
     mode: "onSubmit",
   });
@@ -343,7 +343,7 @@ export default function CustomerRegister() {
                     className={errors.fullName ? "border-red-500" : ""}
                   />
                   {errors.fullName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.fullName.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{String(errors.fullName?.message)}</p>
                   )}
                 </div>
 
@@ -357,7 +357,7 @@ export default function CustomerRegister() {
                       className={errors.dateOfBirth ? "border-red-500" : ""}
                     />
                     {errors.dateOfBirth && (
-                      <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{String(errors.dateOfBirth?.message)}</p>
                     )}
                   </div>
 
@@ -381,7 +381,7 @@ export default function CustomerRegister() {
                       </SelectContent>
                     </Select>
                     {errors.gender && (
-                      <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{String(errors.gender?.message)}</p>
                     )}
                   </div>
                 </div>
@@ -400,7 +400,7 @@ export default function CustomerRegister() {
                     className={errors.phone ? "border-red-500" : ""}
                   />
                   {errors.phone && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{String(errors.phone?.message)}</p>
                   )}
                 </div>
 
@@ -414,7 +414,7 @@ export default function CustomerRegister() {
                     className={errors.email ? "border-red-500" : ""}
                   />
                   {errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{String(errors.email?.message)}</p>
                   )}
                 </div>
               </div>
@@ -432,7 +432,7 @@ export default function CustomerRegister() {
                     className={errors.postalCode ? "border-red-500" : ""}
                   />
                   {errors.postalCode && (
-                    <p className="text-red-500 text-sm mt-1">{errors.postalCode.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{String(errors.postalCode?.message)}</p>
                   )}
                   {isLoadingAddress && (
                     <p className="text-blue-500 text-sm mt-1">住所を検索中...</p>
@@ -449,7 +449,7 @@ export default function CustomerRegister() {
                       className={errors.prefecture ? "border-red-500" : ""}
                     />
                     {errors.prefecture && (
-                      <p className="text-red-500 text-sm mt-1">{errors.prefecture.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{String(errors.prefecture?.message)}</p>
                     )}
                   </div>
 
@@ -462,7 +462,7 @@ export default function CustomerRegister() {
                       className={errors.city ? "border-red-500" : ""}
                     />
                     {errors.city && (
-                      <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{String(errors.city?.message)}</p>
                     )}
                   </div>
                 </div>
@@ -476,7 +476,7 @@ export default function CustomerRegister() {
                     className={errors.addressLine1 ? "border-red-500" : ""}
                   />
                   {errors.addressLine1 && (
-                    <p className="text-red-500 text-sm mt-1">{errors.addressLine1.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{String(errors.addressLine1?.message)}</p>
                   )}
                 </div>
 
@@ -519,7 +519,7 @@ export default function CustomerRegister() {
                       )}
                     />
                     {errors.howDidYouKnow && (
-                      <p className="text-red-500 text-sm mt-1">{errors.howDidYouKnow.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{String(errors.howDidYouKnow?.message)}</p>
                     )}
                   </div>
 

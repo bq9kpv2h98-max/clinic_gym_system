@@ -81,7 +81,7 @@ export default function CronJobsPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">最終実行</span>
-                  <span>{formatDate(latestLogs.syncCustomers.completedAt)}</span>
+                  <span>{formatDate(latestLogs.syncCustomers.endTime)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">処理時間</span>
@@ -89,14 +89,14 @@ export default function CronJobsPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">対象顧客</span>
-                  <span>{latestLogs.syncCustomers.totalItems}件</span>
+                  <span>{(latestLogs.syncCustomers.successCount || 0) + (latestLogs.syncCustomers.errorCount || 0)}件</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">成功/失敗</span>
                   <span>
                     <span className="text-green-600">{latestLogs.syncCustomers.successCount}</span>
                     {" / "}
-                    <span className="text-red-600">{latestLogs.syncCustomers.failedCount}</span>
+                    <span className="text-red-600">{latestLogs.syncCustomers.errorCount}</span>
                   </span>
                 </div>
                 <Button
@@ -135,7 +135,7 @@ export default function CronJobsPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">最終実行</span>
-                  <span>{formatDate(latestLogs.linkReservations.completedAt)}</span>
+                  <span>{formatDate(latestLogs.linkReservations.endTime)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">処理時間</span>
@@ -143,14 +143,14 @@ export default function CronJobsPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">対象予約</span>
-                  <span>{latestLogs.linkReservations.totalItems}件</span>
+                  <span>{(latestLogs.linkReservations.successCount || 0) + (latestLogs.linkReservations.errorCount || 0)}件</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">成功/失敗</span>
                   <span>
                     <span className="text-green-600">{latestLogs.linkReservations.successCount}</span>
                     {" / "}
-                    <span className="text-red-600">{latestLogs.linkReservations.failedCount}</span>
+                    <span className="text-red-600">{latestLogs.linkReservations.errorCount}</span>
                   </span>
                 </div>
                 <Button
@@ -231,11 +231,11 @@ export default function CronJobsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(log.completedAt)}</TableCell>
+                    <TableCell>{formatDate(log.endTime)}</TableCell>
                     <TableCell>{formatDuration(log.duration)}</TableCell>
-                    <TableCell>{log.totalItems}</TableCell>
+                    <TableCell>{(log.successCount || 0) + (log.errorCount || 0)}</TableCell>
                     <TableCell className="text-green-600">{log.successCount}</TableCell>
-                    <TableCell className="text-red-600">{log.failedCount}</TableCell>
+                    <TableCell className="text-red-600">{log.errorCount}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

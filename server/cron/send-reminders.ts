@@ -67,14 +67,15 @@ export async function sendReservationReminders() {
     const db = await getDb();
     if (db) {
       await db.insert(cronJobLogs).values({
+        logId: `send-reminders-${Date.now()}`,
         jobName,
+        jobDescription: "予約リマインダー送信",
         status,
-        startedAt: new Date(startTime),
-        completedAt,
+        startTime: new Date(startTime),
+        endTime: completedAt,
         duration,
-        totalItems: reservations.length,
         successCount,
-        failedCount: errorCount,
+        errorCount,
         errorMessage: errors.length > 0 ? errors[0] : null,
         details: errors.length > 0 ? JSON.stringify(errors) : null,
       });
@@ -90,14 +91,15 @@ export async function sendReservationReminders() {
     const db = await getDb();
     if (db) {
       await db.insert(cronJobLogs).values({
+        logId: `send-reminders-err-${Date.now()}`,
         jobName,
+        jobDescription: "予約リマインダー送信",
         status: "failed",
-        startedAt: new Date(startTime),
-        completedAt,
+        startTime: new Date(startTime),
+        endTime: completedAt,
         duration,
-        totalItems: 0,
         successCount: 0,
-        failedCount: 1,
+        errorCount: 1,
         errorMessage,
         details: JSON.stringify([errorMessage]),
       });

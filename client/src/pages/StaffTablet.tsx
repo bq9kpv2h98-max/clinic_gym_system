@@ -38,6 +38,7 @@ export default function StaffTablet() {
 
   // 顧客一覧取得
   const { data: customers, isLoading: customersLoading } = trpc.customers.list.useQuery();
+  const utils = trpc.useUtils();
 
   // QRコード用URL
   const baseUrl = window.location.origin;
@@ -59,7 +60,7 @@ export default function StaffTablet() {
 
       // 新規顧客QRコード
       console.log("[DEBUG] 新規QRコードを生成します...", newCustomerUrl);
-      const newQRData = await trpc.qrPrint.generateQRCodeImage.query({ url: newCustomerUrl });
+      const newQRData = await utils.qrPrint.generateQRCodeImage.fetch({ url: newCustomerUrl });
       console.log("[DEBUG] 新規QRコード生成成功", newQRData);
       pdf.setFontSize(20);
       pdf.text("新規顧客登録", 105, 20, { align: "center" });
@@ -74,7 +75,7 @@ export default function StaffTablet() {
 
       // 既存顧客QRコード
       console.log("[DEBUG] 既存QRコードを生成します...", existingCustomerUrl);
-      const existingQRData = await trpc.qrPrint.generateQRCodeImage.query({ url: existingCustomerUrl });
+      const existingQRData = await utils.qrPrint.generateQRCodeImage.fetch({ url: existingCustomerUrl });
       console.log("[DEBUG] 既存QRコード生成成功", existingQRData);
       pdf.setFontSize(20);
       pdf.text("既存顧客登録", 105, 20, { align: "center" });

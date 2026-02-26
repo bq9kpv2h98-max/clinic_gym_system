@@ -151,7 +151,7 @@ export default function ExpenseManagement() {
               </div>
               <div className="p-4 border rounded-lg">
                 <p className="text-sm text-muted-foreground">営業利益</p>
-                <p className={`text-2xl font-bold ${parseFloat(currentPL.operatingIncome) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <p className={`text-2xl font-bold ${parseFloat(String(currentPL.operatingIncome)) >= 0 ? "text-green-600" : "text-red-600"}`}>
                   {formatCurrency(currentPL.operatingIncome)}
                 </p>
               </div>
@@ -171,7 +171,7 @@ export default function ExpenseManagement() {
                 {EXPENSE_CATEGORIES.map((category) => (
                   <div key={category.key}>
                     <span className="text-muted-foreground">{category.label}:</span>{" "}
-                    <span className="font-medium">{formatCurrency(currentPL[category.key] || 0)}</span>
+                    <span className="font-medium">{formatCurrency((currentPL as any)[category.key] || 0)}</span>
                   </div>
                 ))}
                 <div>

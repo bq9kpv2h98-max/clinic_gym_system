@@ -110,6 +110,6 @@ export async function getTodayVisitHistory(): Promise<VisitHistoryRecord[]> {
 export async function syncPendingVisits(): Promise<void> {
   if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
     const registration = await navigator.serviceWorker.ready;
-    await registration.sync.register('sync-visit-records');
+    await (registration as any).sync.register('sync-visit-records');
   }
 }

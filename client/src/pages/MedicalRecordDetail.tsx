@@ -18,7 +18,7 @@ export default function MedicalRecordDetail() {
   );
 
   // 顧客情報取得
-  const { data: customer } = trpc.customers.getByCustomerId.useQuery(
+  const { data: customer } = trpc.customers.getById.useQuery(
     { customerId: record?.customerId || "" },
     { enabled: !!record?.customerId }
   );

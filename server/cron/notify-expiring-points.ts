@@ -56,7 +56,7 @@ export async function notifyExpiringPoints() {
     }
 
     // 各顧客に通知を送信
-    for (const [customerId, transactions] of customerGroups.entries()) {
+    for (const [customerId, transactions] of Array.from(customerGroups.entries())) {
       try {
         // 顧客情報を取得
         const [customer] = await db
@@ -73,7 +73,7 @@ export async function notifyExpiringPoints() {
         }
 
         // 期限切れとなるポイント数を計算
-        const expiringPoints = transactions.reduce((sum, t) => sum + t.points, 0);
+        const expiringPoints = transactions.reduce((sum: number, t: any) => sum + t.points, 0);
 
         // 有効期限を取得（最初の取引の有効期限）
         const expirationDate = transactions[0].expiresAt;

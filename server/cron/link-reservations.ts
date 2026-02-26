@@ -136,14 +136,15 @@ export async function linkReservationsAutomatically(): Promise<LinkLog> {
       const db = await getDb();
       if (db) {
         await db.insert(cronJobLogs).values({
+          logId: `link-reservations-${Date.now()}`,
           jobName: "link-reservations",
+          jobDescription: "予約紐付け",
           status: log.failedCount === 0 ? "success" : "failed",
-          startedAt: new Date(startTime),
-          completedAt: new Date(endTime),
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
           duration,
-          totalItems: log.totalReservations,
           successCount: log.successCount,
-          failedCount: log.failedCount,
+          errorCount: log.failedCount,
           errorMessage: log.details.filter(d => d.status === "failed").map(d => d.error).join("; ") || null,
           details: JSON.stringify(log),
         });

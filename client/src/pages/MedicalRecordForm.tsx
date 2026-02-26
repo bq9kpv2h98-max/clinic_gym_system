@@ -48,35 +48,21 @@ export default function MedicalRecordForm() {
   // カルテ作成・更新
   const createMutation = trpc.medicalRecords.create.useMutation({
     onSuccess: () => {
-      toast({
-        title: "カルテを登録しました",
-        description: "カルテが正常に登録されました。",
-      });
+      toast.success("カルテを登録しました");
       setLocation("/medical-records");
     },
     onError: (error) => {
-      toast({
-        title: "エラー",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(`エラー: ${error.message}`);
     },
   });
 
   const updateMutation = trpc.medicalRecords.update.useMutation({
     onSuccess: () => {
-      toast({
-        title: "カルテを更新しました",
-        description: "カルテが正常に更新されました。",
-      });
+      toast.success("カルテを更新しました");
       setLocation("/medical-records");
     },
     onError: (error) => {
-      toast({
-        title: "エラー",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(`エラー: ${error.message}`);
     },
   });
 
@@ -99,11 +85,7 @@ export default function MedicalRecordForm() {
     e.preventDefault();
 
     if (!customerId) {
-      toast({
-        title: "エラー",
-        description: "顧客を選択してください。",
-        variant: "destructive",
-      });
+      toast.error("顧客を選択してください。");
       return;
     }
 

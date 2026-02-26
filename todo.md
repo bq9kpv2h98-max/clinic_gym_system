@@ -566,3 +566,13 @@
 ### フェーズ1d: 認証の有効化
 - [ ] DashboardLayoutの認証を有効化
 - [ ] オーナーのメールアドレスを登録
+
+## Phase 86: TypeScriptエラー修正（35件→全件解消）
+- [x] cronJobLogsスキーマ不一致を修正（CronJobs.tsx, send-reminders.ts, sync-notion-customers.ts, link-reservations.ts）
+- [x] MedicalRecordForm.tsx/MedicalRecordsList.tsx/MedicalRecordDetail.tsxのtitleプロパティエラーを修正
+- [x] cron/expire-points.ts, notify-expiring-points.tsのMapIteratorとany型エラーを修正
+- [x] StaffTablet.tsxの.queryプロパティエラーを修正
+- [x] ExpenseManagement.tsxのインデックスエラーを修正
+- [x] CustomerRegister.tsxのエラーを修正
+- [x] server/atlassian.tsのenvインポートエラーを修正
+- [x] client/src/lib/indexedDB.tsのエラーを修正

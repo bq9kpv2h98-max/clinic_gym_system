@@ -131,16 +131,17 @@ export async function syncNotionCustomers(syncType: "manual" | "scheduled" = "sc
       const db = await getDb();
       if (db) {
         await db.insert(cronJobLogs).values({
-        jobName: "sync-notion-customers",
-        status: log.errorCount === 0 ? "success" : "failed",
-        startedAt: new Date(startTime),
-        completedAt: new Date(endTime),
-        duration,
-        totalItems: log.totalCustomers,
-        successCount: log.successCount,
-        failedCount: log.errorCount,
-        errorMessage: log.errors.length > 0 ? log.errors.join("; ") : null,
-        details: JSON.stringify(log),
+          logId: `sync-notion-customers-${Date.now()}`,
+          jobName: "sync-notion-customers",
+          jobDescription: "Notion顧客同期",
+          status: log.errorCount === 0 ? "success" : "failed",
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+          duration,
+          successCount: log.successCount,
+          errorCount: log.errorCount,
+          errorMessage: log.errors.length > 0 ? log.errors.join("; ") : null,
+          details: JSON.stringify(log),
         });
       }
     } catch (logError) {

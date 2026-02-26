@@ -4,7 +4,7 @@
  * Provides helper functions for integrating with Atlassian Cloud products.
  */
 
-import { env } from "./_core/env";
+// ENV is not needed here - credentials are hardcoded from skill
 
 // Atlassian credentials from skill
 const ATLASSIAN_EMAIL = "kusakabe.bb.tk@gmail.com";

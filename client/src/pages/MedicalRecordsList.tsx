@@ -38,19 +38,12 @@ export default function MedicalRecordsList() {
   // カルテ削除
   const deleteMutation = trpc.medicalRecords.delete.useMutation({
     onSuccess: () => {
-      toast({
-        title: "カルテを削除しました",
-        description: "カルテが正常に削除されました。",
-      });
+      toast.success("カルテを削除しました");
       refetch();
       setDeleteRecordId(null);
     },
     onError: (error) => {
-      toast({
-        title: "エラー",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(`エラー: ${error.message}`);
     },
   });
 
