@@ -559,9 +559,9 @@
 - [x] ブラウザで動作確認
 
 ### フェーズ1c: 他のダミーデータの段階的置き換え
-- [ ] 売上推移データ（revenueData）を実データに置き換え
-- [ ] 顧客獲得データ（customerAcquisitionData）を実データに置き換え
-- [ ] チャネルメトリクス（channelMetrics）を実データに置き換え
+- [x] 売上推移データ（revenueData）を実データに置き換え
+- [x] 顧客獲得データ（customerAcquisitionData）を実データに置き換え
+- [x] チャネルメトリクス（channelMetrics）を実データに置き換え
 
 ### フェーズ1d: 認証の有効化
 - [ ] DashboardLayoutの認証を有効化
@@ -576,3 +576,30 @@
 - [x] CustomerRegister.tsxのエラーを修正
 - [x] server/atlassian.tsのenvインポートエラーを修正
 - [x] client/src/lib/indexedDB.tsのエラーを修正
+
+## Phase 87: ダッシュボード完全リアルタイム化 + 今日のタスク + 動作確認
+### 1. ダッシュボードの残りダミーデータ置き換え
+- [x] 売上推移データ（revenueData）を実データに置き換え
+- [x] 顧客獲得データ（customerAcquisitionData）を実データに置き換え
+- [x] チャネルメトリクス（channelMetrics）を実データに置き換え
+- [x] analytics.tsにAPI追加（getRevenueChart, getCustomerAcquisition, getChannelMetrics）
+### 2. 「今日のタスク」ウィジェット追加
+- [x] 今日のタスクAPI実装（未確認予約、期限切れ間近ポイント、休眠顧客）
+- [x] 今日のタスクUIウィジェット実装
+- [x] Dashboard.tsxに統合
+### 3. 各ページの動作確認
+- [x] ダッシュボード
+- [x] 顧客管理
+- [x] 売上管理
+- [x] 予約管理（スタッフ）
+- [x] 経費管理
+- [x] カルテ管理
+- [x] 月次統計
+- [x] 分析（広告効果測定）
+- [x] 予約フォーム（顧客用）
+- [x] QRコード登録
+- [x] 施術者用ホーム
+### 4. ユニットテスト
+- [x] dashboard-analytics.test.ts作成（17テスト全パス）
+- [x] getRevenueChartのSQL GROUP BY互換性修正
+- [x] 全APIのNumber型変換修正（MySQLのCOUNT/SUMがstring返却する問題）

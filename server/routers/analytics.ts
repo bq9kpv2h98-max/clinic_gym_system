@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { customers, visits, pointTransactions, sales, reservations } from "../../drizzle/schema";
+import { customers, visits, pointTransactions, sales, reservations, advertisingExpenses, advertisingChannels, customerAcquisitionChannels } from "../../drizzle/schema";
 import { eq, and, sql, count, sum, avg, gte, lte } from "drizzle-orm";
 
 export const analyticsRouter = router({
@@ -21,14 +21,14 @@ export const analyticsRouter = router({
     const [totalCustomersResult] = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(customers);
-    const totalCustomers = totalCustomersResult?.count || 0;
+    const totalCustomers = Number(totalCustomersResult?.count) || 0;
 
     // 今月の新規顧客数
     const [thisMonthNewCustomersResult] = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(customers)
       .where(gte(customers.createdAt, thisMonthStart));
-    const thisMonthNewCustomers = thisMonthNewCustomersResult?.count || 0;
+    const thisMonthNewCustomers = Number(thisMonthNewCustomersResult?.count) || 0;
 
     // 先月の新規顧客数
     const [lastMonthNewCustomersResult] = await db
@@ -40,45 +40,39 @@ export const analyticsRouter = router({
           lte(customers.createdAt, lastMonthEnd)
         )
       );
-    const lastMonthNewCustomers = lastMonthNewCustomersResult?.count || 0;
+    const lastMonthNewCustomers = Number(lastMonthNewCustomersResult?.count) || 0;
 
     // 今月の総売上
     const [thisMonthSalesResult] = await db
       .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
       .from(sales)
-      .where(gte(sales.saleDate, thisMonthStart));
-    const thisMonthTotalSales = thisMonthSalesResult?.total || 0;
+      .where(sql`${sales.saleDate} >= ${thisMonthStart}`);
+    const thisMonthTotalSales = Number(thisMonthSalesResult?.total) || 0;
 
     // 先月の総売上
     const [lastMonthSalesResult] = await db
       .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
       .from(sales)
       .where(
-        and(
-          gte(sales.saleDate, lastMonthStart),
-          lte(sales.saleDate, lastMonthEnd)
-        )
+        sql`${sales.saleDate} >= ${lastMonthStart} AND ${sales.saleDate} <= ${lastMonthEnd}`
       );
-    const lastMonthTotalSales = lastMonthSalesResult?.total || 0;
+    const lastMonthTotalSales = Number(lastMonthSalesResult?.total) || 0;
 
     // 今月の平均単価
     const [thisMonthAvgResult] = await db
       .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
       .from(sales)
-      .where(gte(sales.saleDate, thisMonthStart));
-    const thisMonthAvgSale = thisMonthAvgResult?.avg || 0;
+      .where(sql`${sales.saleDate} >= ${thisMonthStart}`);
+    const thisMonthAvgSale = Number(thisMonthAvgResult?.avg) || 0;
 
     // 先月の平均単価
     const [lastMonthAvgResult] = await db
       .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
       .from(sales)
       .where(
-        and(
-          gte(sales.saleDate, lastMonthStart),
-          lte(sales.saleDate, lastMonthEnd)
-        )
+        sql`${sales.saleDate} >= ${lastMonthStart} AND ${sales.saleDate} <= ${lastMonthEnd}`
       );
-    const lastMonthAvgSale = lastMonthAvgResult?.avg || 0;
+    const lastMonthAvgSale = Number(lastMonthAvgResult?.avg) || 0;
 
     // 前月比計算
     const newCustomersChange =
@@ -120,18 +114,260 @@ export const analyticsRouter = router({
       .select({ count: sql<number>`COUNT(*)` })
       .from(visits)
       .where(gte(visits.visitDate, today));
-    const todayVisits = todayVisitsResult?.count || 0;
+    const todayVisits = Number(todayVisitsResult?.count) || 0;
 
     // 未確認予約数（ステータスが"pending"の予約）
     const [pendingReservationsResult] = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(reservations)
       .where(eq(reservations.status, "pending"));
-    const pendingReservations = pendingReservationsResult?.count || 0;
+    const pendingReservations = Number(pendingReservationsResult?.count) || 0;
 
     return {
       todayVisits,
       pendingReservations,
+    };
+  }),
+
+  /**
+   * 売上推移データ（過去6ヶ月）
+   */
+  getRevenueChart: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    // Use raw SQL to avoid only_full_group_by issues
+    const result = await db.execute(
+      sql`SELECT DATE_FORMAT(\`saleDate\`, '%Y-%m') as yearMonth, COALESCE(SUM(amount), 0) as revenue, COUNT(*) as \`count\` FROM sales WHERE \`saleDate\` >= ${sixMonthsAgo.toISOString().split('T')[0]} GROUP BY DATE_FORMAT(\`saleDate\`, '%Y-%m') ORDER BY DATE_FORMAT(\`saleDate\`, '%Y-%m')`
+    ) as any;
+    const rows = (result[0] || result) as Array<{ yearMonth: string; revenue: number; count: number }>;
+
+    // 過去6ヶ月分のデータを埋める（データがない月は0）
+    const months: { month: string; revenue: number; count: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = `${d.getMonth() + 1}月`;
+      const found = rows.find((r: any) => r.yearMonth === ym);
+      months.push({
+        month: monthLabel,
+        revenue: found ? Number(found.revenue) : 0,
+        count: found ? Number(found.count) : 0,
+      });
+    }
+
+    return months;
+  }),
+
+  /**
+   * 顧客獲得チャネル別データ（howDidYouKnowフィールドから集計）
+   */
+  getCustomerAcquisition: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db
+      .select({
+        source: customers.howDidYouKnow,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(customers)
+      .where(sql`${customers.howDidYouKnow} IS NOT NULL AND ${customers.howDidYouKnow} != ''`)
+      .groupBy(customers.howDidYouKnow)
+      .orderBy(sql`COUNT(*) DESC`);
+
+    return result.map((r) => ({
+      name: r.source || '不明',
+      value: Number(r.count),
+    }));
+  }),
+
+  /**
+   * 広告チャネル別メトリクス（CPA・ROAS）
+   */
+  getChannelMetrics: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthStartStr = thisMonthStart.toISOString().split('T')[0];
+
+    // 広告チャネル一覧を取得
+    const channels = await db
+      .select({
+        channelId: advertisingChannels.channelId,
+        channelName: advertisingChannels.channelName,
+      })
+      .from(advertisingChannels)
+      .where(eq(advertisingChannels.isActive, 1));
+
+    if (channels.length === 0) return [];
+
+    // チャネル別の広告費合計
+    const expenses = await db
+      .select({
+        channelId: advertisingExpenses.channelId,
+        totalExpense: sql<number>`COALESCE(SUM(${advertisingExpenses.amount}), 0)`,
+      })
+      .from(advertisingExpenses)
+      .where(sql`${advertisingExpenses.expenseDate} >= ${thisMonthStartStr}`)
+      .groupBy(advertisingExpenses.channelId);
+
+    // チャネル別の新規顧客数
+    const acquisitions = await db
+      .select({
+        channelId: customerAcquisitionChannels.channelId,
+        newCustomers: sql<number>`COUNT(*)`,
+      })
+      .from(customerAcquisitionChannels)
+      .where(gte(customerAcquisitionChannels.acquisitionDate, thisMonthStart))
+      .groupBy(customerAcquisitionChannels.channelId);
+
+    // 今月の総売上（ROAS計算用）
+    const [salesResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
+      .from(sales)
+      .where(sql`${sales.saleDate} >= ${thisMonthStartStr}`);
+    const totalSales = salesResult?.total || 0;
+
+    return channels.map((ch) => {
+      const expense = expenses.find((e) => e.channelId === ch.channelId);
+      const acq = acquisitions.find((a) => a.channelId === ch.channelId);
+      const totalExpense = expense ? Number(expense.totalExpense) : 0;
+      const newCustomers = acq ? Number(acq.newCustomers) : 0;
+      const cpa = newCustomers > 0 ? Math.round(totalExpense / newCustomers) : 0;
+      // ROAS = (売上 / 広告費) * 100
+      const roas = totalExpense > 0 ? Math.round((totalSales / totalExpense) * 100) : 0;
+
+      return {
+        channelName: ch.channelName,
+        totalExpense,
+        newCustomers,
+        cpa,
+        roas,
+      };
+    });
+  }),
+
+  /**
+   * 今日のタスク（未確認予約、期限切れ間近ポイント、休眠顧客）
+   */
+  getTodayTasks: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysLater = new Date(today);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+    const sixtyDaysAgo = new Date(today);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    // 1. 未確認予約（ステータスがpending）
+    const pendingReservations = await db
+      .select({
+        id: reservations.id,
+        customerId: reservations.customerId,
+        firstChoiceDate: reservations.firstChoiceDate,
+        status: reservations.status,
+      })
+      .from(reservations)
+      .where(eq(reservations.status, 'pending'))
+      .limit(20);
+
+    // 顧客名を取得
+    const pendingWithNames = await Promise.all(
+      pendingReservations.map(async (r) => {
+        const [customer] = await db
+          .select({ fullName: customers.fullName })
+          .from(customers)
+          .where(sql`${customers.customerId} = ${r.customerId}`)
+          .limit(1);
+        return {
+          type: 'reservation' as const,
+          title: `未確認予約: ${customer?.fullName || '不明'}`,
+          description: `希望日: ${r.firstChoiceDate || '未設定'}`,
+          priority: 'high' as const,
+          link: '/staff-reservations',
+        };
+      })
+    );
+
+    // 2. ポイント期限切れ間近（7日以内）
+    const expiringPoints = await db
+      .select({
+        customerId: customers.customerId,
+        fullName: customers.fullName,
+        totalPoints: customers.totalPoints,
+        pointExpirationDate: customers.pointExpirationDate,
+      })
+      .from(customers)
+      .where(
+        and(
+          sql`${customers.pointExpirationDate} IS NOT NULL`,
+          sql`${customers.pointExpirationDate} <= ${sevenDaysLater.toISOString().split('T')[0]}`,
+          sql`${customers.pointExpirationDate} >= ${today.toISOString().split('T')[0]}`,
+          sql`${customers.totalPoints} > 0`
+        )
+      )
+      .limit(20);
+
+    const expiringTasks = expiringPoints.map((c) => ({
+      type: 'expiring_points' as const,
+      title: `ポイント期限切れ間近: ${c.fullName}`,
+      description: `${c.totalPoints}pt（期限: ${c.pointExpirationDate}）`,
+      priority: 'medium' as const,
+      link: `/customers`,
+    }));
+
+    // 3. 休眠顧客（60日以上来院なし、過去に2回以上来院）
+    const dormantCustomers = await db
+      .select({
+        customerId: customers.customerId,
+        fullName: customers.fullName,
+        lastVisitDate: customers.lastVisitDate,
+        visitCount: customers.visitCount,
+      })
+      .from(customers)
+      .where(
+        and(
+          sql`${customers.lastVisitDate} IS NOT NULL`,
+          sql`${customers.lastVisitDate} < ${sixtyDaysAgo.toISOString()}`,
+          sql`${customers.visitCount} >= 2`,
+          eq(customers.isActive, 1)
+        )
+      )
+      .limit(10);
+
+    const dormantTasks = dormantCustomers.map((c) => {
+      const lastVisit = c.lastVisitDate ? new Date(c.lastVisitDate) : null;
+      const daysSince = lastVisit ? Math.floor((now.getTime() - lastVisit.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      return {
+        type: 'dormant' as const,
+        title: `休眠顧客: ${c.fullName}`,
+        description: `最終来院: ${daysSince}日前（来院${c.visitCount}回）`,
+        priority: 'low' as const,
+        link: `/customers`,
+      };
+    });
+
+    // 全タスクをまとめて優先度順にソート
+    const allTasks = [...pendingWithNames, ...expiringTasks, ...dormantTasks];
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    allTasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+    return {
+      tasks: allTasks,
+      summary: {
+        pendingReservations: pendingWithNames.length,
+        expiringPoints: expiringTasks.length,
+        dormantCustomers: dormantTasks.length,
+        total: allTasks.length,
+      },
     };
   }),
 

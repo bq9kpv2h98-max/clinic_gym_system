@@ -38,6 +38,9 @@ import {
   Calendar,
   ClipboardList,
   Tablet,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -66,12 +69,20 @@ const Dashboard: React.FC = () => {
   // リアルタイムデータを取得
   const { data: dashboardMetrics, isLoading: isLoadingMetrics, error: metricsError } = trpc.analytics.getDashboardMetrics.useQuery();
   const { data: realtimeStats, isLoading: isLoadingStats, error: statsError } = trpc.analytics.getRealtimeStats.useQuery();
+  const { data: revenueChartData, error: revenueError } = trpc.analytics.getRevenueChart.useQuery();
+  const { data: acquisitionData, error: acquisitionError } = trpc.analytics.getCustomerAcquisition.useQuery();
+  const { data: channelData, error: channelError } = trpc.analytics.getChannelMetrics.useQuery();
+  const { data: todayTasksData, error: todayTasksError } = trpc.analytics.getTodayTasks.useQuery();
 
   // エラーハンドリング
   React.useEffect(() => {
     if (metricsError) handleError(metricsError, "ダッシュボードメトリクスの読み込み");
     if (statsError) handleError(statsError, "リアルタイム統計の読み込み");
-  }, [metricsError, statsError, handleError]);
+    if (revenueError) handleError(revenueError, "売上推移データの読み込み");
+    if (acquisitionError) handleError(acquisitionError, "顧客獲得データの読み込み");
+    if (channelError) handleError(channelError, "広告チャネルデータの読み込み");
+    if (todayTasksError) handleError(todayTasksError, "今日のタスクの読み込み");
+  }, [metricsError, statsError, revenueError, acquisitionError, channelError, todayTasksError, handleError]);
 
   // ローディング中
   if (isLoadingMetrics || isLoadingStats) {
@@ -95,46 +106,11 @@ const Dashboard: React.FC = () => {
     customerRetentionRate: 0, // TODO: 将来的に実装
   };
 
-  const channelMetrics: ChannelMetrics[] = [
-    {
-      channelName: "Google Ads",
-      totalExpense: 150000,
-      newCustomers: 45,
-      cpa: 3333,
-      roas: 850,
-    },
-    {
-      channelName: "Facebook",
-      totalExpense: 100000,
-      newCustomers: 28,
-      cpa: 3571,
-      roas: 920,
-    },
-    {
-      channelName: "チラシ",
-      totalExpense: 50000,
-      newCustomers: 12,
-      cpa: 4167,
-      roas: 780,
-    },
-  ];
-
-  const revenueData = [
-    { month: "1月", revenue: 450000 },
-    { month: "2月", revenue: 520000 },
-    { month: "3月", revenue: 480000 },
-    { month: "4月", revenue: 610000 },
-    { month: "5月", revenue: 680000 },
-    { month: "6月", revenue: 720000 },
-  ];
-
-  const customerAcquisitionData = [
-    { name: "Google Ads", value: 45 },
-    { name: "Facebook", value: 28 },
-    { name: "チラシ", value: 12 },
-  ];
-
-  const COLORS = ["#3b82f6", "#ef4444", "#10b981"];
+  // APIから取得したリアルタイムデータ
+  const channelMetrics: ChannelMetrics[] = channelData || [];
+  const revenueData = revenueChartData || [];
+  const customerAcquisitionData = acquisitionData || [];
+  const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
 
   const navigationItems = [
     { id: "overview", label: "概要", icon: BarChart3 },
@@ -453,6 +429,65 @@ const Dashboard: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* 今日のタスク */}
+          {todayTasksData && todayTasksData.tasks.length > 0 && (
+            <Card className="mb-8 border-l-4 border-l-amber-500">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <AlertTriangle className="w-5 h-5 mr-2 text-amber-500" />
+                  今日のタスク
+                  <span className="ml-2 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                    {todayTasksData.tasks.length}件
+                  </span>
+                </CardTitle>
+                <CardDescription>対応が必要なタスクがあります</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {todayTasksData.tasks.map((task: any, index: number) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
+                        task.priority === 'high'
+                          ? 'border-red-200 bg-red-50/50'
+                          : task.priority === 'medium'
+                          ? 'border-amber-200 bg-amber-50/50'
+                          : 'border-gray-200 bg-gray-50/50'
+                      }`}
+                      onClick={() => task.link && setLocation(task.link)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          task.priority === 'high' ? 'bg-red-500' :
+                          task.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{task.title}</p>
+                          <p className="text-xs text-gray-500">{task.description}</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {todayTasksData && todayTasksData.tasks.length === 0 && (
+            <Card className="mb-8 border-l-4 border-l-green-500">
+              <CardContent className="py-6">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <div>
+                    <p className="font-medium text-gray-900">今日のタスクはすべて完了しています</p>
+                    <p className="text-sm text-gray-500">未確認予約や期限切れ間近のポイントはありません</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* グラフセクション */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
