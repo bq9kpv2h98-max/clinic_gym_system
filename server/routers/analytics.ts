@@ -16,63 +16,41 @@ export const analyticsRouter = router({
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const thisMonthStr = thisMonthStart.toISOString().split('T')[0];
+    const lastMonthStartStr = lastMonthStart.toISOString().split('T')[0];
+    const lastMonthEndStr = lastMonthEnd.toISOString().split('T')[0];
 
-    // 総顧客数
-    const [totalCustomersResult] = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(customers);
-    const totalCustomers = Number(totalCustomersResult?.count) || 0;
+    // 顧客データとセールスデータを並列で取得（2クエリに統合）
+    const [customerStats, salesStats] = await Promise.all([
+      db.execute(
+        sql`SELECT
+          COUNT(*) as totalCustomers,
+          SUM(CASE WHEN createdAt >= ${thisMonthStr} THEN 1 ELSE 0 END) as thisMonthNew,
+          SUM(CASE WHEN createdAt >= ${lastMonthStartStr} AND createdAt <= ${lastMonthEndStr} THEN 1 ELSE 0 END) as lastMonthNew
+        FROM customers`
+      ),
+      db.execute(
+        sql`SELECT
+          COALESCE(SUM(CASE WHEN \`saleDate\` >= ${thisMonthStr} THEN amount ELSE 0 END), 0) as thisMonthTotal,
+          COALESCE(SUM(CASE WHEN \`saleDate\` >= ${lastMonthStartStr} AND \`saleDate\` <= ${lastMonthEndStr} THEN amount ELSE 0 END), 0) as lastMonthTotal,
+          COALESCE(AVG(CASE WHEN \`saleDate\` >= ${thisMonthStr} THEN amount ELSE NULL END), 0) as thisMonthAvg,
+          COALESCE(AVG(CASE WHEN \`saleDate\` >= ${lastMonthStartStr} AND \`saleDate\` <= ${lastMonthEndStr} THEN amount ELSE NULL END), 0) as lastMonthAvg
+        FROM sales`
+      ),
+    ]);
 
-    // 今月の新規顧客数
-    const [thisMonthNewCustomersResult] = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(customers)
-      .where(gte(customers.createdAt, thisMonthStart));
-    const thisMonthNewCustomers = Number(thisMonthNewCustomersResult?.count) || 0;
+    const cRow = ((customerStats as any)[0] || customerStats) as any;
+    const c = Array.isArray(cRow) ? cRow[0] : cRow;
+    const sRow = ((salesStats as any)[0] || salesStats) as any;
+    const s = Array.isArray(sRow) ? sRow[0] : sRow;
 
-    // 先月の新規顧客数
-    const [lastMonthNewCustomersResult] = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(customers)
-      .where(
-        and(
-          gte(customers.createdAt, lastMonthStart),
-          lte(customers.createdAt, lastMonthEnd)
-        )
-      );
-    const lastMonthNewCustomers = Number(lastMonthNewCustomersResult?.count) || 0;
-
-    // 今月の総売上
-    const [thisMonthSalesResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
-      .from(sales)
-      .where(sql`${sales.saleDate} >= ${thisMonthStart}`);
-    const thisMonthTotalSales = Number(thisMonthSalesResult?.total) || 0;
-
-    // 先月の総売上
-    const [lastMonthSalesResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${sales.amount}), 0)` })
-      .from(sales)
-      .where(
-        sql`${sales.saleDate} >= ${lastMonthStart} AND ${sales.saleDate} <= ${lastMonthEnd}`
-      );
-    const lastMonthTotalSales = Number(lastMonthSalesResult?.total) || 0;
-
-    // 今月の平均単価
-    const [thisMonthAvgResult] = await db
-      .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
-      .from(sales)
-      .where(sql`${sales.saleDate} >= ${thisMonthStart}`);
-    const thisMonthAvgSale = Number(thisMonthAvgResult?.avg) || 0;
-
-    // 先月の平均単価
-    const [lastMonthAvgResult] = await db
-      .select({ avg: sql<number>`COALESCE(AVG(${sales.amount}), 0)` })
-      .from(sales)
-      .where(
-        sql`${sales.saleDate} >= ${lastMonthStart} AND ${sales.saleDate} <= ${lastMonthEnd}`
-      );
-    const lastMonthAvgSale = Number(lastMonthAvgResult?.avg) || 0;
+    const totalCustomers = Number(c?.totalCustomers) || 0;
+    const thisMonthNewCustomers = Number(c?.thisMonthNew) || 0;
+    const lastMonthNewCustomers = Number(c?.lastMonthNew) || 0;
+    const thisMonthTotalSales = Number(s?.thisMonthTotal) || 0;
+    const lastMonthTotalSales = Number(s?.lastMonthTotal) || 0;
+    const thisMonthAvgSale = Number(s?.thisMonthAvg) || 0;
+    const lastMonthAvgSale = Number(s?.lastMonthAvg) || 0;
 
     // 前月比計算
     const newCustomersChange =
@@ -267,35 +245,23 @@ export const analyticsRouter = router({
     const sixtyDaysAgo = new Date(today);
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-    // 1. 未確認予約（ステータスがpending）
-    const pendingReservations = await db
-      .select({
-        id: reservations.id,
-        customerId: reservations.customerId,
-        firstChoiceDate: reservations.firstChoiceDate,
-        status: reservations.status,
-      })
-      .from(reservations)
-      .where(eq(reservations.status, 'pending'))
-      .limit(20);
+    // 1. 未確認予約（ステータスがpending） - JOINで顧客名も同時取得
+    const pendingReservationsRaw = await db.execute(
+      sql`SELECT r.id, r.\`customerId\`, r.\`firstChoiceDate\`, c.\`fullName\`
+        FROM reservations r
+        LEFT JOIN customers c ON r.\`customerId\` = c.\`customerId\`
+        WHERE r.status = 'pending'
+        LIMIT 20`
+    ) as any;
+    const pendingRows = (Array.isArray((pendingReservationsRaw as any)[0]) ? (pendingReservationsRaw as any)[0] : pendingReservationsRaw) as any[];
 
-    // 顧客名を取得
-    const pendingWithNames = await Promise.all(
-      pendingReservations.map(async (r) => {
-        const [customer] = await db
-          .select({ fullName: customers.fullName })
-          .from(customers)
-          .where(sql`${customers.customerId} = ${r.customerId}`)
-          .limit(1);
-        return {
-          type: 'reservation' as const,
-          title: `未確認予約: ${customer?.fullName || '不明'}`,
-          description: `希望日: ${r.firstChoiceDate || '未設定'}`,
-          priority: 'high' as const,
-          link: '/staff-reservations',
-        };
-      })
-    );
+    const pendingWithNames = (pendingRows || []).map((r: any) => ({
+      type: 'reservation' as const,
+      title: `未確認予約: ${r.fullName || '不明'}`,
+      description: `希望日: ${r.firstChoiceDate || '未設定'}`,
+      priority: 'high' as const,
+      link: '/staff-reservations',
+    }));
 
     // 2. ポイント期限切れ間近（7日以内）
     const expiringPoints = await db

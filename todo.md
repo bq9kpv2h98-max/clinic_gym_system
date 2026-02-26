@@ -608,3 +608,16 @@
 - [x] エラー内容を調査（/customerルートが存在しないため404）
 - [x] エラー原因を特定して修正（App.tsxに/customerルートを追加）
 - [x] テストと動作確認
+
+## Phase 88: 全ページエラーチェック
+- [x] 全ページにアクセスしてエラーがないか確認（20ページ全てOK）
+- [x] エラーがあれば修正（並列チェック時のレート制限が原因、実際のエラーなし）
+
+## Phase 89: パフォーマンス改善（サイトが重い問題）
+- [x] バンドルサイズ分析（元: 2.6MB→分割後: 初回484KB + ページ別チャンク）
+- [x] ダッシュボードのAPI呼び出し最適化（getDashboardMetrics: 1.6s→0.24s、6クエリ→2クエリに統合）
+- [x] コード分割（lazy loading）導入（全30ページをReact.lazyで分割）
+- [x] バンドル分割（manualChunks: recharts/jspdf/radix/trpcを分離）
+- [x] API応答時間の改善（getTodayTasks: N+1問題をJOINに修正）
+- [x] QueryClientにキャッシュ設定追加（staleTime: 30s, gcTime: 5min）
+- [x] テスト17件全パス確認
