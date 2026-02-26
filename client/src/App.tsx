@@ -65,6 +65,7 @@ function Router() {
       <Route path="/expenses/batch-edit" component={ExpenseBatchEdit} />
       <Route path="/mypage-login" component={MyPageLogin} />
       <Route path="/mypage" component={MyPage} />
+      <Route path="/customer" component={CustomerHome} />
       <Route path="/customer-home" component={CustomerHome} />
       <Route path="/staff/scanner" component={StaffScanner} />
       <Route path="/notion-link" component={NotionLink} />

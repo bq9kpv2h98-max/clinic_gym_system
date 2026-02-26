@@ -603,3 +603,8 @@
 - [x] dashboard-analytics.test.ts作成（17テスト全パス）
 - [x] getRevenueChartのSQL GROUP BY互換性修正
 - [x] 全APIのNumber型変換修正（MySQLのCOUNT/SUMがstring返却する問題）
+
+## Bug: 顧客マイページのエラー
+- [x] エラー内容を調査（/customerルートが存在しないため404）
+- [x] エラー原因を特定して修正（App.tsxに/customerルートを追加）
+- [x] テストと動作確認
