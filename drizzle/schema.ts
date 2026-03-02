@@ -537,6 +537,12 @@ export const reservations = mysqlTable("reservations", {
   customerPhone: varchar("customerPhone", { length: 20 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }),
   
+  // 住所情報（EFO: 郵便番号自動入力）
+  postalCode: varchar("postalCode", { length: 10 }),
+  prefecture: varchar("prefecture", { length: 50 }),
+  city: varchar("city", { length: 100 }),
+  addressLine: varchar("addressLine", { length: 200 }),
+  
   // 予約日時（最大3つの希望）
   firstChoiceDate: timestamp("firstChoiceDate").notNull(),
   firstChoiceTimeSlot: varchar("firstChoiceTimeSlot", { length: 50 }).notNull(), // '10:00-13:00', '13:00-17:00', '17:00-'

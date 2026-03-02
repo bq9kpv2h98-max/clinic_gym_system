@@ -1,0 +1,9 @@
+{
+  "query": "\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `postalCode` varchar(10);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `prefecture` varchar(50);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `city` varchar(100);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `addressLine` varchar(200);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Ce8awbE2zvUGCht.3dcdfd28ceed --database NdUP7w5xBfCzAuDZco4hbr --execute \nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `postalCode` varchar(10);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `prefecture` varchar(50);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `city` varchar(100);\nALTER TABLE `reservations` ADD COLUMN IF NOT EXISTS `addressLine` varchar(200);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 3987
+}

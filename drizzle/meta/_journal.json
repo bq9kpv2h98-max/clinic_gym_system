@@ -141,6 +141,13 @@
       "when": 1769491988361,
       "tag": "0019_cultured_the_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1772426726888,
+      "tag": "0020_puzzling_synch",
+      "breakpoints": true
     }
   ]
 }
