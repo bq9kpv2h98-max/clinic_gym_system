@@ -1,0 +1,1 @@
+ALTER TABLE `reservations` ADD `firstChoiceTimeDetail` varchar(200);

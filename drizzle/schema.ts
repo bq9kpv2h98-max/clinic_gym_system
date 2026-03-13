@@ -546,6 +546,7 @@ export const reservations = mysqlTable("reservations", {
   // 予約日時（最大3つの希望）
   firstChoiceDate: timestamp("firstChoiceDate").notNull(),
   firstChoiceTimeSlot: varchar("firstChoiceTimeSlot", { length: 50 }).notNull(), // '10:00-13:00', '13:00-17:00', '17:00-'
+  firstChoiceTimeDetail: varchar("firstChoiceTimeDetail", { length: 200 }), // 詳細時間の自由記入
   
   secondChoiceDate: timestamp("secondChoiceDate"),
   secondChoiceTimeSlot: varchar("secondChoiceTimeSlot", { length: 50 }),

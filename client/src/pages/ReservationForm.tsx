@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2, MessageCircle, CalendarPlus, Shield, ChevronRight, MapPin, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Phone, Mail, CheckCircle2, MessageCircle, CalendarPlus, Shield, ChevronRight, ChevronLeft, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ja } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -182,12 +182,43 @@ export default function ReservationForm() {
     privacyAgreed: false,
     firstChoiceDate: undefined as Date | undefined,
     firstChoiceTimeSlot: "" as "10:00-13:00" | "13:00-17:00" | "17:00-" | "",
+    firstChoiceTimeDetail: "", // 詳細時間の自由記入
     secondChoiceDate: undefined as Date | undefined,
     secondChoiceTimeSlot: "" as "10:00-13:00" | "13:00-17:00" | "17:00-" | "",
     thirdChoiceDate: undefined as Date | undefined,
     thirdChoiceTimeSlot: "" as "10:00-13:00" | "13:00-17:00" | "17:00-" | "",
     notes: "",
   });
+
+  // 1週間横並びカレンダーの開始日
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  // 1週間の日付配列を生成
+  const getWeekDays = (start: Date): Date[] =>
+    Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+
+  const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+
+  // 日付選択時に時間帯リセット
+  const handleDateSelect = (date: Date) => {
+    setFormData((prev) => ({ ...prev, firstChoiceDate: date, firstChoiceTimeSlot: "", firstChoiceTimeDetail: "" }));
+  };
+
+  // 時間帯タップで即座に次のステップへ
+  const handleTimeSlotSelect = (slot: "10:00-13:00" | "13:00-17:00" | "17:00-") => {
+    setFormData((prev) => ({ ...prev, firstChoiceTimeSlot: slot }));
+    if (formData.firstChoiceDate) {
+      setTimeout(() => setStep(2), 150);
+    }
+  };
 
   // 郵便番号自動入力ローディング状態
   const [postalLoading, setPostalLoading] = useState(false);
@@ -312,6 +343,7 @@ export default function ReservationForm() {
       customerEmail: formData.customerEmail,
       firstChoiceDate: formData.firstChoiceDate!,
       firstChoiceTimeSlot: formData.firstChoiceTimeSlot as "10:00-13:00" | "13:00-17:00" | "17:00-",
+      firstChoiceTimeDetail: formData.firstChoiceTimeDetail || undefined,
       secondChoiceDate: formData.secondChoiceDate,
       secondChoiceTimeSlot: formData.secondChoiceTimeSlot || undefined as any,
       thirdChoiceDate: formData.thirdChoiceDate,
@@ -364,11 +396,15 @@ export default function ReservationForm() {
     return date.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   };
 
-  // ===== ステップ1: 希望日時選択 =====
+  // ===== ステップ1: 希望日時選択（1週間横並びカレンダー） =====
   if (step === 1) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekDays = getWeekDays(weekStart);
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-lg mx-auto">
           <div className="text-center mb-6">
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">無料体験のご予約</h1>
             <p className="text-gray-500 text-sm">3ステップで簡単に予約できます</p>
@@ -376,123 +412,162 @@ export default function ReservationForm() {
           <StepProgress current={1} total={3} />
 
           <Card className="shadow-lg">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-blue-600" />
                 ご希望日時を選択
               </CardTitle>
               <CardDescription>
-                第3希望まで選択できます。<span className="text-red-500 font-medium">第1希望は必須</span>です。
+                日付を選んで、時間帯をタップすると次のステップに進みます
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
-              {/* 第1希望 */}
-              <div className="space-y-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  第1希望
-                  <span className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">必須</span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="first-date" required>日付</FieldLabel>
-                    <Calendar
-                      mode="single"
-                      selected={formData.firstChoiceDate}
-                      onSelect={(date) => handleInputChange("firstChoiceDate", date)}
-                      locale={ja}
-                      disabled={(date) => date < new Date()}
-                      className="rounded-md border bg-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="first-time" required>時間帯</FieldLabel>
-                    <Select value={formData.firstChoiceTimeSlot} onValueChange={(v) => handleInputChange("firstChoiceTimeSlot", v)}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="時間帯を選択してください" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot.value} value={slot.value}>{slot.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <CardContent className="space-y-5">
+
+              {/* 1週間横並びカレンダー */}
+              <div className="space-y-3">
+                {/* 週のナビゲーション */}
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = new Date(weekStart);
+                      prev.setDate(weekStart.getDate() - 7);
+                      if (prev >= today) setWeekStart(prev);
+                    }}
+                    disabled={weekStart <= today}
+                    className="p-2 rounded-full hover:bg-white/70 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label="前の週"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {weekStart.getFullYear()}年{weekStart.getMonth() + 1}月
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(weekStart);
+                      next.setDate(weekStart.getDate() + 7);
+                      setWeekStart(next);
+                    }}
+                    className="p-2 rounded-full hover:bg-white/70 transition-colors"
+                    aria-label="次の週"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+
+                {/* 日付ボタン列 */}
+                <div className="grid grid-cols-7 gap-1.5">
+                  {weekDays.map((date) => {
+                    const isPast = date < today;
+                    const isSelected = formData.firstChoiceDate?.toDateString() === date.toDateString();
+                    const isToday = date.toDateString() === today.toDateString();
+                    const dayOfWeek = date.getDay();
+                    const isSun = dayOfWeek === 0;
+                    const isSat = dayOfWeek === 6;
+
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        type="button"
+                        disabled={isPast}
+                        onClick={() => handleDateSelect(date)}
+                        className={cn(
+                          "flex flex-col items-center justify-center py-3 rounded-xl text-sm font-medium transition-all select-none",
+                          "active:scale-95 touch-manipulation",
+                          isPast && "opacity-30 cursor-not-allowed",
+                          isSelected && "bg-blue-600 text-white shadow-md",
+                          !isSelected && !isPast && "bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300",
+                          !isSelected && isToday && !isPast && "border-blue-400 border-2",
+                        )}
+                      >
+                        <span className={cn(
+                          "text-xs mb-0.5",
+                          isSelected ? "text-blue-100" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-400"
+                        )}>
+                          {DAY_LABELS[dayOfWeek]}
+                        </span>
+                        <span className={cn(
+                          "text-base leading-tight",
+                          isSelected ? "text-white" : isSun ? "text-red-600" : isSat ? "text-blue-600" : "text-gray-800"
+                        )}>
+                          {date.getDate()}
+                        </span>
+                        {isToday && !isSelected && (
+                          <span className="w-1 h-1 rounded-full bg-blue-500 mt-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* 第2希望 */}
-              <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  第2希望
-                  <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">任意</span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="second-date" optional>日付</FieldLabel>
-                    <Calendar
-                      mode="single"
-                      selected={formData.secondChoiceDate}
-                      onSelect={(date) => handleInputChange("secondChoiceDate", date)}
-                      locale={ja}
-                      disabled={(date) => date < new Date()}
-                      className="rounded-md border bg-white"
-                    />
+              {/* 日付選択後に時間帯ボタンを表示 */}
+              {formData.firstChoiceDate && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pt-1">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-gray-800">
+                      {formData.firstChoiceDate.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}の時間帯を選択
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="second-time" optional>時間帯</FieldLabel>
-                    <Select value={formData.secondChoiceTimeSlot} onValueChange={(v) => handleInputChange("secondChoiceTimeSlot", v)}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="時間帯を選択してください" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot.value} value={slot.value}>{slot.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
 
-              {/* 第3希望 */}
-              <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  第3希望
-                  <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">任意</span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="third-date" optional>日付</FieldLabel>
-                    <Calendar
-                      mode="single"
-                      selected={formData.thirdChoiceDate}
-                      onSelect={(date) => handleInputChange("thirdChoiceDate", date)}
-                      locale={ja}
-                      disabled={(date) => date < new Date()}
-                      className="rounded-md border bg-white"
-                    />
+                  <div className="grid grid-cols-1 gap-2">
+                    {TIME_SLOTS.map((slot) => {
+                      const isSelected = formData.firstChoiceTimeSlot === slot.value;
+                      return (
+                        <button
+                          key={slot.value}
+                          type="button"
+                          onClick={() => handleTimeSlotSelect(slot.value as "10:00-13:00" | "13:00-17:00" | "17:00-")}
+                          className={cn(
+                            "w-full flex items-center justify-between px-5 py-4 rounded-xl border-2 text-sm font-medium transition-all",
+                            "active:scale-[0.98] touch-manipulation",
+                            isSelected
+                              ? "bg-blue-600 border-blue-600 text-white shadow-md"
+                              : "bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:bg-blue-50"
+                          )}
+                        >
+                          <span className="flex items-center gap-3">
+                            <Clock className={cn("w-4 h-4", isSelected ? "text-blue-200" : "text-gray-400")} />
+                            <span className="text-base">{slot.label}</span>
+                          </span>
+                          <ChevronRight className={cn("w-4 h-4", isSelected ? "text-blue-200" : "text-gray-400")} />
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="space-y-2">
-                    <FieldLabel htmlFor="third-time" optional>時間帯</FieldLabel>
-                    <Select value={formData.thirdChoiceTimeSlot} onValueChange={(v) => handleInputChange("thirdChoiceTimeSlot", v)}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="時間帯を選択してください" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot.value} value={slot.value}>{slot.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button onClick={handleNext} size="lg" className="px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                  次へ進む →
-                </Button>
-              </div>
+                  {/* 詳細時間の自由記入欄 */}
+                  {formData.firstChoiceTimeSlot && (
+                    <div className="space-y-1 pt-1">
+                      <label htmlFor="timeDetail" className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        希望時間の詳細（任意）
+                      </label>
+                      <input
+                        id="timeDetail"
+                        type="text"
+                        placeholder="例：10時ごろ、午後が希ましいなど"
+                        value={formData.firstChoiceTimeDetail}
+                        onChange={(e) => handleInputChange("firstChoiceTimeDetail", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      />
+                      <p className="text-xs text-gray-400">入力すると次のステップに進みます</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 日付未選択時のヒント */}
+              {!formData.firstChoiceDate && (
+                <div className="text-center py-6 text-gray-400 text-sm">
+                  <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  上の日付をタップしてください
+                </div>
+              )}
+
             </CardContent>
           </Card>
         </div>
