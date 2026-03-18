@@ -49,12 +49,12 @@ export const reservationsRouter = router({
         prefecture: z.string().optional(),
         city: z.string().optional(),
         addressLine: z.string().optional(),
-        firstChoiceDate: z.date(),
+        firstChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]),
         firstChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]),
         firstChoiceTimeDetail: z.string().optional(),
-        secondChoiceDate: z.date().optional(),
+        secondChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]).optional(),
         secondChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]).optional(),
-        thirdChoiceDate: z.date().optional(),
+        thirdChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]).optional(),
         thirdChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]).optional(),
         notes: z.string().optional(),
       })
@@ -176,63 +176,51 @@ export const reservationsRouter = router({
         }
       }
 
-      // Notion予約履歴に同期（エラーがあってもシステムは続行）
-      console.log("=== Notion予約履歴同期処理開始 ===");
-      try {
-        // 顧客情報を取得
-        const db = await getDb();
-        if (db) {
-          const customerData = await db
-            .select()
-            .from(customers)
-            .where(eq(customers.customerId, customerId))
-            .limit(1);
-          
-          if (customerData.length > 0) {
-            const customer = customerData[0];
+      // Notion予約履歴に同期（バックグラウンドで非同期実行・エラーがあってもシステムは続行）
+      void (async () => {
+        try {
+          const db = await getDb();
+          if (db) {
+            const customerData = await db
+              .select()
+              .from(customers)
+              .where(eq(customers.customerId, customerId))
+              .limit(1);
             
-            // Notion顧客ページがない場合は作成
-            if (!customer.notionPageUrl) {
-              console.log("顧客のNotionページがないため作成します");
-              const notionCustomer = await createNotionCustomer({
-                customerId: customer.customerId,
-                fullName: customer.fullName,
-                phone: customer.phone,
-                email: customer.email || undefined,
-              });
+            if (customerData.length > 0) {
+              const customer = customerData[0];
               
-              if (notionCustomer) {
-                await db.update(customers)
-                  .set({
-                    notionPageUrl: notionCustomer.url,
-                    notionPageId: notionCustomer.pageId,
-                  })
-                  .where(eq(customers.customerId, customerId));
-                console.log("Notion顧客ページ作成完了:", notionCustomer.url);
+              if (!customer.notionPageUrl) {
+                const notionCustomer = await createNotionCustomer({
+                  customerId: customer.customerId,
+                  fullName: customer.fullName,
+                  phone: customer.phone,
+                  email: customer.email || undefined,
+                });
+                
+                if (notionCustomer) {
+                  await db.update(customers)
+                    .set({
+                      notionPageUrl: notionCustomer.url,
+                      notionPageId: notionCustomer.pageId,
+                    })
+                    .where(eq(customers.customerId, customerId));
+                }
               }
-            }
-            
-            // Notion予約を作成
-            const notionReservationUrl = await createNotionReservation({
-              customerName: input.customerName,
-              serviceType: "整体",
-              status: "pending",
-              reservationDateTime: input.firstChoiceDate,
-              notes: input.notes,
-            });
-            
-            if (notionReservationUrl) {
-              console.log("Notion予約作成成功:", notionReservationUrl);
-            } else {
-              console.warn("Notion予約作成失敗");
+              
+              await createNotionReservation({
+                customerName: input.customerName,
+                serviceType: "整体",
+                status: "pending",
+                reservationDateTime: input.firstChoiceDate,
+                notes: input.notes,
+              });
             }
           }
+        } catch (error) {
+          console.error("Notion sync error (background):", error);
         }
-        console.log("=== Notion予約履歴同期処理完了 ===");
-      } catch (error) {
-        console.error("=== Notion予約履歴同期エラー ===");
-        console.error("エラー詳細:", error);
-      }
+      })();
 
       // Google Sheetsに保存（エラーがあってもシステムは続行）
       try {
