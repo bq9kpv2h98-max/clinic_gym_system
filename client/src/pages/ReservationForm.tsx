@@ -377,7 +377,7 @@ export default function ReservationForm() {
       <header className="px-6 pt-10 pb-8 border-b border-gray-100">
         <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">ULU GROUP</p>
         <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">
-          無料体験<br />ご予約
+          予約フォーム
         </h1>
         <p className="text-xs text-gray-400 mt-3 leading-relaxed">
           フォームにご入力の上、お申し込みください。<br />
@@ -821,7 +821,7 @@ export default function ReservationForm() {
                 送信中...
               </span>
             ) : (
-              "無料体験を申し込む"
+              "予約を申し込む"
             )}
           </button>
           <p className="text-center text-[10px] text-gray-400 mt-4 tracking-wider">
