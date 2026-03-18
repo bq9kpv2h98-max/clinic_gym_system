@@ -200,8 +200,10 @@ export default function ReservationForm() {
   const [postalLoading, setPostalLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // フリガナ自動入力: IME compositionイベントで読み仮名を取得
-  const furiganaRef = useRef<{ composing: boolean; reading: string }>({
-    composing: false,
+  // 重要: compositionEndのe.dataは変換後の漢字なので使わない。
+  // compositionUpdateのe.dataには変換中のひらがな読みが入るので、
+  // ひらがなの間のみ保存し、漢字変換後は直前の読みを維持する。
+  const furiganaRef = useRef<{ reading: string }>({
     reading: "",
   });
 
@@ -210,18 +212,21 @@ export default function ReservationForm() {
     str.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
 
   const handleNameCompositionStart = () => {
-    furiganaRef.current.composing = true;
     furiganaRef.current.reading = "";
   };
 
   const handleNameCompositionUpdate = (e: React.CompositionEvent<HTMLInputElement>) => {
-    // data には現在変換中のひらがな読みが入る
-    furiganaRef.current.reading = e.data || "";
+    const data = e.data || "";
+    // ひらがな・カタカナ・スペースのみ保存（漢字変換後は無視して直前の読みを維持）
+    if (data && /^[\u3041-\u3096\u30A0-\u30FF\s\u3000]+$/.test(data)) {
+      furiganaRef.current.reading = data;
+    }
   };
 
-  const handleNameCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
-    furiganaRef.current.composing = false;
-    const reading = e.data || furiganaRef.current.reading;
+  const handleNameCompositionEnd = () => {
+    // compositionEndのe.dataは変換後の漢字なので使わず、
+    // compositionUpdateで蓄積したひらがな読みをカタカナ変換する
+    const reading = furiganaRef.current.reading;
     if (reading) {
       const kana = toKatakana(reading);
       setFormData((prev) => ({
@@ -231,6 +236,7 @@ export default function ReservationForm() {
           : kana,
       }));
     }
+    furiganaRef.current.reading = "";
   };
 
   const facilityId = "facility-001";
