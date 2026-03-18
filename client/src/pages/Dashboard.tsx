@@ -273,7 +273,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">顧客マイページ</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">顧客がポイントや予約を確認できるページ</p>
-                  <p className="text-xs text-blue-600 break-all">{window.location.origin}/customer</p>
+                  <p className="text-xs text-blue-600 break-all">/customer</p>
                 </a>
 
                 {/* スタッフスキャナー */}
@@ -288,7 +288,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">スタッフスキャナー</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">QRコードを読み取って来院記録を登録</p>
-                  <p className="text-xs text-green-600 break-all">{window.location.origin}/staff/scanner</p>
+                  <p className="text-xs text-green-600 break-all">/staff/scanner</p>
                 </a>
 
                 {/* 予約フォーム */}
@@ -303,7 +303,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">予約フォーム</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">顧客が予約を申し込むフォーム</p>
-                  <p className="text-xs text-purple-600 break-all">{window.location.origin}/reservation</p>
+                  <p className="text-xs text-purple-600 break-all">/reservation</p>
                 </a>
 
                 {/* QRコード登録 */}
@@ -318,7 +318,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">QRコード登録</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">新規顧客のQRコードを登録</p>
-                  <p className="text-xs text-orange-600 break-all">{window.location.origin}/register</p>
+                  <p className="text-xs text-orange-600 break-all">/register</p>
                 </a>
 
                 {/* スタッフ予約管理 */}
@@ -333,7 +333,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">スタッフ予約管理</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">予約リクエストを確認・管理</p>
-                  <p className="text-xs text-red-600 break-all">{window.location.origin}/staff-reservations</p>
+                  <p className="text-xs text-red-600 break-all">/staff-reservations</p>
                 </a>
 
                 {/* LINE公式アカウント */}
