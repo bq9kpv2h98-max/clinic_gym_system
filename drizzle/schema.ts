@@ -534,6 +534,7 @@ export const reservations = mysqlTable("reservations", {
   
   // 予約者情報（予約時点の情報）
   customerName: varchar("customerName", { length: 100 }).notNull(),
+  customerFurigana: varchar("customerFurigana", { length: 100 }), // フリガナ（カタカナ）
   customerPhone: varchar("customerPhone", { length: 20 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }),
   

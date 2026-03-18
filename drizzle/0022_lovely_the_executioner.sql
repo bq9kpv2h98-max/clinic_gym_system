@@ -1,0 +1,1 @@
+ALTER TABLE `reservations` ADD `customerFurigana` varchar(100);

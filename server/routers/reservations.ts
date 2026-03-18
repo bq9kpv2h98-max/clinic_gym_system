@@ -42,6 +42,7 @@ export const reservationsRouter = router({
       z.object({
         facilityId: z.string(),
         customerName: z.string().min(1, "お名前を入力してください"),
+        customerFurigana: z.string().optional(), // フリガナ（カタカナ）
         customerPhone: z.string().min(10, "電話番号を入力してください"),
         customerEmail: z.string().email("有効なメールアドレスを入力してください").min(1, "メールアドレスを入力してください"),
         // 住所情報（任意）
@@ -130,6 +131,7 @@ export const reservationsRouter = router({
         customerId,
         facilityId: input.facilityId,
         customerName: input.customerName,
+        customerFurigana: input.customerFurigana || null,
         customerPhone: input.customerPhone,
         customerEmail: input.customerEmail,
         postalCode: input.postalCode || null,

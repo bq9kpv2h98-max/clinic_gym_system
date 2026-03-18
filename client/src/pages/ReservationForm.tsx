@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import {
   ChevronLeft, ChevronRight, Loader2, Check,
@@ -167,6 +167,7 @@ export default function ReservationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
+    customerFurigana: "",
     customerPhone: "",
     customerEmail: "",
     postalCode: "",
@@ -198,6 +199,39 @@ export default function ReservationForm() {
 
   const [postalLoading, setPostalLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // フリガナ自動入力: IME compositionイベントで読み仮名を取得
+  const furiganaRef = useRef<{ composing: boolean; reading: string }>({
+    composing: false,
+    reading: "",
+  });
+
+  // ひらがな→カタカナ変換
+  const toKatakana = (str: string) =>
+    str.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
+  const handleNameCompositionStart = () => {
+    furiganaRef.current.composing = true;
+    furiganaRef.current.reading = "";
+  };
+
+  const handleNameCompositionUpdate = (e: React.CompositionEvent<HTMLInputElement>) => {
+    // data には現在変換中のひらがな読みが入る
+    furiganaRef.current.reading = e.data || "";
+  };
+
+  const handleNameCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    furiganaRef.current.composing = false;
+    const reading = e.data || furiganaRef.current.reading;
+    if (reading) {
+      const kana = toKatakana(reading);
+      setFormData((prev) => ({
+        ...prev,
+        customerFurigana: prev.customerFurigana
+          ? prev.customerFurigana + kana
+          : kana,
+      }));
+    }
+  };
 
   const facilityId = "facility-001";
 
@@ -222,6 +256,11 @@ export default function ReservationForm() {
     let error = "";
     if (field === "customerName" && !value.trim()) {
       error = "お名前を入力してください";
+    } else if (field === "customerFurigana" && value.trim()) {
+      // カタカナのみ許可（スペース含む）
+      if (!/^[\u30A0-\u30FF\s　]+$/.test(value.trim())) {
+        error = "カタカナで入力してください";
+      }
     } else if (field === "customerPhone") {
       const normalized = normalizePhone(value);
       if (!normalized) error = "電話番号を入力してください";
@@ -289,6 +328,7 @@ export default function ReservationForm() {
     createMutation.mutate({
       facilityId,
       customerName: formData.customerName,
+      customerFurigana: formData.customerFurigana || undefined,
       customerPhone: phone,
       customerEmail: formData.customerEmail,
       firstChoiceDate: formData.firstChoiceDate!,
@@ -502,16 +542,46 @@ export default function ReservationForm() {
 
           <div className="space-y-8">
             {/* お名前 */}
+            <div className="space-y-1">
+              <div className="relative border-b-2 transition-all duration-200"
+                style={{ borderColor: fieldErrors.customerName ? "#ef4444" : "#e5e7eb" }}>
+                <label
+                  htmlFor="name"
+                  className="absolute left-0 top-0 text-[10px] tracking-widest uppercase font-medium pointer-events-none select-none text-black"
+                >
+                  お名前（フルネーム）
+                  <span className="ml-1.5 text-[9px] font-bold text-red-500 tracking-wider">必須</span>
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  autoComplete="name"
+                  value={formData.customerName}
+                  placeholder="例：山田 太郎"
+                  onChange={(e) => handleInputChange("customerName", e.target.value)}
+                  onBlur={() => validateField("customerName", formData.customerName)}
+                  onCompositionStart={handleNameCompositionStart}
+                  onCompositionUpdate={handleNameCompositionUpdate}
+                  onCompositionEnd={handleNameCompositionEnd}
+                  className="w-full pt-5 pb-2 text-base font-medium text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
+                />
+              </div>
+              {fieldErrors.customerName && (
+                <p className="text-xs text-red-500 pt-1">{fieldErrors.customerName}</p>
+              )}
+            </div>
+
+            {/* フリガナ（自動入力） */}
             <MinimalInput
-              id="name"
-              label="お名前（フルネーム）"
-              required
-              value={formData.customerName}
-              onChange={(v) => handleInputChange("customerName", v)}
-              onBlur={() => validateField("customerName", formData.customerName)}
-              error={fieldErrors.customerName}
-              hint="例：山田 太郎"
-              autoComplete="name"
+              id="furigana"
+              label="フリガナ"
+              optional
+              value={formData.customerFurigana}
+              onChange={(v) => handleInputChange("customerFurigana", v)}
+              onBlur={() => validateField("customerFurigana", formData.customerFurigana)}
+              error={fieldErrors.customerFurigana}
+              hint="名前を入力すると自動で入ります（カタカナ）"
+              autoComplete="off"
             />
 
             {/* 電話番号 */}
