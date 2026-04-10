@@ -28,7 +28,7 @@ import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { sendReservationConfirmationEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
-import { createNotionReservation, createNotionCustomer } from "../notion";
+import { createNotionReservation, createNotionCustomer, getBookedSlotsForDate, getReservationAnalytics } from "../notion";
 import { notifyOwner } from "../_core/notification";
 
 export const reservationsRouter = router({
@@ -428,5 +428,28 @@ export const reservationsRouter = router({
     .mutation(async ({ input }) => {
       await deleteReservation(input.reservationId);
       return { success: true };
+    }),
+
+  /**
+   * 特定日の予約済みスロットをNotionから取得（予約フォーム用・公開API）
+   */
+  getBookedSlots: publicProcedure
+    .input(z.object({ date: z.string() })) // YYYY-MM-DD
+    .query(async ({ input }) => {
+      const slots = await getBookedSlotsForDate(input.date);
+      return { slots };
+    }),
+
+  /**
+   * 予約分析データをNotionから取得（スタッフ用）
+   */
+  getAnalytics: protectedProcedure
+    .input(z.object({
+      year: z.number().int().min(2020).max(2100),
+      month: z.number().int().min(1).max(12),
+    }))
+    .query(async ({ input }) => {
+      const analytics = await getReservationAnalytics(input.year, input.month);
+      return analytics;
     }),
 });

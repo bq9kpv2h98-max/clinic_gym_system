@@ -6,11 +6,27 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const TIME_SLOTS = [
-  { value: "10:00-13:00", label: "午前", sub: "10:00 〜 13:00" },
-  { value: "13:00-17:00", label: "午後", sub: "13:00 〜 17:00" },
-  { value: "17:00-", label: "夜間", sub: "17:00 〜" },
-] as const;
+// 30分刻時間枠を生成（10:00〜19:30、各スロットは1.5時間単位）
+function generateTimeSlots(): Array<{ value: string; label: string; endTime: string }> {
+  const slots = [];
+  // 10:00から19:30までの開始時刻（30分刻）
+  for (let h = 10; h <= 19; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      if (h === 19 && m > 30) break;
+      const startH = String(h).padStart(2, "0");
+      const startM = String(m).padStart(2, "0");
+      const endMinutes = h * 60 + m + 90; // 1.5時間後
+      const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
+      const endM = String(endMinutes % 60).padStart(2, "0");
+      const value = `${startH}:${startM}`;
+      const endTime = `${endH}:${endM}`;
+      slots.push({ value, label: `${startH}:${startM}`, endTime });
+    }
+  }
+  return slots;
+}
+
+const ALL_TIME_SLOTS = generateTimeSlots();
 
 // ===== EFOユーティリティ =====
 function normalizePhone(value: string): string {
@@ -107,7 +123,7 @@ function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; 
   const formatDate = (d: Date) =>
     d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
 
-  const slotLabel = TIME_SLOTS.find(s => s.value === timeSlot)?.sub ?? timeSlot;
+  const slotLabel = timeSlot; // 渡されたラベルをそのまま使用
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -188,6 +204,32 @@ export default function ReservationForm() {
     return d;
   });
 
+  // 選択日の予約済みスロットをNotionから取得
+  const selectedDateStr = formData.firstChoiceDate
+    ? `${formData.firstChoiceDate.getFullYear()}-${String(formData.firstChoiceDate.getMonth() + 1).padStart(2, "0")}-${String(formData.firstChoiceDate.getDate()).padStart(2, "0")}`
+    : "";
+
+  const { data: bookedSlotsData, isLoading: bookedSlotsLoading } = trpc.reservations.getBookedSlots.useQuery(
+    { date: selectedDateStr },
+    { enabled: !!selectedDateStr }
+  );
+
+  // スロットが満席かどうか判定（予約済み時間帯と重なるスロットは満席）
+  const isSlotBooked = (slotValue: string): boolean => {
+    if (!bookedSlotsData?.slots) return false;
+    const [sh, sm] = slotValue.split(":").map(Number);
+    const slotStart = sh * 60 + sm;
+    const slotEnd = slotStart + 90; // 1.5時間
+    return bookedSlotsData.slots.some((booked) => {
+      const [bsh, bsm] = booked.start.split(":").map(Number);
+      const [beh, bem] = booked.end.split(":").map(Number);
+      const bookedStart = bsh * 60 + bsm;
+      const bookedEnd = beh * 60 + bem;
+      // 重なり判定
+      return slotStart < bookedEnd && slotEnd > bookedStart;
+    });
+  };
+
   const getWeekDays = (start: Date): Date[] =>
     Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start);
@@ -240,6 +282,14 @@ export default function ReservationForm() {
   };
 
   const facilityId = "facility-001";
+
+  // 選択中のスロット情報
+  const selectedSlotInfo = ALL_TIME_SLOTS.find(s => s.value === formData.firstChoiceTimeSlot);
+
+  // 選択中スロットの表示ラベル
+  const selectedSlotLabel = selectedSlotInfo
+    ? `${selectedSlotInfo.value} 〜 ${selectedSlotInfo.endTime}`
+    : "";
 
   const createMutation = trpc.reservations.create.useMutation({
     onSuccess: () => {
@@ -338,8 +388,8 @@ export default function ReservationForm() {
       customerPhone: phone,
       customerEmail: formData.customerEmail,
       firstChoiceDate: formData.firstChoiceDate!,
-      firstChoiceTimeSlot: formData.firstChoiceTimeSlot as "10:00-13:00" | "13:00-17:00" | "17:00-",
-      firstChoiceTimeDetail: formData.firstChoiceTimeDetail || undefined,
+      firstChoiceTimeSlot: "10:00-13:00" as "10:00-13:00" | "13:00-17:00" | "17:00-", // 互換性のため固定値
+      firstChoiceTimeDetail: formData.firstChoiceTimeSlot || undefined, // 実際の時刻を詳細に保存
       secondChoiceDate: undefined,
       secondChoiceTimeSlot: undefined as any,
       thirdChoiceDate: undefined,
@@ -357,7 +407,7 @@ export default function ReservationForm() {
       <CompletionScreen
         name={formData.customerName}
         date={formData.firstChoiceDate!}
-        timeSlot={formData.firstChoiceTimeSlot}
+        timeSlot={selectedSlotLabel}
       />
     );
   }
@@ -365,8 +415,6 @@ export default function ReservationForm() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekDays = getWeekDays(weekStart);
-
-  const selectedSlot = TIME_SLOTS.find(s => s.value === formData.firstChoiceTimeSlot);
 
   return (
     <div className="min-h-screen bg-white">
@@ -480,56 +528,55 @@ export default function ReservationForm() {
 
           {/* 時間帯選択 */}
           {formData.firstChoiceDate ? (
-            <div className="mt-6 space-y-2">
-              <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-3">
-                {formData.firstChoiceDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} の時間帯
+            <div className="mt-6">
+              <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-4">
+                {formData.firstChoiceDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} の時間を選択
               </p>
-              <div className="space-y-2">
-                {TIME_SLOTS.map((slot) => {
-                  const isSelected = formData.firstChoiceTimeSlot === slot.value;
-                  return (
-                    <button
-                      key={slot.value}
-                      type="button"
-                      onClick={() => handleInputChange("firstChoiceTimeSlot", slot.value)}
-                      className={cn(
-                        "w-full flex items-center justify-between px-5 py-4 border transition-all",
-                        "active:scale-[0.98] touch-manipulation text-left",
-                        isSelected
-                          ? "bg-black border-black text-white"
-                          : "bg-white border-gray-200 text-gray-900 hover:border-gray-900"
-                      )}
-                    >
-                      <div>
-                        <p className={cn("text-base font-bold leading-none mb-1", isSelected ? "text-white" : "text-gray-900")}>
-                          {slot.label}
-                        </p>
-                        <p className={cn("text-xs", isSelected ? "text-gray-300" : "text-gray-400")}>
-                          {slot.sub}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <div className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 詳細時間 */}
-              {formData.firstChoiceTimeSlot && (
-                <div className="pt-4">
-                  <MinimalInput
-                    id="timeDetail"
-                    label="希望時間の詳細"
-                    optional
-                    value={formData.firstChoiceTimeDetail}
-                    onChange={(v) => handleInputChange("firstChoiceTimeDetail", v)}
-                    placeholder="例：10時ごろ、午後が希望など"
-                  />
+              {bookedSlotsLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs tracking-wider">予約状況を確認中...</span>
                 </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {ALL_TIME_SLOTS.map((slot) => {
+                    const isSelected = formData.firstChoiceTimeSlot === slot.value;
+                    const isBooked = isSlotBooked(slot.value);
+                    return (
+                      <button
+                        key={slot.value}
+                        type="button"
+                        disabled={isBooked}
+                        onClick={() => !isBooked && handleInputChange("firstChoiceTimeSlot", slot.value)}
+                        className={cn(
+                          "flex flex-col items-center justify-center py-3 px-2 border transition-all",
+                          "active:scale-[0.96] touch-manipulation",
+                          isBooked && "bg-gray-100 border-gray-100 cursor-not-allowed opacity-50",
+                          isSelected && !isBooked && "bg-black border-black",
+                          !isSelected && !isBooked && "bg-white border-gray-200 hover:border-gray-900",
+                        )}
+                      >
+                        <span className={cn(
+                          "text-sm font-black leading-none",
+                          isBooked ? "text-gray-400" : isSelected ? "text-white" : "text-gray-900"
+                        )}>
+                          {slot.value}
+                        </span>
+                        <span className={cn(
+                          "text-[9px] mt-1 tracking-wider",
+                          isBooked ? "text-gray-300" : isSelected ? "text-gray-400" : "text-gray-400"
+                        )}>
+                          {isBooked ? "満席" : `〜${slot.endTime}`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {formData.firstChoiceTimeSlot && (
+                <p className="text-xs text-gray-500 mt-3 text-center">
+                  選択中: <span className="font-bold text-gray-900">{selectedSlotLabel}</span>
+                </p>
               )}
             </div>
           ) : (
@@ -751,8 +798,7 @@ export default function ReservationForm() {
               <div className="flex justify-between items-baseline">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
                 <span className="text-sm font-bold text-gray-900">
-                  {selectedSlot?.sub}
-                  {formData.firstChoiceTimeDetail && ` (${formData.firstChoiceTimeDetail})`}
+                  {selectedSlotLabel}
                 </span>
               </div>
               <div className="flex justify-between items-baseline">

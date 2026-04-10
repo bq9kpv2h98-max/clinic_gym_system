@@ -797,3 +797,200 @@ export async function getConfirmedReservationsForTomorrow() {
     return [];
   }
 }
+
+
+/**
+ * 特定の日付の予約済み時間スロットをNotionから取得する
+ * 予約フォームの満席表示に使用
+ * @param date 日付文字列 (YYYY-MM-DD)
+ * @returns 予約済みスロットの配列 [{start: "10:00", end: "11:30", status: "予定中"}]
+ */
+export async function getBookedSlotsForDate(date: string): Promise<Array<{
+  start: string;
+  end: string;
+  status: string;
+  serviceType: string;
+}>> {
+  try {
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: date,
+      query_type: "internal",
+      data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+
+    // MCPツールの出力からJSONを抽出
+    const lines = stdout.split('\n');
+    let jsonStr = '';
+    let inJson = false;
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        inJson = true;
+      }
+      if (inJson) {
+        jsonStr += line;
+      }
+    }
+
+    if (!jsonStr) {
+      return [];
+    }
+
+    const result = JSON.parse(jsonStr);
+    if (!result.text) {
+      return [];
+    }
+
+    // ページから予約日時を抽出
+    const bookedSlots: Array<{ start: string; end: string; status: string; serviceType: string }> = [];
+    const text = result.text as string;
+
+    // <page>タグを解析
+    const pageRegex = /<page url="{{[^}]+}}"[^>]*>([\s\S]*?)<\/page>/g;
+    let pageMatch;
+    while ((pageMatch = pageRegex.exec(text)) !== null) {
+      const pageContent = pageMatch[1];
+
+      // ステータスを取得（キャンセル済みは除外）
+      const statusMatch = pageContent.match(/ステータス[:\s]+([^\n|]+)/);
+      const status = statusMatch ? statusMatch[1].trim() : "";
+      if (status === "キャンセル" || status === "キャンセル済み") {
+        continue;
+      }
+
+      // 予約日時を取得
+      const dateMatch = pageContent.match(/予約日時[:\s]+([^\n|]+)/);
+      if (!dateMatch) continue;
+      const dateStr = dateMatch[1].trim();
+
+      // 日付が一致するか確認
+      if (!dateStr.includes(date)) continue;
+
+      // 時刻を抽出 (例: "2026-04-10T10:00:00.000+09:00 → 2026-04-10T11:30:00.000+09:00")
+      const timeRangeMatch = dateStr.match(/T(\d{2}:\d{2}).*?→.*?T(\d{2}:\d{2})/);
+      if (timeRangeMatch) {
+        const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
+        bookedSlots.push({
+          start: timeRangeMatch[1],
+          end: timeRangeMatch[2],
+          status,
+          serviceType: serviceMatch ? serviceMatch[1].trim() : "整体",
+        });
+      } else {
+        // 単一時刻の場合（終了時刻なし）→ 1時間半のブロック
+        const singleTimeMatch = dateStr.match(/T(\d{2}:\d{2})/);
+        if (singleTimeMatch) {
+          const startTime = singleTimeMatch[1];
+          const [h, m] = startTime.split(':').map(Number);
+          const endMinutes = h * 60 + m + 90;
+          const endH = Math.floor(endMinutes / 60);
+          const endM = endMinutes % 60;
+          const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+          const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
+          bookedSlots.push({
+            start: startTime,
+            end: endTime,
+            status,
+            serviceType: serviceMatch ? serviceMatch[1].trim() : "整体",
+          });
+        }
+      }
+    }
+
+    return bookedSlots;
+  } catch (error) {
+    console.error("getBookedSlotsForDate error:", error);
+    return [];
+  }
+}
+
+/**
+ * 特定の月の予約データを集計して分析用データを返す
+ * @param year 年
+ * @param month 月 (1-12)
+ */
+export async function getReservationAnalytics(year: number, month: number): Promise<{
+  totalReservations: number;
+  completedReservations: number;
+  cancelledReservations: number;
+  byHour: Record<string, number>;
+  byService: Record<string, number>;
+  byStatus: Record<string, number>;
+}> {
+  try {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: monthStr,
+      query_type: "internal",
+      data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+    })}'`;
+
+    const { stdout } = await execAsync(command);
+
+    const lines = stdout.split('\n');
+    let jsonStr = '';
+    let inJson = false;
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) inJson = true;
+      if (inJson) jsonStr += line;
+    }
+
+    const analytics = {
+      totalReservations: 0,
+      completedReservations: 0,
+      cancelledReservations: 0,
+      byHour: {} as Record<string, number>,
+      byService: {} as Record<string, number>,
+      byStatus: {} as Record<string, number>,
+    };
+
+    if (!jsonStr) return analytics;
+
+    const result = JSON.parse(jsonStr);
+    if (!result.text) return analytics;
+
+    const text = result.text as string;
+    const pageRegex = /<page url="{{[^}]+}}"[^>]*>([\s\S]*?)<\/page>/g;
+    let pageMatch;
+
+    while ((pageMatch = pageRegex.exec(text)) !== null) {
+      const pageContent = pageMatch[1];
+
+      const dateMatch = pageContent.match(/予約日時[:\s]+([^\n|]+)/);
+      if (!dateMatch) continue;
+      const dateStr = dateMatch[1].trim();
+      if (!dateStr.includes(monthStr)) continue;
+
+      analytics.totalReservations++;
+
+      const statusMatch = pageContent.match(/ステータス[:\s]+([^\n|]+)/);
+      const status = statusMatch ? statusMatch[1].trim() : "不明";
+      analytics.byStatus[status] = (analytics.byStatus[status] || 0) + 1;
+      if (status === "完了") analytics.completedReservations++;
+      if (status === "キャンセル" || status === "キャンセル済み") analytics.cancelledReservations++;
+
+      const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
+      const service = serviceMatch ? serviceMatch[1].trim() : "不明";
+      analytics.byService[service] = (analytics.byService[service] || 0) + 1;
+
+      const timeMatch = dateStr.match(/T(\d{2}):\d{2}/);
+      if (timeMatch) {
+        const hour = `${timeMatch[1]}:00`;
+        analytics.byHour[hour] = (analytics.byHour[hour] || 0) + 1;
+      }
+    }
+
+    return analytics;
+  } catch (error) {
+    console.error("getReservationAnalytics error:", error);
+    return {
+      totalReservations: 0,
+      completedReservations: 0,
+      cancelledReservations: 0,
+      byHour: {},
+      byService: {},
+      byStatus: {},
+    };
+  }
+}
