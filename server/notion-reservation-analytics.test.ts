@@ -1,80 +1,174 @@
 import { describe, it, expect } from "vitest";
 
-// 30分刻み時間スロット生成ロジックのテスト
-function generateTimeSlots(startHour: number, endHour: number, durationMinutes: number): string[] {
+// ============================================================
+// UTC → JST 変換ロジック（notion.ts内の関数をインライン再現）
+// ============================================================
+
+function utcToJstTime(utcStr: string): string {
+  const d = new Date(utcStr);
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMs);
+  const h = String(jst.getUTCHours()).padStart(2, "0");
+  const m = String(jst.getUTCMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function utcToJstDate(utcStr: string): string {
+  const d = new Date(utcStr);
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMs);
+  const y = jst.getUTCFullYear();
+  const mo = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(jst.getUTCDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+// ============================================================
+// 30分刻みスロット生成ロジック
+// ============================================================
+
+function generateTimeSlots(
+  startHour: number,
+  endHour: number,
+  intervalMinutes: number,
+  durationMinutes: number
+): string[] {
   const slots: string[] = [];
-  for (let h = startHour; h < endHour; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const endMinutes = h * 60 + m + durationMinutes;
-      const endH = Math.floor(endMinutes / 60);
-      const endM = endMinutes % 60;
-      if (endH > endHour || (endH === endHour && endM > 0)) break;
-      const start = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const end = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-      slots.push(`${start} 〜 ${end}`);
-    }
+  const totalMinutesEnd = endHour * 60;
+  let current = startHour * 60;
+  while (current + durationMinutes <= totalMinutesEnd) {
+    const h = Math.floor(current / 60);
+    const m = current % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    current += intervalMinutes;
   }
   return slots;
 }
 
-// キャンセル率計算ロジックのテスト
+// ============================================================
+// スロット満席判定ロジック（重複チェック）
+// ============================================================
+
+function isSlotBooked(
+  slotTime: string,
+  bookedSlots: Array<{ start: string; end: string }>,
+  durationMinutes: number
+): boolean {
+  const [sh, sm] = slotTime.split(":").map(Number);
+  const slotStart = sh * 60 + sm;
+  const slotEnd = slotStart + durationMinutes;
+
+  return bookedSlots.some(({ start, end }) => {
+    const [bsh, bsm] = start.split(":").map(Number);
+    const [beh, bem] = end.split(":").map(Number);
+    const bookedStart = bsh * 60 + bsm;
+    const bookedEnd = beh * 60 + bem;
+    return slotStart < bookedEnd && slotEnd > bookedStart;
+  });
+}
+
+// ============================================================
+// KPI計算ロジック
+// ============================================================
+
 function calcCancelRate(total: number, cancelled: number): number {
   if (total === 0) return 0;
   return Math.round((cancelled / total) * 100);
 }
 
-// 完了率計算ロジックのテスト
 function calcCompletionRate(total: number, completed: number): number {
   if (total === 0) return 0;
   return Math.round((completed / total) * 100);
 }
 
-// 時間帯別集計ロジックのテスト
-function aggregateByHour(slots: string[]): Record<string, number> {
-  const result: Record<string, number> = {};
-  for (const slot of slots) {
-    const match = slot.match(/^(\d{2}:\d{2})/);
-    if (match) {
-      const hour = match[1].substring(0, 2) + ":00";
-      result[hour] = (result[hour] || 0) + 1;
-    }
-  }
-  return result;
-}
+// ============================================================
+// テスト
+// ============================================================
 
-describe("30分刻み時間スロット生成", () => {
-  it("10:00〜21:00（1時間半施術）で正しいスロット数が生成される", () => {
-    const slots = generateTimeSlots(10, 21, 90);
-    // 10:00〜19:30が最終 → 10:00,10:30,...,19:30 = 20スロット
+describe("UTC → JST 変換", () => {
+  it("UTC 02:00 → JST 11:00 に変換される", () => {
+    expect(utcToJstTime("2026-04-10T02:00:00.000Z")).toBe("11:00");
+  });
+
+  it("UTC 04:30 → JST 13:30 に変換される", () => {
+    expect(utcToJstTime("2026-04-10T04:30:00.000Z")).toBe("13:30");
+  });
+
+  it("UTC 11:30 → JST 20:30 に変換される", () => {
+    expect(utcToJstTime("2026-04-10T11:30:00.000Z")).toBe("20:30");
+  });
+
+  it("日付変換: UTC 2026-04-09T15:00Z → JST 2026-04-10", () => {
+    expect(utcToJstDate("2026-04-09T15:00:00.000Z")).toBe("2026-04-10");
+  });
+
+  it("日付変換: UTC 2026-04-10T02:00Z → JST 2026-04-10", () => {
+    expect(utcToJstDate("2026-04-10T02:00:00.000Z")).toBe("2026-04-10");
+  });
+
+  it("日付変換: UTC 2026-04-10T14:59Z → JST 2026-04-10 (23:59)", () => {
+    expect(utcToJstDate("2026-04-10T14:59:00.000Z")).toBe("2026-04-10");
+  });
+
+  it("日付変換: UTC 2026-04-10T15:00Z → JST 2026-04-11 (00:00)", () => {
+    expect(utcToJstDate("2026-04-10T15:00:00.000Z")).toBe("2026-04-11");
+  });
+});
+
+describe("30分刻みスロット生成", () => {
+  it("10:00〜21:00、1時間半施術で最終スロットは19:30", () => {
+    const slots = generateTimeSlots(10, 21, 30, 90);
+    expect(slots[0]).toBe("10:00");
+    expect(slots[slots.length - 1]).toBe("19:30");
+  });
+
+  it("スロット数が正しい（10:00〜19:30、30分刻み = 20スロット）", () => {
+    const slots = generateTimeSlots(10, 21, 30, 90);
     expect(slots.length).toBe(20);
   });
 
-  it("最初のスロットが10:00〜11:30である", () => {
-    const slots = generateTimeSlots(10, 21, 90);
-    expect(slots[0]).toBe("10:00 〜 11:30");
+  it("30分刻みで正しく生成される", () => {
+    const slots = generateTimeSlots(10, 21, 30, 90);
+    expect(slots[1]).toBe("10:30");
+    expect(slots[2]).toBe("11:00");
+    expect(slots[3]).toBe("11:30");
+  });
+});
+
+describe("スロット満席判定（重複チェック）", () => {
+  const bookedSlots = [
+    { start: "11:00", end: "12:30" },
+  ];
+
+  it("予約済みスロットと完全一致する場合は満席", () => {
+    expect(isSlotBooked("11:00", bookedSlots, 90)).toBe(true);
   });
 
-  it("最後のスロットが19:30〜21:00である", () => {
-    const slots = generateTimeSlots(10, 21, 90);
-    expect(slots[slots.length - 1]).toBe("19:30 〜 21:00");
+  it("予約済みスロットと重なる場合は満席（10:00〜11:30 → 11:00と重なる）", () => {
+    expect(isSlotBooked("10:00", bookedSlots, 90)).toBe(true);
   });
 
-  it("30分刻みで連続するスロットが生成される", () => {
-    const slots = generateTimeSlots(10, 21, 90);
-    expect(slots[1]).toBe("10:30 〜 12:00");
-    expect(slots[2]).toBe("11:00 〜 12:30");
+  it("予約済みスロットと重なる場合は満席（10:30〜12:00 → 11:00と重なる）", () => {
+    expect(isSlotBooked("10:30", bookedSlots, 90)).toBe(true);
   });
 
-  it("21:00を超えるスロットは生成されない", () => {
-    const slots = generateTimeSlots(10, 21, 90);
-    const invalid = slots.filter(s => {
-      const endMatch = s.match(/〜 (\d{2}):(\d{2})/);
-      if (!endMatch) return false;
-      const endH = parseInt(endMatch[1]);
-      const endM = parseInt(endMatch[2]);
-      return endH > 21 || (endH === 21 && endM > 0);
-    });
-    expect(invalid.length).toBe(0);
+  it("予約済みスロットの後ろは空き（12:30〜14:00 → 重ならない）", () => {
+    expect(isSlotBooked("12:30", bookedSlots, 90)).toBe(false);
+  });
+
+  it("予約済みスロットの前は空き（09:00〜10:30 → 11:00と重ならない）", () => {
+    expect(isSlotBooked("09:00", bookedSlots, 90)).toBe(false);
+  });
+
+  it("複数の予約済みスロットで正しく判定される", () => {
+    const multiBooked = [
+      { start: "10:00", end: "11:30" },
+      { start: "14:00", end: "15:30" },
+    ];
+    expect(isSlotBooked("10:00", multiBooked, 90)).toBe(true);
+    expect(isSlotBooked("14:00", multiBooked, 90)).toBe(true);
+    expect(isSlotBooked("12:00", multiBooked, 90)).toBe(false);
+    expect(isSlotBooked("16:00", multiBooked, 90)).toBe(false);
   });
 });
 
@@ -95,39 +189,58 @@ describe("予約分析KPI計算", () => {
     const rate = calcCancelRate(100, 25);
     expect(rate > 20).toBe(true);
   });
-
-  it("キャンセル率が20%以下なら良好フラグが立つ", () => {
-    const rate = calcCancelRate(100, 15);
-    expect(rate > 20).toBe(false);
-  });
 });
 
-describe("時間帯別集計", () => {
-  it("同じ時間帯のスロットが正しく集計される", () => {
-    const slots = ["10:00 〜 11:30", "10:30 〜 12:00", "11:00 〜 12:30"];
-    const result = aggregateByHour(slots);
-    expect(result["10:00"]).toBe(2);
-    expect(result["11:00"]).toBe(1);
+describe("Notion MCP出力パース（Tool execution result形式）", () => {
+  it("Tool execution result行の後のJSONを正しく抽出できる", () => {
+    const mockOutput = [
+      "Some log output",
+      "Tool execution result:",
+      '{"results": [{"id": "abc123", "title": "テスト予約"}], "has_more": false}',
+    ].join("\n");
+
+    const lines = mockOutput.split("\n");
+    let jsonStr = "";
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("Tool execution result:")) {
+        jsonStr = lines.slice(i + 1).join("\n").trim();
+        break;
+      }
+    }
+    const parsed = JSON.parse(jsonStr);
+    expect(parsed.results).toHaveLength(1);
+    expect(parsed.results[0].id).toBe("abc123");
   });
 
-  it("空の配列では空オブジェクトが返る", () => {
-    const result = aggregateByHour([]);
-    expect(Object.keys(result).length).toBe(0);
+  it("Tool execution result行がない場合は空文字列になる", () => {
+    const mockOutput = "Some log output\nNo result here";
+    const lines = mockOutput.split("\n");
+    let jsonStr = "";
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("Tool execution result:")) {
+        jsonStr = lines.slice(i + 1).join("\n").trim();
+        break;
+      }
+    }
+    expect(jsonStr).toBe("");
   });
-});
 
-describe("満席スロット判定", () => {
-  it("予約済みスロットと一致するスロットはdisabledになる", () => {
-    const bookedSlots = ["10:00", "11:30", "14:00"];
-    const slot = "10:00";
-    const isBooked = bookedSlots.includes(slot);
-    expect(isBooked).toBe(true);
-  });
+  it("fetchResult.textからプロパティJSONを抽出できる", () => {
+    const mockText = `
+<page>
+<properties>
+{"date:予約日時:start": "2026-04-10T02:00:00.000Z", "date:予約日時:end": "2026-04-10T03:30:00.000Z", "ステータス": "予定中", "サービス種別": "整体"}
+</properties>
+</page>
+    `.trim();
 
-  it("予約済みでないスロットはdisabledにならない", () => {
-    const bookedSlots = ["10:00", "11:30", "14:00"];
-    const slot = "13:00";
-    const isBooked = bookedSlots.includes(slot);
-    expect(isBooked).toBe(false);
+    const propsMatch = mockText.match(/<properties>\s*({[\s\S]*?})\s*<\/properties>/);
+    expect(propsMatch).not.toBeNull();
+    const props = JSON.parse(propsMatch![1]);
+    expect(props["date:予約日時:start"]).toBe("2026-04-10T02:00:00.000Z");
+    expect(props["ステータス"]).toBe("予定中");
+    // UTC→JST変換確認
+    expect(utcToJstTime(props["date:予約日時:start"])).toBe("11:00");
+    expect(utcToJstDate(props["date:予約日時:start"])).toBe("2026-04-10");
   });
 });

@@ -800,9 +800,35 @@ export async function getConfirmedReservationsForTomorrow() {
 
 
 /**
+ * UTC ISO文字列をJST時刻文字列 (HH:MM) に変換する
+ */
+function utcToJstTime(utcStr: string): string {
+  const d = new Date(utcStr);
+  // UTC+9
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMs);
+  const h = String(jst.getUTCHours()).padStart(2, '0');
+  const m = String(jst.getUTCMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+/**
+ * UTC ISO文字列をJST日付文字列 (YYYY-MM-DD) に変換する
+ */
+function utcToJstDate(utcStr: string): string {
+  const d = new Date(utcStr);
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMs);
+  const y = jst.getUTCFullYear();
+  const mo = String(jst.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(jst.getUTCDate()).padStart(2, '0');
+  return `${y}-${mo}-${day}`;
+}
+
+/**
  * 特定の日付の予約済み時間スロットをNotionから取得する
  * 予約フォームの満席表示に使用
- * @param date 日付文字列 (YYYY-MM-DD)
+ * @param date 日付文字列 (YYYY-MM-DD, JST)
  * @returns 予約済みスロットの配列 [{start: "10:00", end: "11:30", status: "予定中"}]
  */
 export async function getBookedSlotsForDate(date: string): Promise<Array<{
@@ -812,89 +838,105 @@ export async function getBookedSlotsForDate(date: string): Promise<Array<{
   serviceType: string;
 }>> {
   try {
-    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
-      query: date,
+    // Step1: notion-searchで予約ページ一覧を取得（全件取得のため複数ページ対応）
+    const searchCommand = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: "予約",
       query_type: "internal",
       data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+      page_size: 25,
     })}'`;
 
-    const { stdout } = await execAsync(command);
-
-    // MCPツールの出力からJSONを抽出
-    const lines = stdout.split('\n');
-    let jsonStr = '';
-    let inJson = false;
-    for (const line of lines) {
-      if (line.trim().startsWith('{')) {
-        inJson = true;
-      }
-      if (inJson) {
-        jsonStr += line;
+    const { stdout: searchStdout } = await execAsync(searchCommand);
+    
+    // MCPツールの出力からJSONを抽出（"Tool execution result:" 行の後のJSON）
+    // "Tool execution result:" 行の次の行からJSONを抽出
+    const searchLines = searchStdout.split('\n');
+    let searchJsonStr = '';
+    for (let i = 0; i < searchLines.length; i++) {
+      if (searchLines[i].includes('Tool execution result:')) {
+        searchJsonStr = searchLines.slice(i + 1).join('\n').trim();
+        break;
       }
     }
-
-    if (!jsonStr) {
+    if (!searchJsonStr) {
+      console.error("getBookedSlotsForDate: no result JSON found");
+      return [];
+    }
+    
+    const searchResult = JSON.parse(searchJsonStr);
+    const pages = searchResult.results || [];
+    
+    if (pages.length === 0) {
       return [];
     }
 
-    const result = JSON.parse(jsonStr);
-    if (!result.text) {
-      return [];
-    }
-
-    // ページから予約日時を抽出
+    // Step2: 各ページをfetchしてプロパティを取得
     const bookedSlots: Array<{ start: string; end: string; status: string; serviceType: string }> = [];
-    const text = result.text as string;
-
-    // <page>タグを解析
-    const pageRegex = /<page url="{{[^}]+}}"[^>]*>([\s\S]*?)<\/page>/g;
-    let pageMatch;
-    while ((pageMatch = pageRegex.exec(text)) !== null) {
-      const pageContent = pageMatch[1];
-
-      // ステータスを取得（キャンセル済みは除外）
-      const statusMatch = pageContent.match(/ステータス[:\s]+([^\n|]+)/);
-      const status = statusMatch ? statusMatch[1].trim() : "";
-      if (status === "キャンセル" || status === "キャンセル済み") {
-        continue;
-      }
-
-      // 予約日時を取得
-      const dateMatch = pageContent.match(/予約日時[:\s]+([^\n|]+)/);
-      if (!dateMatch) continue;
-      const dateStr = dateMatch[1].trim();
-
-      // 日付が一致するか確認
-      if (!dateStr.includes(date)) continue;
-
-      // 時刻を抽出 (例: "2026-04-10T10:00:00.000+09:00 → 2026-04-10T11:30:00.000+09:00")
-      const timeRangeMatch = dateStr.match(/T(\d{2}:\d{2}).*?→.*?T(\d{2}:\d{2})/);
-      if (timeRangeMatch) {
-        const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
-        bookedSlots.push({
-          start: timeRangeMatch[1],
-          end: timeRangeMatch[2],
-          status,
-          serviceType: serviceMatch ? serviceMatch[1].trim() : "整体",
-        });
-      } else {
-        // 単一時刻の場合（終了時刻なし）→ 1時間半のブロック
-        const singleTimeMatch = dateStr.match(/T(\d{2}:\d{2})/);
-        if (singleTimeMatch) {
-          const startTime = singleTimeMatch[1];
+    
+    for (const page of pages) {
+      try {
+        const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({
+          id: page.id,
+        })}'`;
+        
+        const { stdout: fetchStdout } = await execAsync(fetchCommand);
+        // "Tool execution result:" 行の次の行からJSONを抽出
+        const fetchLines = fetchStdout.split('\n');
+        let fetchJsonStr = '';
+        for (let i = 0; i < fetchLines.length; i++) {
+          if (fetchLines[i].includes('Tool execution result:')) {
+            fetchJsonStr = fetchLines.slice(i + 1).join('\n').trim();
+            break;
+          }
+        }
+        if (!fetchJsonStr) continue;
+        
+        const fetchResult = JSON.parse(fetchJsonStr);
+        const text = fetchResult.text || "";
+        
+        // <properties>タグからJSONを抽出
+        const propsMatch = text.match(/<properties>\s*({[\s\S]*?})\s*<\/properties>/);
+        if (!propsMatch) continue;
+        
+        const props = JSON.parse(propsMatch[1]);
+        
+        // ステータスを確認（キャンセルは除外）
+        const status = props["ステータス"] || "";
+        if (status === "キャンセル" || status === "キャンセル済み") continue;
+        
+        // 予約日時を取得
+        const startUtc = props["date:予約日時:start"];
+        if (!startUtc) continue;
+        
+        // JSTに変換して日付を確認
+        const jstDate = utcToJstDate(startUtc);
+        if (jstDate !== date) continue;
+        
+        const startTime = utcToJstTime(startUtc);
+        
+        // 終了時刻
+        let endTime: string;
+        const endUtc = props["date:予約日時:end"];
+        if (endUtc) {
+          endTime = utcToJstTime(endUtc);
+        } else {
+          // 終了時刻なし → 1時間半後
           const [h, m] = startTime.split(':').map(Number);
           const endMinutes = h * 60 + m + 90;
           const endH = Math.floor(endMinutes / 60);
           const endM = endMinutes % 60;
-          const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-          const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
-          bookedSlots.push({
-            start: startTime,
-            end: endTime,
-            status,
-            serviceType: serviceMatch ? serviceMatch[1].trim() : "整体",
-          });
+          endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
         }
+        
+        bookedSlots.push({
+          start: startTime,
+          end: endTime,
+          status: status || "予定中",
+          serviceType: props["サービス種別"] || "整体",
+        });
+      } catch (pageError) {
+        console.error(`getBookedSlotsForDate: error fetching page ${page.id}:`, pageError);
+        continue;
       }
     }
 
@@ -918,79 +960,98 @@ export async function getReservationAnalytics(year: number, month: number): Prom
   byService: Record<string, number>;
   byStatus: Record<string, number>;
 }> {
+  const analytics = {
+    totalReservations: 0,
+    completedReservations: 0,
+    cancelledReservations: 0,
+    byHour: {} as Record<string, number>,
+    byService: {} as Record<string, number>,
+    byStatus: {} as Record<string, number>,
+  };
+
   try {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-    const command = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
-      query: monthStr,
+    
+    // Step1: notion-searchで予約ページ一覧を取得
+    const searchCommand = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+      query: "予約",
       query_type: "internal",
       data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+      page_size: 25,
     })}'`;
 
-    const { stdout } = await execAsync(command);
-
-    const lines = stdout.split('\n');
-    let jsonStr = '';
-    let inJson = false;
-    for (const line of lines) {
-      if (line.trim().startsWith('{')) inJson = true;
-      if (inJson) jsonStr += line;
+    const { stdout: searchStdout } = await execAsync(searchCommand);
+    const searchLines2 = searchStdout.split('\n');
+    let searchJsonStr2 = '';
+    for (let i = 0; i < searchLines2.length; i++) {
+      if (searchLines2[i].includes('Tool execution result:')) {
+        searchJsonStr2 = searchLines2.slice(i + 1).join('\n').trim();
+        break;
+      }
     }
+    if (!searchJsonStr2) return analytics;
+    
+    const searchResult = JSON.parse(searchJsonStr2);
+    const pages = searchResult.results || [];
+    if (pages.length === 0) return analytics;
 
-    const analytics = {
-      totalReservations: 0,
-      completedReservations: 0,
-      cancelledReservations: 0,
-      byHour: {} as Record<string, number>,
-      byService: {} as Record<string, number>,
-      byStatus: {} as Record<string, number>,
-    };
-
-    if (!jsonStr) return analytics;
-
-    const result = JSON.parse(jsonStr);
-    if (!result.text) return analytics;
-
-    const text = result.text as string;
-    const pageRegex = /<page url="{{[^}]+}}"[^>]*>([\s\S]*?)<\/page>/g;
-    let pageMatch;
-
-    while ((pageMatch = pageRegex.exec(text)) !== null) {
-      const pageContent = pageMatch[1];
-
-      const dateMatch = pageContent.match(/予約日時[:\s]+([^\n|]+)/);
-      if (!dateMatch) continue;
-      const dateStr = dateMatch[1].trim();
-      if (!dateStr.includes(monthStr)) continue;
-
-      analytics.totalReservations++;
-
-      const statusMatch = pageContent.match(/ステータス[:\s]+([^\n|]+)/);
-      const status = statusMatch ? statusMatch[1].trim() : "不明";
-      analytics.byStatus[status] = (analytics.byStatus[status] || 0) + 1;
-      if (status === "完了") analytics.completedReservations++;
-      if (status === "キャンセル" || status === "キャンセル済み") analytics.cancelledReservations++;
-
-      const serviceMatch = pageContent.match(/サービス種別[:\s]+([^\n|]+)/);
-      const service = serviceMatch ? serviceMatch[1].trim() : "不明";
-      analytics.byService[service] = (analytics.byService[service] || 0) + 1;
-
-      const timeMatch = dateStr.match(/T(\d{2}):\d{2}/);
-      if (timeMatch) {
-        const hour = `${timeMatch[1]}:00`;
+    // Step2: 各ページをfetchしてプロパティを取得
+    for (const page of pages) {
+      try {
+        const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({
+          id: page.id,
+        })}'`;
+        
+        const { stdout: fetchStdout } = await execAsync(fetchCommand);
+        const fetchLines2 = fetchStdout.split('\n');
+        let fetchJsonStr2 = '';
+        for (let i = 0; i < fetchLines2.length; i++) {
+          if (fetchLines2[i].includes('Tool execution result:')) {
+            fetchJsonStr2 = fetchLines2.slice(i + 1).join('\n').trim();
+            break;
+          }
+        }
+        if (!fetchJsonStr2) continue;
+        
+        const fetchResult = JSON.parse(fetchJsonStr2);
+        const text = fetchResult.text || "";
+        
+        const propsMatch = text.match(/<properties>\s*({[\s\S]*?})\s*<\/properties>/);
+        if (!propsMatch) continue;
+        
+        const props = JSON.parse(propsMatch[1]);
+        
+        // 予約日時を取得しJSTに変換
+        const startUtc = props["date:予約日時:start"];
+        if (!startUtc) continue;
+        
+        // 対象月か確認（JST変換後の日付で判定）
+        const jstDate = utcToJstDate(startUtc);
+        if (!jstDate.startsWith(monthStr)) continue;
+        
+        analytics.totalReservations++;
+        
+        const status = props["ステータス"] || "不明";
+        analytics.byStatus[status] = (analytics.byStatus[status] || 0) + 1;
+        if (status === "完了") analytics.completedReservations++;
+        if (status === "キャンセル" || status === "キャンセル済み") analytics.cancelledReservations++;
+        
+        const service = props["サービス種別"] || "不明";
+        analytics.byService[service] = (analytics.byService[service] || 0) + 1;
+        
+        // JST時間帯別集計
+        const jstTime = utcToJstTime(startUtc);
+        const hour = jstTime.split(':')[0] + ":00";
         analytics.byHour[hour] = (analytics.byHour[hour] || 0) + 1;
+      } catch (pageError) {
+        console.error(`getReservationAnalytics: error fetching page ${page.id}:`, pageError);
+        continue;
       }
     }
 
     return analytics;
   } catch (error) {
     console.error("getReservationAnalytics error:", error);
-    return {
-      totalReservations: 0,
-      completedReservations: 0,
-      cancelledReservations: 0,
-      byHour: {},
-      byService: {},
-      byStatus: {},
-    };
+    return analytics;
   }
 }
