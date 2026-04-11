@@ -198,11 +198,19 @@ export default function ReservationForm() {
     notes: "",
   });
 
-  const [weekStart, setWeekStart] = useState(() => {
-    const d = new Date();
+  // 週の開始日（日曜）を計算する関数
+  const getWeekSunday = (date: Date): Date => {
+    const d = new Date(date);
     d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - d.getDay()); // 今日から曜日分引いて日曜に戻す
     return d;
-  });
+  };
+
+  const [weekStart, setWeekStart] = useState(() => getWeekSunday(new Date()));
+
+  // 定休日設定（0=日曜, 1=月曜, ..., 6=土曜）
+  const { data: settingsData } = trpc.settings.getClinicSettings.useQuery();
+  const closedDays: number[] = settingsData?.closedDays ?? [0]; // デフォルト: 日曜定休
 
   // 選択日の予約済みスロットをNotionから取得
   const selectedDateStr = formData.firstChoiceDate
@@ -236,6 +244,11 @@ export default function ReservationForm() {
       d.setDate(start.getDate() + i);
       return d;
     });
+
+  // 定休日かどうか判定
+  const isClosedDay = (date: Date): boolean => {
+    return closedDays.includes(date.getDay());
+  };
 
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -485,6 +498,7 @@ export default function ReservationForm() {
             {/* 日付 */}
             {weekDays.map((date) => {
               const isPast = date < today;
+              const isClosed = isClosedDay(date);
               const isSelected = formData.firstChoiceDate?.toDateString() === date.toDateString();
               const isToday = date.toDateString() === today.toDateString();
               const dayOfWeek = date.getDay();
@@ -494,7 +508,7 @@ export default function ReservationForm() {
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isPast}
+                  disabled={isPast || isClosedDay(date)}
                   onClick={() => {
                     setFormData((prev) => ({
                       ...prev,

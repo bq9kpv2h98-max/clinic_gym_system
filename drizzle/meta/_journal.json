@@ -162,6 +162,13 @@
       "when": 1773819121207,
       "tag": "0022_lovely_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1775869777482,
+      "tag": "0023_supreme_rattler",
+      "breakpoints": true
     }
   ]
 }

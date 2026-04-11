@@ -781,3 +781,15 @@ export const medicalRecords = mysqlTable("medicalRecords", {
 
 export type MedicalRecord = typeof medicalRecords.$inferSelect;
 export type InsertMedicalRecord = typeof medicalRecords.$inferInsert;
+
+/**
+ * クリニック設定テーブル（定休日・営業時間など）
+ */
+export const clinicSettings = mysqlTable("clinicSettings", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(), // 設定キー
+  value: text("value").notNull(), // JSON文字列で保存
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ClinicSettings = typeof clinicSettings.$inferSelect;
+export type InsertClinicSettings = typeof clinicSettings.$inferInsert;

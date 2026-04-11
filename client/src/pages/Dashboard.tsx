@@ -60,6 +60,137 @@ interface ChannelMetrics {
   roas: number;
 }
 
+// ===== 定休日設定パネル =====
+const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
+
+const SettingsPanel: React.FC = () => {
+  const utils = trpc.useUtils();
+  const { data: settingsData, isLoading } = trpc.settings.getClinicSettings.useQuery();
+  const [closedDays, setClosedDays] = useState<number[]>([0]);
+  const [saved, setSaved] = useState(false);
+
+  // サーバーデータが取得できたら初期値をセット
+  React.useEffect(() => {
+    if (settingsData?.closedDays) {
+      setClosedDays(settingsData.closedDays);
+    }
+  }, [settingsData]);
+
+  const updateMutation = trpc.settings.updateClosedDays.useMutation({
+    onSuccess: () => {
+      utils.settings.getClinicSettings.invalidate();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    },
+  });
+
+  const toggleDay = (day: number) => {
+    setClosedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
+    );
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate({ closedDays });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Calendar className="w-5 h-5 mr-2" />
+            定休日設定
+          </CardTitle>
+          <CardDescription>
+            予約フォームで選択不可にする曜日を設定します。変更後は「保存」ボタンを押してください。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-3 mb-6">
+            {DAY_NAMES.map((name, index) => {
+              const isClosed = closedDays.includes(index);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => toggleDay(index)}
+                  className={`flex flex-col items-center justify-center py-4 rounded-lg border-2 transition-all font-bold text-sm ${
+                    isClosed
+                      ? "bg-red-50 border-red-400 text-red-600"
+                      : "bg-white border-gray-200 text-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  <span className={`text-lg mb-1 ${
+                    index === 0 ? "text-red-500" : index === 6 ? "text-blue-500" : ""
+                  }`}>{name}</span>
+                  <span className={`text-xs ${
+                    isClosed ? "text-red-500 font-bold" : "text-gray-400"
+                  }`}>{isClosed ? "定休" : "営業"}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-500">
+              {closedDays.length === 0
+                ? "定休日なし（毎日営業）"
+                : `定休日: ${closedDays.map((d) => DAY_NAMES[d]).join("・")}曜日`}
+            </p>
+            <div className="flex items-center gap-3">
+              {saved && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  保存しました
+                </span>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={updateMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {updateMutation.isPending ? "保存中..." : "保存"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Clock className="w-5 h-5 mr-2" />
+            営業時間
+          </CardTitle>
+          <CardDescription>現在の設定（変更は開発者にお問い合わせください）</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-500 mb-1">受付開始</p>
+              <p className="text-xl font-bold text-gray-900">10:00</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-500 mb-1">最終受付</p>
+              <p className="text-xl font-bold text-gray-900">19:30</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">施術時間: 1時間30分 / 予約スロット: 30分刻み</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const Dashboard: React.FC = () => {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -246,9 +377,21 @@ const Dashboard: React.FC = () => {
         <div className="p-8">
           {/* ヘッダー */}
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">ダッシュボード</h2>
-            <p className="text-gray-600 mt-2">施設の経営状況を一目で把握できます</p>
+            <h2 className="text-3xl font-bold text-gray-900">
+              {activeTab === "settings" ? "設定" : "ダッシュボード"}
+            </h2>
+            <p className="text-gray-600 mt-2">
+              {activeTab === "settings" ? "営業設定・定休日などを管理できます" : "施設の経営状況を一目で把握できます"}
+            </p>
           </div>
+
+          {/* 設定タブ */}
+          {activeTab === "settings" && (
+            <SettingsPanel />
+          )}
+
+          {/* 概要タブ（overview）のみ以下を表示 */}
+          {activeTab !== "settings" && (<>
 
           {/* クイックアクセスリンク */}
           <Card className="mb-8">
@@ -613,6 +756,7 @@ const Dashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+          </>)}
         </div>
       </div>
     </div>
