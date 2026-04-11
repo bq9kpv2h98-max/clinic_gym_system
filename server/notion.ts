@@ -826,6 +826,19 @@ function utcToJstDate(utcStr: string): string {
 }
 
 /**
+ * MCPツール出力からJSONを抽出するヘルパー
+ */
+function extractMcpJson(stdout: string): string {
+  const lines = stdout.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Tool execution result:')) {
+      return lines.slice(i + 1).join('\n').trim();
+    }
+  }
+  return '';
+}
+
+/**
  * 特定の日付の予約済み時間スロットをNotionから取得する
  * 予約フォームの満席表示に使用
  * @param date 日付文字列 (YYYY-MM-DD, JST)
@@ -838,95 +851,107 @@ export async function getBookedSlotsForDate(date: string): Promise<Array<{
   serviceType: string;
 }>> {
   try {
-    // Step1: notion-searchで予約ページ一覧を取得（全件取得のため複数ページ対応）
-    const searchCommand = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
-      query: "予約",
-      query_type: "internal",
-      data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
-      page_size: 25,
-    })}'`;
-
-    const { stdout: searchStdout } = await execAsync(searchCommand);
+    // 全件取得（最大25件×複数回）してサーバー側で日付フィルタリング
+    // notion-searchは意味的検索のため特定日の予約を確実に取得できないため、
+    // 全件取得してJST日付でフィルタリングする方式を採用
+    const allPageIds: string[] = [];
     
-    // MCPツールの出力からJSONを抽出（"Tool execution result:" 行の後のJSON）
-    // "Tool execution result:" 行の次の行からJSONを抽出
-    const searchLines = searchStdout.split('\n');
-    let searchJsonStr = '';
-    for (let i = 0; i < searchLines.length; i++) {
-      if (searchLines[i].includes('Tool execution result:')) {
-        searchJsonStr = searchLines.slice(i + 1).join('\n').trim();
-        break;
-      }
-    }
-    if (!searchJsonStr) {
-      console.error("getBookedSlotsForDate: no result JSON found");
-      return [];
-    }
+    // 複数クエリで幅広く取得（同じDBなので重複はIDで除去）
+    const queries = [' ', '予約', '整体', 'マッサージ', 'パーソナル'];
+    const seenIds = new Set<string>();
     
-    const searchResult = JSON.parse(searchJsonStr);
-    const pages = searchResult.results || [];
-    
-    if (pages.length === 0) {
-      return [];
-    }
-
-    // Step2: 各ページをfetchしてプロパティを取得
-    const bookedSlots: Array<{ start: string; end: string; status: string; serviceType: string }> = [];
-    
-    for (const page of pages) {
+    for (const q of queries) {
       try {
-        const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({
-          id: page.id,
+        const searchCommand = `manus-mcp-cli tool call notion-search --server notion --input '${JSON.stringify({
+          query: q,
+          query_type: "internal",
+          data_source_url: NOTION_RESERVATION_DATA_SOURCE_ID,
+          page_size: 25,
         })}'`;
-        
-        const { stdout: fetchStdout } = await execAsync(fetchCommand);
-        // "Tool execution result:" 行の次の行からJSONを抽出
-        const fetchLines = fetchStdout.split('\n');
-        let fetchJsonStr = '';
-        for (let i = 0; i < fetchLines.length; i++) {
-          if (fetchLines[i].includes('Tool execution result:')) {
-            fetchJsonStr = fetchLines.slice(i + 1).join('\n').trim();
-            break;
+        const { stdout } = await execAsync(searchCommand);
+        const jsonStr = extractMcpJson(stdout);
+        if (!jsonStr) continue;
+        const result = JSON.parse(jsonStr);
+        for (const page of (result.results || [])) {
+          if (!seenIds.has(page.id)) {
+            seenIds.add(page.id);
+            allPageIds.push(page.id);
           }
         }
-        if (!fetchJsonStr) continue;
+      } catch { /* 個別クエリ失敗は無視 */ }
+    }
+
+    if (allPageIds.length === 0) {
+      return [];
+    }
+
+    // 各ページをfetchしてプロパティを取得し、対象日でフィルタリング
+    const bookedSlots: Array<{ start: string; end: string; status: string; serviceType: string }> = [];
+    
+    // 並列fetch（最大10並列）
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < allPageIds.length; i += BATCH_SIZE) {
+      const batch = allPageIds.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (pageId) => {
+          const fetchCommand = `manus-mcp-cli tool call notion-fetch --server notion --input '${JSON.stringify({ id: pageId })}'`;
+          const { stdout } = await execAsync(fetchCommand);
+          const jsonStr = extractMcpJson(stdout);
+          if (!jsonStr) return null;
+          const fetchResult = JSON.parse(jsonStr);
+          const text = fetchResult.text || "";
+          
+          // <properties>タグからJSONを抽出
+          const propsMatch = text.match(/<properties>\s*({[\s\S]*?})\s*<\/properties>/);
+          if (!propsMatch) return null;
+          return JSON.parse(propsMatch[1]);
+        })
+      );
+      
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value) continue;
+        const props = result.value;
         
-        const fetchResult = JSON.parse(fetchJsonStr);
-        const text = fetchResult.text || "";
-        
-        // <properties>タグからJSONを抽出
-        const propsMatch = text.match(/<properties>\s*({[\s\S]*?})\s*<\/properties>/);
-        if (!propsMatch) continue;
-        
-        const props = JSON.parse(propsMatch[1]);
-        
-        // ステータスを確認（キャンセルは除外）
+        // ステータス確認（キャンセルは除外）
         const status = props["ステータス"] || "";
         if (status === "キャンセル" || status === "キャンセル済み") continue;
         
         // 予約日時を取得
-        const startUtc = props["date:予約日時:start"];
-        if (!startUtc) continue;
+        const startRaw = props["date:予約日時:start"];
+        if (!startRaw) continue;
         
-        // JSTに変換して日付を確認
-        const jstDate = utcToJstDate(startUtc);
-        if (jstDate !== date) continue;
+        const isDatetime = props["date:予約日時:is_datetime"];
         
-        const startTime = utcToJstTime(startUtc);
-        
-        // 終了時刻
+        // 日付のみの場合（is_datetime=0）: YYYY-MM-DD形式
+        // 日時の場合（is_datetime=1）: ISO8601 UTC形式
+        let jstDate: string;
+        let startTime: string;
         let endTime: string;
-        const endUtc = props["date:予約日時:end"];
-        if (endUtc) {
-          endTime = utcToJstTime(endUtc);
+        
+        if (!isDatetime || isDatetime === 0) {
+          // 日付のみ → その日全体をブロック（10:00〜21:00として扱う）
+          jstDate = startRaw; // YYYY-MM-DD形式のまま
+          startTime = "10:00";
+          endTime = "21:00";
         } else {
-          // 終了時刻なし → 1時間半後
-          const [h, m] = startTime.split(':').map(Number);
-          const endMinutes = h * 60 + m + 90;
-          const endH = Math.floor(endMinutes / 60);
-          const endM = endMinutes % 60;
-          endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+          // 日時あり → UTC→JSTに変換
+          jstDate = utcToJstDate(startRaw);
+          startTime = utcToJstTime(startRaw);
+          const endRaw = props["date:予約日時:end"];
+          if (endRaw) {
+            endTime = utcToJstTime(endRaw);
+          } else {
+            // 終了時刻なし → 1時間半後
+            const [h, m] = startTime.split(':').map(Number);
+            const endMinutes = h * 60 + m + 90;
+            const endH = Math.floor(endMinutes / 60);
+            const endM = endMinutes % 60;
+            endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+          }
         }
+        
+        // 対象日のみ追加
+        if (jstDate !== date) continue;
         
         bookedSlots.push({
           start: startTime,
@@ -934,9 +959,6 @@ export async function getBookedSlotsForDate(date: string): Promise<Array<{
           status: status || "予定中",
           serviceType: props["サービス種別"] || "整体",
         });
-      } catch (pageError) {
-        console.error(`getBookedSlotsForDate: error fetching page ${page.id}:`, pageError);
-        continue;
       }
     }
 

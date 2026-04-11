@@ -88,3 +88,97 @@ describe("定休日設定ロジック", () => {
     expect(getClosedDays("[0,6]")).toEqual([0, 6]);
   });
 });
+
+// ===== 予約済みスロット判定ロジックのテスト =====
+describe("予約済みスロット判定ロジック（isSlotBooked）", () => {
+  // フロントエンドのisSlotBooked相当のロジック
+  const isSlotBooked = (
+    slotValue: string,
+    bookedSlots: Array<{ start: string; end: string }>
+  ): boolean => {
+    const [sh, sm] = slotValue.split(":").map(Number);
+    const slotStart = sh * 60 + sm;
+    const slotEnd = slotStart + 90; // 1.5時間
+    return bookedSlots.some((booked) => {
+      const [bsh, bsm] = booked.start.split(":").map(Number);
+      const [beh, bem] = booked.end.split(":").map(Number);
+      const bookedStart = bsh * 60 + bsm;
+      const bookedEnd = beh * 60 + bem;
+      return slotStart < bookedEnd && slotEnd > bookedStart;
+    });
+  };
+
+  it("予約済み時間帯と完全に重なるスロットは満席", () => {
+    const booked = [{ start: "10:30", end: "11:15" }];
+    expect(isSlotBooked("10:00", booked)).toBe(true); // 10:00-11:30 は 10:30-11:15 と重なる
+    expect(isSlotBooked("10:30", booked)).toBe(true); // 10:30-12:00 は 10:30-11:15 と重なる
+  });
+
+  it("予約済み時間帯と重ならないスロットは空き", () => {
+    const booked = [{ start: "10:30", end: "11:15" }];
+    expect(isSlotBooked("11:30", booked)).toBe(false); // 11:30-13:00 は 10:30-11:15 と重ならない
+    expect(isSlotBooked("14:00", booked)).toBe(false); // 14:00-15:30 は重ならない
+  });
+
+  it("複数の予約がある場合、いずれかと重なれば満席", () => {
+    const booked = [
+      { start: "10:30", end: "11:15" },
+      { start: "11:30", end: "13:00" },
+    ];
+    expect(isSlotBooked("10:00", booked)).toBe(true);  // 1件目と重なる
+    expect(isSlotBooked("11:00", booked)).toBe(true);  // 1件目と重なる
+    expect(isSlotBooked("12:00", booked)).toBe(true);  // 2件目と重なる
+    expect(isSlotBooked("13:00", booked)).toBe(false); // どちらとも重ならない
+  });
+
+  it("終日ブロック（10:00-21:00）は全スロットを満席にする", () => {
+    const booked = [{ start: "10:00", end: "21:00" }];
+    expect(isSlotBooked("10:00", booked)).toBe(true);
+    expect(isSlotBooked("14:00", booked)).toBe(true);
+    expect(isSlotBooked("19:30", booked)).toBe(true);
+  });
+
+  it("予約なしの場合は全スロットが空き", () => {
+    const booked: Array<{ start: string; end: string }> = [];
+    expect(isSlotBooked("10:00", booked)).toBe(false);
+    expect(isSlotBooked("14:00", booked)).toBe(false);
+  });
+});
+
+// UTC→JST変換ロジックのテスト
+describe("UTC→JST変換ロジック", () => {
+  const utcToJstDate = (utcStr: string): string => {
+    const d = new Date(utcStr);
+    const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+    const jst = new Date(jstMs);
+    const y = jst.getUTCFullYear();
+    const mo = String(jst.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(jst.getUTCDate()).padStart(2, "0");
+    return `${y}-${mo}-${day}`;
+  };
+
+  const utcToJstTime = (utcStr: string): string => {
+    const d = new Date(utcStr);
+    const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+    const jst = new Date(jstMs);
+    const h = String(jst.getUTCHours()).padStart(2, "0");
+    const m = String(jst.getUTCMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
+  it("UTC 01:30 → JST 10:30（+9時間）", () => {
+    expect(utcToJstTime("2026-04-14T01:30:00.000Z")).toBe("10:30");
+  });
+
+  it("UTC 02:30 → JST 11:30", () => {
+    expect(utcToJstTime("2026-04-14T02:30:00.000Z")).toBe("11:30");
+  });
+
+  it("UTC 2026-04-14T01:30 → JST 2026-04-14", () => {
+    expect(utcToJstDate("2026-04-14T01:30:00.000Z")).toBe("2026-04-14");
+  });
+
+  it("UTC 2026-04-13T15:00 → JST 2026-04-14（日付またぎ）", () => {
+    expect(utcToJstDate("2026-04-13T15:00:00.000Z")).toBe("2026-04-14");
+  });
+});
