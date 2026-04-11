@@ -793,3 +793,23 @@ export const clinicSettings = mysqlTable("clinicSettings", {
 });
 export type ClinicSettings = typeof clinicSettings.$inferSelect;
 export type InsertClinicSettings = typeof clinicSettings.$inferInsert;
+
+/**
+ * Notion予約データテーブル（CSVインポート＋API自動同期）
+ */
+export const notionReservations = mysqlTable("notionReservations", {
+  id: int("id").autoincrement().primaryKey(),
+  notionPageId: varchar("notionPageId", { length: 100 }).unique(), // NotionページID（APIで取得時に設定）
+  customerName: varchar("customerName", { length: 100 }).notNull(), // 顧客名
+  serviceType: varchar("serviceType", { length: 100 }), // サービス種別（整体など）
+  status: varchar("status", { length: 50 }), // ステータス（来店待ち、キャンセルなど）
+  memo: text("memo"), // 予約メモ
+  startAt: timestamp("startAt").notNull(), // 予約開始日時（JST）
+  endAt: timestamp("endAt"), // 予約終了日時（JST）
+  staffName: varchar("staffName", { length: 100 }), // 担当者
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(), // 最終同期日時
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotionReservation = typeof notionReservations.$inferSelect;
+export type InsertNotionReservation = typeof notionReservations.$inferInsert;

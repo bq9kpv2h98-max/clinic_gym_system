@@ -169,6 +169,13 @@
       "when": 1775869777482,
       "tag": "0023_supreme_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1775876554427,
+      "tag": "0024_superb_blur",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@
 
 import cron from "node-cron";
 import { syncNotionCustomers } from "../cron/sync-notion-customers";
+import { syncNotionReservationsToDB } from "../notionSync";
 import { linkReservationsAutomatically } from "../cron/link-reservations";
 import { cleanupOldLogs } from "../cron/cleanup-old-logs";
 import { sendReservationReminders } from "../cron/send-reminders";
@@ -78,6 +79,28 @@ export function initializeScheduler() {
       console.log("[Scheduler] Expired points cleanup completed");
     } catch (error) {
       console.error("[Scheduler] Expired points cleanup failed:", error);
+    }
+  });
+
+  // Notion予約DB同期（1時間ごとに実行）
+  cron.schedule("0 * * * *", async () => {
+    console.log("[Scheduler] Starting Notion reservation sync...");
+    try {
+      const result = await syncNotionReservationsToDB();
+      console.log(`[Scheduler] Notion reservation sync completed: ${result.upserted} upserted, ${result.errors} errors`);
+    } catch (error) {
+      console.error("[Scheduler] Notion reservation sync failed:", error);
+    }
+  });
+
+  // 起動時に即座同期（非同期）
+  setImmediate(async () => {
+    console.log("[Scheduler] Running initial Notion reservation sync...");
+    try {
+      const result = await syncNotionReservationsToDB();
+      console.log(`[Scheduler] Initial sync completed: ${result.upserted} upserted, ${result.errors} errors`);
+    } catch (error) {
+      console.error("[Scheduler] Initial Notion reservation sync failed:", error);
     }
   });
 

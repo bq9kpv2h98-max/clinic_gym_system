@@ -68,6 +68,14 @@ const SettingsPanel: React.FC = () => {
   const { data: settingsData, isLoading } = trpc.settings.getClinicSettings.useQuery();
   const [closedDays, setClosedDays] = useState<number[]>([0]);
   const [saved, setSaved] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ total: number; upserted: number; errors: number } | null>(null);
+  const syncMutation = trpc.settings.syncNotionReservations.useMutation({
+    onSuccess: (result) => {
+      setSyncResult(result);
+      utils.reservations.getBookedSlots.invalidate();
+      setTimeout(() => setSyncResult(null), 8000);
+    },
+  });
 
   // サーバーデータが取得できたら初期値をセット
   React.useEffect(() => {
@@ -185,6 +193,47 @@ const SettingsPanel: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">施術時間: 1時間30分 / 予約スロット: 30分刻み</p>
+        </CardContent>
+      </Card>
+
+      {/* Notion同期カード */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <ArrowRight className="w-5 h-5 mr-2" />
+            Notion予約データ同期
+          </CardTitle>
+          <CardDescription>
+            Notionの予約DBから最新データを取得してシステムに反映します。自動同期は1時間ごとに実行されます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              {syncResult ? (
+                <span className="text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  同期完了: {syncResult.total}件取得 / {syncResult.upserted}件更新
+                  {syncResult.errors > 0 && ` / ${syncResult.errors}件エラー`}
+                </span>
+              ) : (
+                <span>最終同期: サーバー起動時・1時間ごとに自動実行</span>
+              )}
+            </div>
+            <Button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              variant="outline"
+              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+            >
+              {syncMutation.isPending ? "同期中..." : "今すぐ同期"}
+            </Button>
+          </div>
+          {syncMutation.isError && (
+            <p className="text-sm text-red-500 mt-2">
+              同期エラー: {syncMutation.error?.message}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

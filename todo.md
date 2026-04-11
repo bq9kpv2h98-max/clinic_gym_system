@@ -721,3 +721,14 @@
 - [x] getBookedSlotsForDate関数のデバッグ（日付フィルター・プロパティ名・JSON解析）
 - [x] フロントエンドのisSlotBooked判定ロジックを確認（30分刻みスロットと1.5時間枕の重なり判定）
 - [x] 修正・テスト・チェックポイント保存
+
+## Phase 99: NotionエクスポートCSVインポート＋Notion API自動同期
+- [x] CSVデータ解析・DBスキーマ設計（notion_reservationsテーブル追加）
+- [x] pnpm db:pushでマイグレーション実行
+- [x] CSVインポートスクリプト作成・実行（561件成功）
+- [x] getBookedSlotsForDateをDBから取得する方式に変更
+- [x] Notion Integration Tokenを環境変数に設定
+- [x] Notion API（/v1/databases/{id}/query）で全件取得する自動同期エンドポイントを実装（syncNotionReservationsToDB）
+- [x] 管理画面に「今すぐ同期」ボタンを追加（設定タブ内）
+- [x] サーバー起動時 + 1時間ごとの自動同期をscheduler.tsに設定
+- [x] テスト・チェックポイント保存

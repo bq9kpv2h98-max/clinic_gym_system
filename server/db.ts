@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lt, ne, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, notionReservations } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -90,3 +90,40 @@ export async function getUserByOpenId(openId: string) {
 }
 
 // TODO: add feature queries here as your schema grows.
+
+/**
+ * 指定日付（YYYY-MM-DD、JST）の予約済みスロットをDBから取得
+ * キャンセルを除く全ステータスを対象にする
+ */
+export async function getBookedSlotsFromDB(dateStr: string): Promise<Array<{ startAt: Date; endAt: Date | null }>> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // JST日付をUTC範囲に変換（JST = UTC+9）
+  // dateStr = "2026-04-14" → JST 2026-04-14 00:00 = UTC 2026-04-13 15:00
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // 当日のJST 00:00 → UTC
+  const startUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 9 * 60 * 60 * 1000);
+  // 習日のJST 00:00 → UTC
+  const endUTC = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0) - 9 * 60 * 60 * 1000);
+
+  try {
+    const rows = await db
+      .select({ startAt: notionReservations.startAt, endAt: notionReservations.endAt })
+      .from(notionReservations)
+      .where(
+        and(
+          gte(notionReservations.startAt, startUTC),
+          lt(notionReservations.startAt, endUTC),
+          or(
+            isNull(notionReservations.status),
+            ne(notionReservations.status, 'キャンセル')
+          )
+        )
+      );
+    return rows;
+  } catch (error) {
+    console.error('[DB] getBookedSlotsFromDB error:', error);
+    return [];
+  }
+}

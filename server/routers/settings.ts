@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { syncNotionReservationsToDB } from "../notionSync";
 import { getDb } from "../db";
 import { clinicSettings } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -63,4 +64,10 @@ export const settingsRouter = router({
 
       return { success: true, closedDays: input.closedDays };
     }),
+
+  // Notion予約DBを手動同期（管理者のみ）
+  syncNotionReservations: protectedProcedure.mutation(async () => {
+    const result = await syncNotionReservationsToDB();
+    return result;
+  }),
 });

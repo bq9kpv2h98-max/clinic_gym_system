@@ -30,6 +30,7 @@ import { sendReservationConfirmationEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
 import { createNotionReservation, createNotionCustomer, getBookedSlotsForDate, getReservationAnalytics } from "../notion";
 import { notifyOwner } from "../_core/notification";
+import { getBookedSlotsFromDB } from "../db";
 
 export const reservationsRouter = router({
   /**
@@ -431,13 +432,33 @@ export const reservationsRouter = router({
     }),
 
   /**
-   * 特定日の予約済みスロットをNotionから取得（予約フォーム用・公開API）
+   * 特定日の予約済みスロットをDBから取得（予約フォーム用・公開アピィ）
+   * DBにデータがない場合はNotionからフォールバック
    */
   getBookedSlots: publicProcedure
     .input(z.object({ date: z.string() })) // YYYY-MM-DD
     .query(async ({ input }) => {
+      // まずDBから取得（高速・全件対応）
+      const dbSlots = await getBookedSlotsFromDB(input.date);
+      if (dbSlots.length > 0) {
+        // JST時刻のHH:MM形式に変換（フロントエンドの形式に合わせる）
+        const toJstHHMM = (d: Date): string => {
+          const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          const h = jst.getUTCHours().toString().padStart(2, '0');
+          const m = jst.getUTCMinutes().toString().padStart(2, '0');
+          return `${h}:${m}`;
+        };
+        const slots = dbSlots.map(s => ({
+          start: toJstHHMM(s.startAt),
+          end: s.endAt ? toJstHHMM(s.endAt) : toJstHHMM(new Date(s.startAt.getTime() + 90 * 60 * 1000)),
+          status: 'booked',
+          serviceType: '',
+        }));
+        return { slots, source: 'db' as const };
+      }
+      // DBにデータがない場合はNotionからフォールバック
       const slots = await getBookedSlotsForDate(input.date);
-      return { slots };
+      return { slots, source: 'notion' as const };
     }),
 
   /**
