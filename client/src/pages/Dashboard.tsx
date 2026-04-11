@@ -515,7 +515,7 @@ const Dashboard: React.FC = () => {
 
                 {/* スタッフ予約管理 */}
                 <a
-                  href="/staff-reservations"
+                  href="/reservations"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -525,7 +525,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">スタッフ予約管理</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">予約リクエストを確認・管理</p>
-                  <p className="text-xs text-red-600 break-all">/staff-reservations</p>
+                  <p className="text-xs text-red-600 break-all">/reservations</p>
                 </a>
 
                 {/* LINE公式アカウント */}

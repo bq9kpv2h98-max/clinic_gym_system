@@ -260,7 +260,7 @@ export const analyticsRouter = router({
       title: `未確認予約: ${r.fullName || '不明'}`,
       description: `希望日: ${r.firstChoiceDate || '未設定'}`,
       priority: 'high' as const,
-      link: '/staff-reservations',
+      link: '/reservations',
     }));
 
     // 2. ポイント期限切れ間近（7日以内）
