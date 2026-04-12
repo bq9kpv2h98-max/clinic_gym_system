@@ -176,6 +176,13 @@
       "when": 1775876554427,
       "tag": "0024_superb_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1776003455510,
+      "tag": "0025_purple_jetstream",
+      "breakpoints": true
     }
   ]
 }

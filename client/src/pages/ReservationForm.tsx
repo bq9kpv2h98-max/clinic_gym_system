@@ -9,13 +9,12 @@ import { cn } from "@/lib/utils";
 // 30分刻時間枠を生成（10:00〜19:30、各スロットは1.5時間単位）
 function generateTimeSlots(): Array<{ value: string; label: string; endTime: string }> {
   const slots = [];
-  // 10:00から19:30までの開始時刻（30分刻）
   for (let h = 10; h <= 19; h++) {
     for (let m = 0; m < 60; m += 30) {
       if (h === 19 && m > 30) break;
       const startH = String(h).padStart(2, "0");
       const startM = String(m).padStart(2, "0");
-      const endMinutes = h * 60 + m + 90; // 1.5時間後
+      const endMinutes = h * 60 + m + 90;
       const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
       const endM = String(endMinutes % 60).padStart(2, "0");
       const value = `${startH}:${startM}`;
@@ -51,36 +50,28 @@ interface MinimalInputProps {
   required?: boolean;
   optional?: boolean;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (v: string) => void;
   onBlur?: () => void;
   error?: string;
   hint?: string;
   type?: string;
-  inputMode?: "text" | "numeric" | "tel" | "email" | "decimal";
-  placeholder?: string;
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"];
   autoComplete?: string;
 }
 
 function MinimalInput({
   id, label, required, optional, value, onChange, onBlur, error, hint, type = "text",
-  inputMode, placeholder, autoComplete,
+  inputMode, autoComplete,
 }: MinimalInputProps) {
-  const [focused, setFocused] = useState(false);
-  const hasValue = value.length > 0;
-
   return (
     <div className="space-y-1">
-      <div className="relative border-b-2 transition-all duration-200"
-        style={{ borderColor: error ? "#ef4444" : focused ? "#000000" : "#e5e7eb" }}>
+      <div
+        className="relative border-b-2 transition-all duration-200"
+        style={{ borderColor: error ? "#ef4444" : "#e5e7eb" }}
+      >
         <label
           htmlFor={id}
-          className={cn(
-            "absolute left-0 transition-all duration-200 pointer-events-none select-none font-medium",
-            (focused || hasValue)
-              ? "top-0 text-[10px] tracking-widest uppercase"
-              : "top-3 text-sm text-gray-400",
-            error && (focused || hasValue) ? "text-red-500" : (focused || hasValue) ? "text-black" : "",
-          )}
+          className="absolute left-0 top-0 text-[10px] tracking-widest uppercase font-medium pointer-events-none select-none text-black"
         >
           {label}
           {required && <span className="ml-1.5 text-[9px] font-bold text-red-500 tracking-wider">必須</span>}
@@ -92,15 +83,13 @@ function MinimalInput({
           inputMode={inputMode}
           autoComplete={autoComplete}
           value={value}
-          placeholder={(focused || hasValue) ? (placeholder || "") : ""}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => { setFocused(false); onBlur?.(); }}
-          className="w-full bg-transparent pt-5 pb-2 text-sm text-gray-900 outline-none placeholder:text-gray-300"
+          onBlur={onBlur}
+          className="w-full pt-5 pb-2 text-base font-medium text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
         />
       </div>
-      {error && <p className="text-xs text-red-500 pt-0.5">{error}</p>}
-      {!error && hint && <p className="text-xs text-gray-400 pt-0.5">{hint}</p>}
+      {error && <p className="text-xs text-red-500 pt-1">{error}</p>}
+      {!error && hint && <p className="text-[10px] text-gray-400 pt-1">{hint}</p>}
     </div>
   );
 }
@@ -108,71 +97,92 @@ function MinimalInput({
 // ===== セクションヘッダー =====
 function SectionLabel({ number, title, required }: { number: string; title: string; required?: boolean }) {
   return (
-    <div className="flex items-baseline gap-3 mb-6">
-      <span className="text-5xl font-black text-gray-100 leading-none select-none">{number}</span>
-      <div>
-        <h2 className="text-base font-bold text-gray-900 tracking-tight leading-none">{title}</h2>
-        {required && <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">Required</span>}
-      </div>
+    <div className="flex items-baseline gap-3 mb-8">
+      <span className="text-[10px] font-black tracking-[0.3em] text-gray-300">{number}</span>
+      <h2 className="text-lg font-black text-gray-900 tracking-tight">{title}</h2>
+      {required && <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">Required</span>}
     </div>
   );
 }
 
 // ===== 完了画面 =====
 function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; timeSlot: string }) {
+  const LINE_URL = "https://lin.ee/9LXLjNI";
+
   const formatDate = (d: Date) =>
     d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
 
-  const slotLabel = timeSlot; // 渡されたラベルをそのまま使用
+  const generateGoogleCalendarUrl = () => {
+    const startStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${timeSlot.replace(":", "")}00`;
+    const [sh, sm] = timeSlot.split(":").map(Number);
+    const endMinutes = sh * 60 + sm + 90;
+    const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
+    const endM = String(endMinutes % 60).padStart(2, "0");
+    const endStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${endH}${endM}00`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: "ULU GROUP 予約",
+      dates: `${startStr}/${endStr}`,
+      details: `${name}様の予約`,
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* トップバー */}
       <div className="h-1 bg-black w-full" />
-
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-16">
-        {/* チェックマーク */}
-        <div className="w-16 h-16 rounded-full border-2 border-black flex items-center justify-center mb-8">
-          <Check className="w-7 h-7 text-black" strokeWidth={2.5} />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
+        <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-8">
+          <Check className="w-6 h-6 text-white" strokeWidth={3} />
         </div>
-
-        <p className="text-xs font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">Reservation Received</p>
-        <h1 className="text-2xl font-black text-gray-900 mb-1 text-center">予約リクエストを</h1>
-        <h1 className="text-2xl font-black text-gray-900 mb-8 text-center">受け付けました</h1>
-
-        <p className="text-sm text-gray-500 text-center mb-10 leading-relaxed">
-          {name} 様、ありがとうございます。<br />
-          担当者より確認のご連絡をさしあげます。
-        </p>
-
-        {/* 予約内容 */}
-        <div className="w-full max-w-xs border-t border-b border-gray-100 py-6 space-y-4 mb-10">
-          <div>
-            <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Date</p>
-            <p className="text-base font-bold text-gray-900">{formatDate(date)}</p>
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">Reservation Received</p>
+        <h1 className="text-2xl font-black text-gray-900 mb-8 leading-tight">
+          ご予約を<br />受け付けました
+        </h1>
+        <div className="w-full max-w-xs bg-gray-50 p-6 text-left space-y-3 mb-8">
+          <div className="flex justify-between items-baseline">
+            <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Name</span>
+            <span className="text-sm font-bold text-gray-900">{name}</span>
           </div>
-          <div>
-            <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Time</p>
-            <p className="text-base font-bold text-gray-900">{slotLabel}</p>
-          </div>
+          {date && (
+            <div className="flex justify-between items-baseline">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Date</span>
+              <span className="text-sm font-bold text-gray-900">{formatDate(date)}</span>
+            </div>
+          )}
+          {timeSlot && (
+            <div className="flex justify-between items-baseline">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
+              <span className="text-sm font-bold text-gray-900">{timeSlot}</span>
+            </div>
+          )}
         </div>
-
-        {/* LINE友だち追加ボタン */}
-        <a
-          href="https://lin.ee/9LXLjNI"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full max-w-xs flex items-center justify-center gap-3 bg-[#06C755] text-white font-bold text-sm py-4 px-6 rounded-none tracking-wide transition-all active:opacity-80 touch-manipulation"
-        >
-          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white flex-shrink-0">
-            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
-          </svg>
-          LINE公式アカウントで友だち追加
-        </a>
-
-        <p className="text-xs text-gray-400 mt-6 text-center">
-          ご不明な点はLINEまたはお電話でお問い合わせください。
+        <p className="text-xs text-gray-500 leading-relaxed mb-10 max-w-xs">
+          担当者より確認のご連絡をいたします。<br />
+          LINEでのご連絡を希望の方は、<br />
+          公式アカウントよりお名前をお送りください。
         </p>
+        <div className="w-full max-w-xs space-y-3">
+          <a
+            href={LINE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-3 bg-[#06C755] text-white font-bold text-sm py-4 px-6 rounded-none tracking-wide transition-all active:opacity-80 touch-manipulation"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+            </svg>
+            LINE公式アカウントを開く
+          </a>
+          <a
+            href={generateGoogleCalendarUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 border-2 border-black text-black font-bold text-sm py-4 px-6 tracking-wide transition-all active:opacity-80 touch-manipulation hover:bg-gray-50"
+          >
+            Googleカレンダーに追加
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -186,15 +196,10 @@ export default function ReservationForm() {
     customerFurigana: "",
     customerPhone: "",
     customerEmail: "",
-    postalCode: "",
-    prefecture: "",
-    city: "",
-    addressLine: "",
     preferLineContact: false,
     privacyAgreed: false,
     firstChoiceDate: undefined as Date | undefined,
-    firstChoiceTimeSlot: "" as "10:00-13:00" | "13:00-17:00" | "17:00-" | "",
-    firstChoiceTimeDetail: "",
+    firstChoiceTimeSlot: "" as string,
     notes: "",
   });
 
@@ -202,17 +207,19 @@ export default function ReservationForm() {
   const getWeekSunday = (date: Date): Date => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - d.getDay()); // 今日から曜日分引いて日曜に戻す
+    d.setDate(d.getDate() - d.getDay());
     return d;
   };
 
   const [weekStart, setWeekStart] = useState(() => getWeekSunday(new Date()));
 
-  // 定休日設定（0=日曜, 1=月曜, ..., 6=土曜）
+  // 設定取得（定休日・受付締切時間・臨時休業日）
   const { data: settingsData } = trpc.settings.getClinicSettings.useQuery();
-  const closedDays: number[] = settingsData?.closedDays ?? [0]; // デフォルト: 日曜定休
+  const closedDays: number[] = settingsData?.closedDays ?? [0];
+  const cutoffHours: number = (settingsData as any)?.bookingCutoffHours ?? 4;
+  const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];
 
-  // 選択日の予約済みスロットをNotionから取得
+  // 選択日の予約済みスロットをDBから取得
   const selectedDateStr = formData.firstChoiceDate
     ? `${formData.firstChoiceDate.getFullYear()}-${String(formData.firstChoiceDate.getMonth() + 1).padStart(2, "0")}-${String(formData.firstChoiceDate.getDate()).padStart(2, "0")}`
     : "";
@@ -222,20 +229,30 @@ export default function ReservationForm() {
     { enabled: !!selectedDateStr }
   );
 
-  // スロットが満席かどうか判定（予約済み時間帯と重なるスロットは満席）
+  // スロットが満席かどうか判定
   const isSlotBooked = (slotValue: string): boolean => {
     if (!bookedSlotsData?.slots) return false;
     const [sh, sm] = slotValue.split(":").map(Number);
     const slotStart = sh * 60 + sm;
-    const slotEnd = slotStart + 90; // 1.5時間
+    const slotEnd = slotStart + 90;
     return bookedSlotsData.slots.some((booked) => {
       const [bsh, bsm] = booked.start.split(":").map(Number);
       const [beh, bem] = booked.end.split(":").map(Number);
       const bookedStart = bsh * 60 + bsm;
       const bookedEnd = beh * 60 + bem;
-      // 重なり判定
       return slotStart < bookedEnd && slotEnd > bookedStart;
     });
+  };
+
+  // 受付締切チェック（cutoffHours時間前を過ぎたスロットは選択不可）
+  const isSlotPastCutoff = (date: Date, slotValue: string): boolean => {
+    if (!date) return false;
+    const [sh, sm] = slotValue.split(":").map(Number);
+    const slotDateTime = new Date(date);
+    slotDateTime.setHours(sh, sm, 0, 0);
+    const now = new Date();
+    const cutoffMs = cutoffHours * 60 * 60 * 1000;
+    return slotDateTime.getTime() - now.getTime() < cutoffMs;
   };
 
   const getWeekDays = (start: Date): Date[] =>
@@ -245,24 +262,20 @@ export default function ReservationForm() {
       return d;
     });
 
-  // 定休日かどうか判定
+  // 定休日・臨時休業日かどうか判定
   const isClosedDay = (date: Date): boolean => {
-    return closedDays.includes(date.getDay());
+    if (closedDays.includes(date.getDay())) return true;
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    return blockedDates.includes(dateStr);
   };
 
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
-  const [postalLoading, setPostalLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  // フリガナ自動入力: IME compositionイベントで読み仮名を取得
-  // 重要: compositionEndのe.dataは変換後の漢字なので使わない。
-  // compositionUpdateのe.dataには変換中のひらがな読みが入るので、
-  // ひらがなの間のみ保存し、漢字変換後は直前の読みを維持する。
-  const furiganaRef = useRef<{ reading: string }>({
-    reading: "",
-  });
 
-  // ひらがな→カタカナ変換
+  // フリガナ自動入力（IME compositionイベント）
+  const furiganaRef = useRef<{ reading: string }>({ reading: "" });
+
   const toKatakana = (str: string) =>
     str.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
 
@@ -272,23 +285,18 @@ export default function ReservationForm() {
 
   const handleNameCompositionUpdate = (e: React.CompositionEvent<HTMLInputElement>) => {
     const data = e.data || "";
-    // ひらがな・カタカナ・スペースのみ保存（漢字変換後は無視して直前の読みを維持）
     if (data && /^[\u3041-\u3096\u30A0-\u30FF\s\u3000]+$/.test(data)) {
       furiganaRef.current.reading = data;
     }
   };
 
   const handleNameCompositionEnd = () => {
-    // compositionEndのe.dataは変換後の漢字なので使わず、
-    // compositionUpdateで蓄積したひらがな読みをカタカナ変換する
     const reading = furiganaRef.current.reading;
     if (reading) {
       const kana = toKatakana(reading);
       setFormData((prev) => ({
         ...prev,
-        customerFurigana: prev.customerFurigana
-          ? prev.customerFurigana + kana
-          : kana,
+        customerFurigana: prev.customerFurigana ? prev.customerFurigana + kana : kana,
       }));
     }
     furiganaRef.current.reading = "";
@@ -296,10 +304,7 @@ export default function ReservationForm() {
 
   const facilityId = "facility-001";
 
-  // 選択中のスロット情報
   const selectedSlotInfo = ALL_TIME_SLOTS.find(s => s.value === formData.firstChoiceTimeSlot);
-
-  // 選択中スロットの表示ラベル
   const selectedSlotLabel = selectedSlotInfo
     ? `${selectedSlotInfo.value} 〜 ${selectedSlotInfo.endTime}`
     : "";
@@ -326,7 +331,6 @@ export default function ReservationForm() {
     if (field === "customerName" && !value.trim()) {
       error = "お名前を入力してください";
     } else if (field === "customerFurigana" && value.trim()) {
-      // カタカナのみ許可（スペース含む）
       if (!/^[\u30A0-\u30FF\s　]+$/.test(value.trim())) {
         error = "カタカナで入力してください";
       }
@@ -337,6 +341,8 @@ export default function ReservationForm() {
     } else if (field === "customerEmail") {
       if (!value.trim()) error = "メールアドレスを入力してください";
       else if (!isValidEmail(value)) error = "形式が正しくありません（例: name@example.com）";
+    } else if (field === "notes") {
+      if (!value.trim()) error = "お悩み・症状・ご要望を入力してください";
     }
     setFieldErrors((prev) => ({ ...prev, [field]: error }));
     return !error;
@@ -350,35 +356,16 @@ export default function ReservationForm() {
     validateField("customerPhone", normalized);
   };
 
-  const fetchAddressByPostalCode = async (code: string) => {
-    const normalized = code.replace(/[\s\-－]/g, "").replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
-    if (normalized.length !== 7) return;
-    setPostalLoading(true);
-    try {
-      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${normalized}`);
-      const json = await res.json();
-      if (json.results && json.results.length > 0) {
-        const r = json.results[0];
-        setFormData((prev) => ({
-          ...prev,
-          prefecture: r.address1 || prev.prefecture,
-          city: (r.address2 || "") + (r.address3 || ""),
-        }));
-        toast.success("住所を自動入力しました");
-      } else {
-        toast.error("郵便番号が見つかりませんでした");
-      }
-    } catch {
-      toast.error("住所の自動入力に失敗しました");
-    } finally {
-      setPostalLoading(false);
-    }
-  };
-
   const handleSubmit = () => {
     if (!formData.firstChoiceDate || !formData.firstChoiceTimeSlot) {
       toast.error("希望日時を選択してください");
       document.getElementById("section-datetime")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const notesOk = validateField("notes", formData.notes);
+    if (!notesOk) {
+      toast.error("お悩み・症状・ご要望を入力してください");
+      document.getElementById("section-notes")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     const nameOk = validateField("customerName", formData.customerName);
@@ -401,17 +388,13 @@ export default function ReservationForm() {
       customerPhone: phone,
       customerEmail: formData.customerEmail,
       firstChoiceDate: formData.firstChoiceDate!,
-      firstChoiceTimeSlot: "10:00-13:00" as "10:00-13:00" | "13:00-17:00" | "17:00-", // 互換性のため固定値
-      firstChoiceTimeDetail: formData.firstChoiceTimeSlot || undefined, // 実際の時刻を詳細に保存
+      firstChoiceTimeSlot: "10:00-13:00" as "10:00-13:00" | "13:00-17:00" | "17:00-",
+      firstChoiceTimeDetail: formData.firstChoiceTimeSlot || undefined,
       secondChoiceDate: undefined,
       secondChoiceTimeSlot: undefined as any,
       thirdChoiceDate: undefined,
       thirdChoiceTimeSlot: undefined as any,
       notes: formData.notes || undefined,
-      postalCode: formData.postalCode || undefined,
-      prefecture: formData.prefecture || undefined,
-      city: formData.city || undefined,
-      addressLine: formData.addressLine || undefined,
     });
   };
 
@@ -486,7 +469,6 @@ export default function ReservationForm() {
 
           {/* 日付ボタン列 */}
           <div className="grid grid-cols-7 gap-1">
-            {/* 曜日ヘッダー */}
             {DAY_LABELS.map((d, i) => (
               <div key={d} className={cn(
                 "text-center text-[10px] font-bold tracking-wider pb-2",
@@ -495,7 +477,6 @@ export default function ReservationForm() {
                 {d}
               </div>
             ))}
-            {/* 日付 */}
             {weekDays.map((date) => {
               const isPast = date < today;
               const isClosed = isClosedDay(date);
@@ -504,25 +485,25 @@ export default function ReservationForm() {
               const dayOfWeek = date.getDay();
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
+              const isDisabled = isPast || isClosed;
               return (
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isPast || isClosedDay(date)}
+                  disabled={isDisabled}
                   onClick={() => {
                     setFormData((prev) => ({
                       ...prev,
                       firstChoiceDate: date,
                       firstChoiceTimeSlot: "",
-                      firstChoiceTimeDetail: "",
                     }));
                   }}
                   className={cn(
                     "aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all select-none",
                     "active:scale-90 touch-manipulation",
-                    isPast && "opacity-20 cursor-not-allowed",
+                    isDisabled && "opacity-20 cursor-not-allowed",
                     isSelected && "bg-black text-white",
-                    !isSelected && !isPast && "hover:bg-gray-100",
+                    !isSelected && !isDisabled && "hover:bg-gray-100",
                     !isSelected && isToday && "ring-1 ring-black ring-inset",
                   )}
                 >
@@ -556,31 +537,36 @@ export default function ReservationForm() {
                   {ALL_TIME_SLOTS.map((slot) => {
                     const isSelected = formData.firstChoiceTimeSlot === slot.value;
                     const isBooked = isSlotBooked(slot.value);
+                    const isPastCutoff = formData.firstChoiceDate
+                      ? isSlotPastCutoff(formData.firstChoiceDate, slot.value)
+                      : false;
+                    const isUnavailable = isBooked || isPastCutoff;
+                    const unavailableLabel = isBooked ? "満席" : isPastCutoff ? "受付終了" : "";
                     return (
                       <button
                         key={slot.value}
                         type="button"
-                        disabled={isBooked}
-                        onClick={() => !isBooked && handleInputChange("firstChoiceTimeSlot", slot.value)}
+                        disabled={isUnavailable}
+                        onClick={() => !isUnavailable && handleInputChange("firstChoiceTimeSlot", slot.value)}
                         className={cn(
                           "flex flex-col items-center justify-center py-3 px-2 border transition-all",
                           "active:scale-[0.96] touch-manipulation",
-                          isBooked && "bg-gray-100 border-gray-100 cursor-not-allowed opacity-50",
-                          isSelected && !isBooked && "bg-black border-black",
-                          !isSelected && !isBooked && "bg-white border-gray-200 hover:border-gray-900",
+                          isUnavailable && "bg-gray-100 border-gray-100 cursor-not-allowed opacity-50",
+                          isSelected && !isUnavailable && "bg-black border-black",
+                          !isSelected && !isUnavailable && "bg-white border-gray-200 hover:border-gray-900",
                         )}
                       >
                         <span className={cn(
                           "text-sm font-black leading-none",
-                          isBooked ? "text-gray-400" : isSelected ? "text-white" : "text-gray-900"
+                          isUnavailable ? "text-gray-400" : isSelected ? "text-white" : "text-gray-900"
                         )}>
                           {slot.value}
                         </span>
                         <span className={cn(
                           "text-[9px] mt-1 tracking-wider",
-                          isBooked ? "text-gray-300" : isSelected ? "text-gray-400" : "text-gray-400"
+                          isUnavailable ? "text-gray-300" : isSelected ? "text-gray-400" : "text-gray-400"
                         )}>
-                          {isBooked ? "満席" : `〜${slot.endTime}`}
+                          {isUnavailable ? unavailableLabel : `〜${slot.endTime}`}
                         </span>
                       </button>
                     );
@@ -603,9 +589,42 @@ export default function ReservationForm() {
         {/* 区切り線 */}
         <div className="border-t border-gray-100" />
 
-        {/* ===== セクション2: お客様情報 ===== */}
+        {/* ===== セクション2: お悩み・症状・ご要望 ===== */}
+        <section id="section-notes">
+          <SectionLabel number="02" title="お悩み・症状・ご要望" required />
+
+          <div>
+            <div className="relative border-b-2 transition-all duration-200"
+              style={{ borderColor: fieldErrors.notes ? "#ef4444" : "#e5e7eb" }}>
+              <textarea
+                id="notes"
+                placeholder="例：肩こりがひどい、腰痛が続いている、ダイエットしたいなど&#10;お気軽にご記入ください"
+                value={formData.notes}
+                onChange={(e) => {
+                  handleInputChange("notes", e.target.value);
+                  if (fieldErrors.notes && e.target.value.trim()) {
+                    setFieldErrors((prev) => ({ ...prev, notes: "" }));
+                  }
+                }}
+                onBlur={() => validateField("notes", formData.notes)}
+                className="w-full pt-2 pb-3 text-sm text-gray-900 bg-transparent outline-none placeholder:text-gray-300 resize-none h-28 focus:border-black transition-colors"
+              />
+            </div>
+            {fieldErrors.notes && (
+              <p className="text-xs text-red-500 pt-1">{fieldErrors.notes}</p>
+            )}
+            {!fieldErrors.notes && (
+              <p className="text-[10px] text-gray-400 pt-1">担当者が事前に確認し、より良い施術のご提案をいたします</p>
+            )}
+          </div>
+        </section>
+
+        {/* 区切り線 */}
+        <div className="border-t border-gray-100" />
+
+        {/* ===== セクション3: お客様情報 ===== */}
         <section id="section-info">
-          <SectionLabel number="02" title="お客様情報" required />
+          <SectionLabel number="03" title="お客様情報" required />
 
           <div className="space-y-8">
             {/* お名前 */}
@@ -680,98 +699,6 @@ export default function ReservationForm() {
               hint="予約確認メールをお送りします"
               autoComplete="email"
             />
-          </div>
-        </section>
-
-        {/* 区切り線 */}
-        <div className="border-t border-gray-100" />
-
-        {/* ===== セクション3: 住所 ===== */}
-        <section>
-          <SectionLabel number="03" title="ご住所" />
-
-          <div className="space-y-8">
-            {/* 郵便番号 */}
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <MinimalInput
-                  id="postalCode"
-                  label="郵便番号"
-                  optional
-                  inputMode="numeric"
-                  value={formData.postalCode}
-                  onChange={(v) => {
-                    const normalized = v.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
-                    handleInputChange("postalCode", normalized);
-                    if (normalized.replace(/[\s\-]/g, "").length === 7) {
-                      fetchAddressByPostalCode(normalized);
-                    }
-                  }}
-                  hint="7桁・ハイフン不要"
-                  autoComplete="postal-code"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => fetchAddressByPostalCode(formData.postalCode)}
-                disabled={postalLoading || formData.postalCode.replace(/[\s\-]/g, "").length !== 7}
-                className="pb-2 text-xs font-bold tracking-wider text-black border-b-2 border-black hover:opacity-60 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity whitespace-nowrap flex items-center gap-1"
-              >
-                {postalLoading ? <><Loader2 className="w-3 h-3 animate-spin" />検索中</> : "住所検索"}
-              </button>
-            </div>
-
-            <MinimalInput
-              id="prefecture"
-              label="都道府県"
-              optional
-              value={formData.prefecture}
-              onChange={(v) => handleInputChange("prefecture", v)}
-              hint="郵便番号から自動入力"
-              autoComplete="address-level1"
-            />
-            <MinimalInput
-              id="city"
-              label="市区町村"
-              optional
-              value={formData.city}
-              onChange={(v) => handleInputChange("city", v)}
-              hint="郵便番号から自動入力"
-              autoComplete="address-level2"
-            />
-            <MinimalInput
-              id="addressLine"
-              label="番地・建物名等"
-              optional
-              value={formData.addressLine}
-              onChange={(v) => handleInputChange("addressLine", v)}
-              hint="例：1-2-3 マンション名101"
-              autoComplete="address-line1"
-            />
-          </div>
-        </section>
-
-        {/* 区切り線 */}
-        <div className="border-t border-gray-100" />
-
-        {/* ===== セクション4: その他 ===== */}
-        <section>
-          <SectionLabel number="04" title="その他" />
-
-          <div className="space-y-8">
-            {/* 症状・お悩み */}
-            <div>
-              <label htmlFor="notes" className="block text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-3">
-                症状・お悩み・ご要望 <span className="text-gray-300">— 任意</span>
-              </label>
-              <textarea
-                id="notes"
-                placeholder="例：肩こりがひどい、腰痛が続いている、ダイエットしたいなど"
-                value={formData.notes}
-                onChange={(e) => handleInputChange("notes", e.target.value)}
-                className="w-full border-b-2 border-gray-200 bg-transparent pt-2 pb-3 text-sm text-gray-900 outline-none placeholder:text-gray-300 resize-none h-20 focus:border-black transition-colors"
-              />
-            </div>
 
             {/* LINE連絡希望 */}
             <label className="flex items-center gap-4 cursor-pointer group">
@@ -811,9 +738,7 @@ export default function ReservationForm() {
               </div>
               <div className="flex justify-between items-baseline">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
-                <span className="text-sm font-bold text-gray-900">
-                  {selectedSlotLabel}
-                </span>
+                <span className="text-sm font-bold text-gray-900">{selectedSlotLabel}</span>
               </div>
               <div className="flex justify-between items-baseline">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Name</span>
@@ -825,10 +750,10 @@ export default function ReservationForm() {
                   <span className="text-sm font-bold text-gray-900">{formData.customerPhone}</span>
                 </div>
               )}
-              {formData.customerEmail && (
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Email</span>
-                  <span className="text-sm font-bold text-gray-900 truncate max-w-[60%] text-right">{formData.customerEmail}</span>
+              {formData.notes && (
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400 flex-shrink-0">Memo</span>
+                  <span className="text-xs text-gray-700 text-right line-clamp-2">{formData.notes}</span>
                 </div>
               )}
             </div>

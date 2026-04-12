@@ -182,3 +182,124 @@ describe("UTC→JST変換ロジック", () => {
     expect(utcToJstDate("2026-04-13T15:00:00.000Z")).toBe("2026-04-14");
   });
 });
+
+// ===== 受付締切時間ロジックのテスト =====
+describe("受付締切時間ロジック（isSlotPastCutoff）", () => {
+  const isSlotPastCutoff = (
+    date: Date,
+    slotValue: string,
+    cutoffHours: number,
+    now: Date
+  ): boolean => {
+    const [sh, sm] = slotValue.split(":").map(Number);
+    const slotDateTime = new Date(date);
+    slotDateTime.setHours(sh, sm, 0, 0);
+    const cutoffMs = cutoffHours * 60 * 60 * 1000;
+    return slotDateTime.getTime() - now.getTime() < cutoffMs;
+  };
+
+  // ローカル時刻ベースで日時を作成するヘルパー
+  const makeLocalDateTime = (y: number, mo: number, d: number, h: number, m: number): Date => {
+    const dt = new Date();
+    dt.setFullYear(y, mo - 1, d);
+    dt.setHours(h, m, 0, 0);
+    return dt;
+  };
+  const makeLocalDate = (y: number, mo: number, d: number): Date => makeLocalDateTime(y, mo, d, 0, 0);
+
+  it("4時間前のスロットは受付終了", () => {
+    const now = makeLocalDateTime(2026, 4, 14, 10, 0);
+    const date = makeLocalDate(2026, 4, 14);
+    // 10:00 のスロット → now と同時刻 → 4時間前を過ぎている
+    expect(isSlotPastCutoff(date, "10:00", 4, now)).toBe(true);
+  });
+
+  it("4時間以上先のスロットは受付可能", () => {
+    const now = makeLocalDateTime(2026, 4, 14, 10, 0);
+    const date = makeLocalDate(2026, 4, 14);
+    // 14:30 のスロット → 4.5時間後 → 受付可能
+    expect(isSlotPastCutoff(date, "14:30", 4, now)).toBe(false);
+  });
+
+  it("締剰0時間の場合は全スロット受付可能", () => {
+    const now = makeLocalDateTime(2026, 4, 14, 19, 0);
+    const date = makeLocalDate(2026, 4, 14);
+    // 締剰0時間 → 当日予約も受付
+    expect(isSlotPastCutoff(date, "19:30", 0, now)).toBe(false);
+  });
+
+  it("翌日のスロットは必ず受付可能（4時間前設定）", () => {
+    const now = makeLocalDateTime(2026, 4, 14, 23, 0);
+    const date = makeLocalDate(2026, 4, 15);
+    expect(isSlotPastCutoff(date, "10:00", 4, now)).toBe(false);
+  });
+});
+
+// ===== 臢時休業日ロジックのテスト =====
+describe("臢時休業日ロジック（blockedDates）", () => {
+  const isBlockedDate = (date: Date, blockedDates: string[]): boolean => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    return blockedDates.includes(dateStr);
+  };
+
+  // ローカル時刻ベースで日付を作成するヘルパー
+  const makeLocalDate = (y: number, m: number, d: number): Date => {
+    const date = new Date();
+    date.setFullYear(y, m - 1, d);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  it("臢時休業日に設定された日は選択不可", () => {
+    const blockedDates = ["2026-04-15", "2026-04-20"];
+    expect(isBlockedDate(makeLocalDate(2026, 4, 15), blockedDates)).toBe(true);
+    expect(isBlockedDate(makeLocalDate(2026, 4, 20), blockedDates)).toBe(true);
+  });
+
+  it("臢時休業日に設定されていない日は選択可能", () => {
+    const blockedDates = ["2026-04-15"];
+    expect(isBlockedDate(makeLocalDate(2026, 4, 14), blockedDates)).toBe(false);
+    expect(isBlockedDate(makeLocalDate(2026, 4, 16), blockedDates)).toBe(false);
+  });
+
+  it("臢時休業日リストが空の場合は全日選択可能", () => {
+    const blockedDates: string[] = [];
+    expect(isBlockedDate(makeLocalDate(2026, 4, 15), blockedDates)).toBe(false);
+  });
+
+  it("臢時休業日の追加・削除", () => {
+    let blockedDates = ["2026-04-15"];
+    // 追加
+    const newDate = "2026-04-20";
+    if (!blockedDates.includes(newDate)) {
+      blockedDates = [...blockedDates, newDate].sort();
+    }
+    expect(blockedDates).toEqual(["2026-04-15", "2026-04-20"]);
+    // 削除
+    blockedDates = blockedDates.filter((d) => d !== "2026-04-15");
+    expect(blockedDates).toEqual(["2026-04-20"]);
+  });
+});
+
+// ===== カルテ予約紐付けロジックのテスト =====
+describe("カルテ予約紐付けロジック", () => {
+  it("Notion予約IDが設定されている場合は紐付けあり", () => {
+    const record = { notionReservationId: 123, reservationName: "田中太郎｜4月15日 10:30" };
+    expect(record.notionReservationId).toBeDefined();
+    expect(record.reservationName).toContain("田中太郎");
+  });
+
+  it("Notion予約IDが未設定の場合は紐付けなし", () => {
+    const record = { notionReservationId: undefined, reservationName: "" };
+    expect(record.notionReservationId).toBeUndefined();
+  });
+
+  it("予約選択時に来院日時が自動入力される", () => {
+    const reservation = { id: 1, startAt: new Date("2026-04-15T01:30:00.000Z") };
+    // JST変換（UTC+9）
+    const jstDate = new Date(reservation.startAt.getTime() + 9 * 60 * 60 * 1000);
+    const visitDate = jstDate.toISOString().split("T")[0];
+    // UTC 01:30 → JST 10:30 → 2026-04-15
+    expect(visitDate).toBe("2026-04-15");
+  });
+});

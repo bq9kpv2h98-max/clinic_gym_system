@@ -69,6 +69,13 @@ const SettingsPanel: React.FC = () => {
   const [closedDays, setClosedDays] = useState<number[]>([0]);
   const [saved, setSaved] = useState(false);
   const [syncResult, setSyncResult] = useState<{ total: number; upserted: number; errors: number } | null>(null);
+  // 受付締切時間
+  const [cutoffHours, setCutoffHours] = useState<number>(4);
+  const [cutoffSaved, setCutoffSaved] = useState(false);
+  // 臨時休業日
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [newBlockedDate, setNewBlockedDate] = useState("");
+
   const syncMutation = trpc.settings.syncNotionReservations.useMutation({
     onSuccess: (result) => {
       setSyncResult(result);
@@ -77,10 +84,42 @@ const SettingsPanel: React.FC = () => {
     },
   });
 
+  // 受付締切時間の保存
+  const updateCutoffMutation = trpc.settings.updateBookingCutoffHours.useMutation({
+    onSuccess: () => {
+      utils.settings.getClinicSettings.invalidate();
+      setCutoffSaved(true);
+      setTimeout(() => setCutoffSaved(false), 3000);
+    },
+  });
+
+  // 臢時休業日の追加
+  const addBlockedDateMutation = trpc.settings.addBlockedDate.useMutation({
+    onSuccess: (result) => {
+      setBlockedDates(result.blockedDates);
+      setNewBlockedDate("");
+      utils.settings.getClinicSettings.invalidate();
+    },
+  });
+
+  // 臢時休業日の削除
+  const removeBlockedDateMutation = trpc.settings.removeBlockedDate.useMutation({
+    onSuccess: (result) => {
+      setBlockedDates(result.blockedDates);
+      utils.settings.getClinicSettings.invalidate();
+    },
+  });
+
   // サーバーデータが取得できたら初期値をセット
   React.useEffect(() => {
     if (settingsData?.closedDays) {
       setClosedDays(settingsData.closedDays);
+    }
+    if (settingsData?.bookingCutoffHours !== undefined) {
+      setCutoffHours(settingsData.bookingCutoffHours);
+    }
+    if (settingsData?.blockedDates) {
+      setBlockedDates(settingsData.blockedDates);
     }
   }, [settingsData]);
 
@@ -193,6 +232,107 @@ const SettingsPanel: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">施術時間: 1時間30分 / 予約スロット: 30分刻み</p>
+        </CardContent>
+      </Card>
+
+      {/* 受付締切時間カード */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Clock className="w-5 h-5 mr-2" />
+            予約受付締切時間
+          </CardTitle>
+          <CardDescription>
+            予約開始時刻の何時間前まで受付するかを設定します。例: 4時間前に設定すると、当日予約は4時間前までのみ受付。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={72}
+                value={cutoffHours}
+                onChange={(e) => setCutoffHours(Number(e.target.value))}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold"
+              />
+              <span className="text-gray-600">時間前まで</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {cutoffSaved && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  保存しました
+                </span>
+              )}
+              <Button
+                onClick={() => updateCutoffMutation.mutate({ hours: cutoffHours })}
+                disabled={updateCutoffMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {updateCutoffMutation.isPending ? "保存中..." : "保存"}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            {cutoffHours === 0 ? "当日予約も受付（締切なし）" : `予約開始${cutoffHours}時間前を過ぎたスロットは選択不可になります`}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 臢時休業日カード */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2 text-orange-500" />
+            臢時休業日・急な休み設定
+          </CardTitle>
+          <CardDescription>
+            特定の日を休業日に設定すると、その日の予約スロットが全て選択不可になります。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 mb-4">
+            <input
+              type="date"
+              value={newBlockedDate}
+              onChange={(e) => setNewBlockedDate(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+              min={new Date().toISOString().split("T")[0]}
+            />
+            <Button
+              onClick={() => {
+                if (newBlockedDate) addBlockedDateMutation.mutate({ date: newBlockedDate });
+              }}
+              disabled={!newBlockedDate || addBlockedDateMutation.isPending}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {addBlockedDateMutation.isPending ? "追加中..." : "休業日に設定"}
+            </Button>
+          </div>
+          {blockedDates.length === 0 ? (
+            <p className="text-sm text-gray-400">臢時休業日の設定はありません</p>
+          ) : (
+            <div className="space-y-2">
+              {blockedDates.map((date) => (
+                <div key={date} className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-4 py-2">
+                  <span className="font-medium text-orange-800">
+                    {new Date(date + "T00:00:00").toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => removeBlockedDateMutation.mutate({ date })}
+                    disabled={removeBlockedDateMutation.isPending}
+                    className="text-red-500 border-red-300 hover:bg-red-50"
+                  >
+                    解除
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

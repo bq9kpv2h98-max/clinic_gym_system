@@ -775,6 +775,9 @@ export const medicalRecords = mysqlTable("medicalRecords", {
   notes: text("notes"),
   // 施術内容・症状タグ（検索用）
   tags: varchar("tags", { length: 500 }),
+  // Notion予約との紐付け
+  notionReservationId: int("notionReservationId"), // notionReservations.id
+  reservationName: varchar("reservationName", { length: 200 }), // 予約名（表示用）
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

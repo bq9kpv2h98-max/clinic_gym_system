@@ -11,8 +11,8 @@ import {
 } from "../medicalRecords";
 import { upsertConfluencePage } from "../atlassian";
 import { getDb } from "../db";
-import { customers } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { customers, notionReservations } from "../../drizzle/schema";
+import { eq, gte, desc } from "drizzle-orm";
 
 export const medicalRecordsRouter = router({
   /**
@@ -29,6 +29,8 @@ export const medicalRecordsRouter = router({
         summary: z.string().optional(),
         notes: z.string().optional(),
         tags: z.string().optional(),
+        notionReservationId: z.number().optional(),
+        reservationName: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -44,6 +46,8 @@ export const medicalRecordsRouter = router({
         summary: input.summary,
         notes: input.notes,
         tags: input.tags,
+        notionReservationId: input.notionReservationId,
+        reservationName: input.reservationName,
       });
 
       // Confluence自動バックアップ
@@ -155,6 +159,26 @@ export const medicalRecordsRouter = router({
     .mutation(async ({ input }) => {
       await deleteMedicalRecord(input.recordId);
       return { success: true };
+    }),
+
+  /**
+   * Notion予約一覧を取得（カルテ紐付け用）
+   * 直近3ヶ月の予約を返す
+   */
+  getNotionReservations: publicProcedure
+    .input(z.object({ limit: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const rows = await db
+        .select()
+        .from(notionReservations)
+        .where(gte(notionReservations.startAt, threeMonthsAgo))
+        .orderBy(desc(notionReservations.startAt))
+        .limit(input.limit ?? 200);
+      return rows;
     }),
 });
 

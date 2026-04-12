@@ -14,12 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, CalendarCheck } from "lucide-react";
 
 export default function MedicalRecordForm() {
   const [, setLocation] = useLocation();
   const [location] = useLocation();
-
 
   // URLパラメータからrecordIdを取得（編集モード）
   const searchParams = new URLSearchParams(location.split("?")[1]);
@@ -35,9 +34,14 @@ export default function MedicalRecordForm() {
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("");
+  const [notionReservationId, setNotionReservationId] = useState<number | undefined>(undefined);
+  const [reservationName, setReservationName] = useState("");
 
   // 顧客一覧取得
   const { data: customers, isLoading: isLoadingCustomers } = trpc.customers.list.useQuery();
+
+  // Notion予約一覧取得（直近3ヶ月）
+  const { data: notionReservationList } = trpc.medicalRecords.getNotionReservations.useQuery({});
 
   // 既存カルテ取得（編集モード）
   const { data: existingRecord, isLoading: isLoadingRecord } = trpc.medicalRecords.getById.useQuery(
@@ -78,8 +82,30 @@ export default function MedicalRecordForm() {
       setSummary(existingRecord.summary || "");
       setNotes(existingRecord.notes || "");
       setTags(existingRecord.tags || "");
+      setNotionReservationId((existingRecord as any).notionReservationId || undefined);
+      setReservationName((existingRecord as any).reservationName || "");
     }
   }, [existingRecord]);
+
+  // Notion予約選択時に来院日時を自動入力
+  const handleNotionReservationSelect = (value: string) => {
+    if (value === "none") {
+      setNotionReservationId(undefined);
+      setReservationName("");
+      return;
+    }
+    const id = parseInt(value, 10);
+    const reservation = notionReservationList?.find((r) => r.id === id);
+    if (reservation) {
+      setNotionReservationId(id);
+      const label = `${reservation.customerName}（${new Date(reservation.startAt).toLocaleDateString("ja-JP")} ${new Date(reservation.startAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}）`;
+      setReservationName(label);
+      // 来院日時を予約日時から自動入力
+      const dt = new Date(reservation.startAt);
+      setVisitDate(dt.toISOString().split("T")[0]);
+      setVisitTime(dt.toTimeString().slice(0, 5));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +134,8 @@ export default function MedicalRecordForm() {
         summary,
         notes,
         tags,
+        notionReservationId,
+        reservationName: reservationName || undefined,
       });
     }
   };
@@ -157,6 +185,58 @@ export default function MedicalRecordForm() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Notion予約との紐付け（新規作成時のみ） */}
+            {!isEditMode && (
+              <div className="space-y-2">
+                <Label htmlFor="notionReservation" className="flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-blue-500" />
+                  予約と紐付ける（任意）
+                </Label>
+                <Select
+                  value={notionReservationId?.toString() ?? "none"}
+                  onValueChange={handleNotionReservationSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="予約を選択すると来院日時が自動入力されます" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">紐付けなし</SelectItem>
+                    {notionReservationList?.map((r) => {
+                      const dt = new Date(r.startAt);
+                      const dateStr = dt.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
+                      const timeStr = dt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+                      return (
+                        <SelectItem key={r.id} value={r.id.toString()}>
+                          {r.customerName}｜{dateStr} {timeStr}
+                          {r.serviceType ? `｜${r.serviceType}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {reservationName && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <CalendarCheck className="h-3 w-3" />
+                    紐付け中: {reservationName}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Notionの予約を選択すると来院日時が自動入力されます（直近3ヶ月分）
+                </p>
+              </div>
+            )}
+
+            {/* 既存カルテの予約名表示（編集モード） */}
+            {isEditMode && reservationName && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-blue-500" />
+                  紐付け予約
+                </Label>
+                <p className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">{reservationName}</p>
+              </div>
+            )}
 
             {/* 来院日時 */}
             <div className="grid grid-cols-2 gap-4">
