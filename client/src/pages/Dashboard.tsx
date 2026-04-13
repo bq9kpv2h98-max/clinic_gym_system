@@ -729,7 +729,7 @@ const Dashboard: React.FC = () => {
 
                 {/* LINE公式アカウント */}
                 <a
-                  href="https://lin.ee/9LXLjNI"
+                  href="https://lin.ee/pvsHToe"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -741,7 +741,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="font-semibold text-gray-900">LINE公式</h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">LINE公式アカウントで連絡</p>
-                  <p className="text-xs text-green-500 break-all">https://lin.ee/9LXLjNI</p>
+                  <p className="text-xs text-green-500 break-all">https://lin.ee/pvsHToe</p>
                 </a>
               </div>
             </CardContent>

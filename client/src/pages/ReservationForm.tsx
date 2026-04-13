@@ -107,7 +107,7 @@ function SectionLabel({ number, title, required }: { number: string; title: stri
 
 // ===== 完了画面 =====
 function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; timeSlot: string }) {
-  const LINE_URL = "https://lin.ee/9LXLjNI";
+  const LINE_URL = "https://lin.ee/pvsHToe";
 
   const formatDate = (d: Date) =>
     d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });

@@ -802,3 +802,8 @@
 - [x] 曜日ヘッダーを表示中の日付に合わせて動的に変更（weekDaysの各日付から曜日を生成）
 - [x] 期間外の日付もクリック可能にしてクリック時にLINE案内バナーを表示
 - [x] チェックポイント保存
+
+## Phase 106: LINEリンクを https://lin.ee/pvsHToe に統一
+- [x] ReservationForm.tsx の完了画面のLINE_URLを新URLに変更
+- [x] Dashboard.tsx のLINE公式アカウントリンクを新URLに変更
+- [x] チェックポイント保存
