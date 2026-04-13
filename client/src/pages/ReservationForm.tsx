@@ -203,15 +203,14 @@ export default function ReservationForm() {
     notes: "",
   });
 
-  // 週の開始日（日曜）を計算する関数
-  const getWeekSunday = (date: Date): Date => {
-    const d = new Date(date);
+  // 今日を週の開始日として使用（日曜固定ではなく今日から表示）
+  const getTodayStart = (): Date => {
+    const d = new Date();
     d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - d.getDay());
     return d;
   };
 
-  const [weekStart, setWeekStart] = useState(() => getWeekSunday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => getTodayStart());
 
   // 設定取得（定休日・受付締切時間・臢時休業日・予約可能日数）
   const { data: settingsData } = trpc.settings.getClinicSettings.useQuery();
@@ -453,9 +452,12 @@ export default function ReservationForm() {
               onClick={() => {
                 const prev = new Date(weekStart);
                 prev.setDate(weekStart.getDate() - 7);
-                if (prev >= today) setWeekStart(prev);
+                // 今日より前に戻れないように制限
+                const minStart = new Date(today);
+                if (prev >= minStart) setWeekStart(prev);
+                else setWeekStart(minStart);
               }}
-              disabled={weekStart <= today}
+              disabled={weekStart.toDateString() === today.toDateString()}
               className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
               aria-label="前の週"
             >
@@ -546,6 +548,26 @@ export default function ReservationForm() {
               );
             })}
           </div>
+
+          {/* 予約可能期間超過時のお問い合わせ案内 */}
+          {(() => {
+            const _today = new Date();
+            _today.setHours(0, 0, 0, 0);
+            const maxDate = new Date(_today);
+            maxDate.setDate(_today.getDate() + bookingAdvanceDays - 1);
+            // 現在表示中の週に予約可能期間外の日がある場合に表示
+            const lastDayShown = weekDays[weekDays.length - 1];
+            if (lastDayShown > maxDate) {
+              return (
+                <div className="mt-3 py-2 px-3 bg-gray-50 border border-gray-200 rounded text-center">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    <span className="font-bold text-gray-700">{bookingAdvanceDays}日後以降</span>のご予約は、直接お問い合わせください
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* 時間帯選択 */}
           {formData.firstChoiceDate ? (
