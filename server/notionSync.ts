@@ -31,14 +31,32 @@ interface SyncResult {
 }
 
 /**
- * Notion予約DBから全ページを取得する（ページネーション対応）
+ * Notion予約DBから今日以降のページを取得する（ページネーション対応）
+ * 過去分はCSVインポート済みのため、未来の予約のみを同期して処理量を削減する
  */
 async function fetchAllNotionReservations(token: string): Promise<NotionPage[]> {
   const pages: NotionPage[] = [];
   let cursor: string | undefined = undefined;
 
+  // 今日の日付（JST基準でYYYY-MM-DD形式）
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000; // UTC+9
+  const jstNow = new Date(now.getTime() + jstOffset);
+  const todayJst = jstNow.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+  // Notion API フィルター: 予約日時が今日以降
+  const filter = {
+    property: "予約日時",
+    date: {
+      on_or_after: todayJst,
+    },
+  };
+
   do {
-    const body: Record<string, unknown> = { page_size: 100 };
+    const body: Record<string, unknown> = {
+      page_size: 100,
+      filter,
+    };
     if (cursor) body.start_cursor = cursor;
 
     const response = await fetch(

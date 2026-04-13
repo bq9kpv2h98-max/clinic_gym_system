@@ -93,16 +93,28 @@ export function initializeScheduler() {
     }
   });
 
-  // 起動時に即座同期（非同期）
-  setImmediate(async () => {
-    console.log("[Scheduler] Running initial Notion reservation sync...");
-    try {
-      const result = await syncNotionReservationsToDB();
-      console.log(`[Scheduler] Initial sync completed: ${result.upserted} upserted, ${result.errors} errors`);
-    } catch (error) {
-      console.error("[Scheduler] Initial Notion reservation sync failed:", error);
+  // 起動時に遅延実行（リトライあり）
+  // サーバー起動直後はネットワークが不安定な場合があるため、最大3回リトライする
+  setTimeout(async () => {
+    const maxRetries = 3;
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      attempt++;
+      console.log(`[Scheduler] Running initial Notion reservation sync (attempt ${attempt}/${maxRetries})...`);
+      try {
+        const result = await syncNotionReservationsToDB();
+        console.log(`[Scheduler] Initial sync completed: ${result.upserted} upserted, ${result.errors} errors`);
+        break; // 成功したらループ終了
+      } catch (error) {
+        console.error(`[Scheduler] Initial Notion reservation sync failed (attempt ${attempt}):`, error);
+        if (attempt < maxRetries) {
+          const waitMs = attempt * 30 * 1000; // 30秒、60秒と待機時間を増やす
+          console.log(`[Scheduler] Retrying in ${waitMs / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+      }
     }
-  });
+  }, 5000); // 起動から5秒待ってから実行
 
   console.log("[Scheduler] Cron jobs initialized");
   console.log("  - Old logs cleanup: Daily at 2:00 AM");
