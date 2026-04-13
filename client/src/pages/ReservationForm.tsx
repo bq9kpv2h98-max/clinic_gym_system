@@ -280,6 +280,8 @@ export default function ReservationForm() {
   };
 
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+  // 期間外日付クリック時のLINE案内ステート
+  const [showOutOfRangeLine, setShowOutOfRangeLine] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -496,14 +498,18 @@ export default function ReservationForm() {
 
           {/* 日付ボタン列 */}
           <div className="grid grid-cols-7 gap-1">
-            {DAY_LABELS.map((d, i) => (
-              <div key={d} className={cn(
-                "text-center text-[10px] font-bold tracking-wider pb-2",
-                i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
-              )}>
-                {d}
-              </div>
-            ))}
+            {weekDays.map((date, i) => {
+              const dow = date.getDay();
+              const label = DAY_LABELS[dow];
+              return (
+                <div key={i} className={cn(
+                  "text-center text-[10px] font-bold tracking-wider pb-2",
+                  dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-gray-400"
+                )}>
+                  {label}
+                </div>
+              );
+            })}
             {weekDays.map((date) => {
               const isPast = date < today;
               const isClosed = isClosedDay(date);
@@ -513,13 +519,19 @@ export default function ReservationForm() {
               const dayOfWeek = date.getDay();
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
-              const isDisabled = isPast || isClosed || isOutOfRange;
+              const isDisabled = isPast || isClosed;
+              const isOutOfRangeClickable = isOutOfRange && !isPast && !isClosed;
               return (
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isDisabled}
+                  disabled={isDisabled && !isOutOfRangeClickable}
                   onClick={() => {
+                    if (isOutOfRangeClickable) {
+                      setShowOutOfRangeLine(true);
+                      return;
+                    }
+                    setShowOutOfRangeLine(false);
                     setFormData((prev) => ({
                       ...prev,
                       firstChoiceDate: date,
@@ -529,7 +541,8 @@ export default function ReservationForm() {
                   className={cn(
                     "aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all select-none",
                     "active:scale-90 touch-manipulation",
-                    isDisabled && "opacity-20 cursor-not-allowed",
+                    isDisabled && !isOutOfRangeClickable && "opacity-20 cursor-not-allowed",
+                    isOutOfRangeClickable && "opacity-40 cursor-pointer hover:opacity-60",
                     isSelected && "bg-black text-white",
                     !isSelected && !isDisabled && "hover:bg-gray-100",
                     !isSelected && isToday && "ring-1 ring-black ring-inset",
@@ -549,25 +562,23 @@ export default function ReservationForm() {
             })}
           </div>
 
-          {/* 予約可能期間超過時のお問い合わせ案内 */}
-          {(() => {
-            const _today = new Date();
-            _today.setHours(0, 0, 0, 0);
-            const maxDate = new Date(_today);
-            maxDate.setDate(_today.getDate() + bookingAdvanceDays - 1);
-            // 現在表示中の週に予約可能期間外の日がある場合に表示
-            const lastDayShown = weekDays[weekDays.length - 1];
-            if (lastDayShown > maxDate) {
-              return (
-                <div className="mt-3 py-2 px-3 bg-gray-50 border border-gray-200 rounded text-center">
-                  <p className="text-[11px] text-gray-500 leading-relaxed">
-                    <span className="font-bold text-gray-700">{bookingAdvanceDays}日後以降</span>のご予約は、直接お問い合わせください
-                  </p>
-                </div>
-              );
-            }
-            return null;
-          })()}
+          {/* 期間外日付クリック時のLINE案内 */}
+          {showOutOfRangeLine && (
+            <a
+              href="https://lin.ee/pvsHToe"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-3 bg-[#06C755] px-4 py-3 w-full transition-opacity active:opacity-80 touch-manipulation"
+            >
+              <svg className="w-5 h-5 text-white flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-white text-xs font-black leading-tight">その日のご予約は、LINEよりお問い合わせください</p>
+                <p className="text-white/80 text-[10px] mt-0.5">タップしてLINEを開く</p>
+              </div>
+            </a>
+          )}
 
           {/* 時間帯選択 */}
           {formData.firstChoiceDate ? (
