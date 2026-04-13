@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 const CLOSED_DAYS_KEY = "closedDays";
 const CUTOFF_HOURS_KEY = "bookingCutoffHours";
 const BLOCKED_DATES_KEY = "blockedDates";
+const ADVANCE_DAYS_KEY = "bookingAdvanceDays";
 
 // 設定値を取得するヘルパー
 async function getSetting(key: string, defaultValue: unknown) {
@@ -41,7 +42,8 @@ export const settingsRouter = router({
     const closedDays = (await getSetting(CLOSED_DAYS_KEY, [0])) as number[];
     const bookingCutoffHours = (await getSetting(CUTOFF_HOURS_KEY, 4)) as number;
     const blockedDates = (await getSetting(BLOCKED_DATES_KEY, [])) as string[];
-    return { closedDays, bookingCutoffHours, blockedDates };
+    const bookingAdvanceDays = (await getSetting(ADVANCE_DAYS_KEY, 7)) as number;
+    return { closedDays, bookingCutoffHours, blockedDates, bookingAdvanceDays };
   }),
 
   // 定休日設定を更新（管理者のみ）
@@ -81,6 +83,14 @@ export const settingsRouter = router({
       const updated = current.filter((d) => d !== input.date);
       await upsertSetting(BLOCKED_DATES_KEY, updated);
       return { success: true, blockedDates: updated };
+    }),
+
+  // 予約可能日数を更新（管理者のみ）
+  updateBookingAdvanceDays: protectedProcedure
+    .input(z.object({ days: z.number().min(1).max(365) }))
+    .mutation(async ({ input }) => {
+      await upsertSetting(ADVANCE_DAYS_KEY, input.days);
+      return { success: true, days: input.days };
     }),
 
   // Notion予約DBを手動同期（管理者のみ）

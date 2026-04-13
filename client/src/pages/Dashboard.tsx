@@ -72,7 +72,10 @@ const SettingsPanel: React.FC = () => {
   // 受付締切時間
   const [cutoffHours, setCutoffHours] = useState<number>(4);
   const [cutoffSaved, setCutoffSaved] = useState(false);
-  // 臨時休業日
+  // 予約可能日数
+  const [advanceDays, setAdvanceDays] = useState<number>(7);
+  const [advanceSaved, setAdvanceSaved] = useState(false);
+  // 臢時休業日
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [newBlockedDate, setNewBlockedDate] = useState("");
 
@@ -84,6 +87,14 @@ const SettingsPanel: React.FC = () => {
     },
   });
 
+  // 予約可能日数の保存
+  const updateAdvanceDaysMutation = trpc.settings.updateBookingAdvanceDays.useMutation({
+    onSuccess: () => {
+      utils.settings.getClinicSettings.invalidate();
+      setAdvanceSaved(true);
+      setTimeout(() => setAdvanceSaved(false), 3000);
+    },
+  });
   // 受付締切時間の保存
   const updateCutoffMutation = trpc.settings.updateBookingCutoffHours.useMutation({
     onSuccess: () => {
@@ -120,6 +131,9 @@ const SettingsPanel: React.FC = () => {
     }
     if (settingsData?.blockedDates) {
       setBlockedDates(settingsData.blockedDates);
+    }
+    if ((settingsData as any)?.bookingAdvanceDays !== undefined) {
+      setAdvanceDays((settingsData as any).bookingAdvanceDays);
     }
   }, [settingsData]);
 
@@ -235,6 +249,51 @@ const SettingsPanel: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* 予約可能日数カード */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <CalendarCheck className="w-5 h-5 mr-2" />
+            予約可能期間
+          </CardTitle>
+          <CardDescription>
+            今日から何日先までの予約を受け付けるかを設定します。例: 7日に設定すると、今日からで1週間内の予約のみ受付。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={advanceDays}
+                onChange={(e) => setAdvanceDays(Number(e.target.value))}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold"
+              />
+              <span className="text-gray-600">日以内</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {advanceSaved && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  保存しました
+                </span>
+              )}
+              <Button
+                onClick={() => updateAdvanceDaysMutation.mutate({ days: advanceDays })}
+                disabled={updateAdvanceDaysMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {updateAdvanceDaysMutation.isPending ? "保存中..." : "保存"}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            今日から{advanceDays}日先（{new Date(Date.now() + (advanceDays - 1) * 86400000).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}）までの予約を受け付けます
+          </p>
+        </CardContent>
+      </Card>
       {/* 受付締切時間カード */}
       <Card>
         <CardHeader>

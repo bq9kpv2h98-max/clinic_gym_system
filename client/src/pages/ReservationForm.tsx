@@ -213,11 +213,12 @@ export default function ReservationForm() {
 
   const [weekStart, setWeekStart] = useState(() => getWeekSunday(new Date()));
 
-  // 設定取得（定休日・受付締切時間・臨時休業日）
+  // 設定取得（定休日・受付締切時間・臢時休業日・予約可能日数）
   const { data: settingsData } = trpc.settings.getClinicSettings.useQuery();
   const closedDays: number[] = settingsData?.closedDays ?? [0];
   const cutoffHours: number = (settingsData as any)?.bookingCutoffHours ?? 4;
   const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];
+  const bookingAdvanceDays: number = (settingsData as any)?.bookingAdvanceDays ?? 7;
 
   // 選択日の予約済みスロットをDBから取得
   const selectedDateStr = formData.firstChoiceDate
@@ -262,11 +263,21 @@ export default function ReservationForm() {
       return d;
     });
 
-  // 定休日・臨時休業日かどうか判定
+  // 定休日・臢時休業日かどうか判定
   const isClosedDay = (date: Date): boolean => {
     if (closedDays.includes(date.getDay())) return true;
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     return blockedDates.includes(dateStr);
+  };
+
+  const isOutOfAdvanceRange = (date: Date): boolean => {
+    // today は render 時に定義されるため、内部で再計算
+    const _today = new Date();
+    _today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(_today);
+    maxDate.setDate(_today.getDate() + bookingAdvanceDays - 1);
+    maxDate.setHours(23, 59, 59, 999);
+    return date > maxDate;
   };
 
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -458,9 +469,23 @@ export default function ReservationForm() {
               onClick={() => {
                 const next = new Date(weekStart);
                 next.setDate(weekStart.getDate() + 7);
-                setWeekStart(next);
+                // 次の週の開始日が予約可能期間内の場合のみ進む
+                const _today2 = new Date();
+                _today2.setHours(0, 0, 0, 0);
+                const maxDate2 = new Date(_today2);
+                maxDate2.setDate(_today2.getDate() + bookingAdvanceDays - 1);
+                if (next <= maxDate2) setWeekStart(next);
               }}
-              className="w-8 h-8 flex items-center justify-center transition-opacity"
+              disabled={(() => {
+                const next = new Date(weekStart);
+                next.setDate(weekStart.getDate() + 7);
+                const _today3 = new Date();
+                _today3.setHours(0, 0, 0, 0);
+                const maxDate3 = new Date(_today3);
+                maxDate3.setDate(_today3.getDate() + bookingAdvanceDays - 1);
+                return next > maxDate3;
+              })()}
+              className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
               aria-label="次の週"
             >
               <ChevronRight className="w-5 h-5 text-gray-900" />
@@ -480,12 +505,13 @@ export default function ReservationForm() {
             {weekDays.map((date) => {
               const isPast = date < today;
               const isClosed = isClosedDay(date);
+              const isOutOfRange = isOutOfAdvanceRange(date);
               const isSelected = formData.firstChoiceDate?.toDateString() === date.toDateString();
               const isToday = date.toDateString() === today.toDateString();
               const dayOfWeek = date.getDay();
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
-              const isDisabled = isPast || isClosed;
+              const isDisabled = isPast || isClosed || isOutOfRange;
               return (
                 <button
                   key={date.toISOString()}
