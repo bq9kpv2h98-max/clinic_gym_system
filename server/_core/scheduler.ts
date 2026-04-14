@@ -7,6 +7,7 @@
 import cron from "node-cron";
 import { syncNotionCustomers } from "../cron/sync-notion-customers";
 import { syncNotionReservationsToDB } from "../notionSync";
+import { syncNotionSchedules } from "../notionSchedulesSync";
 import { linkReservationsAutomatically } from "../cron/link-reservations";
 import { cleanupOldLogs } from "../cron/cleanup-old-logs";
 import { sendReservationReminders } from "../cron/send-reminders";
@@ -93,8 +94,18 @@ export function initializeScheduler() {
     }
   });
 
+  // Notion予定DB同期（1時間ごとに実行）
+  cron.schedule("0 * * * *", async () => {
+    console.log("[Scheduler] Starting Notion schedule sync...");
+    try {
+      const result = await syncNotionSchedules();
+      console.log(`[Scheduler] Notion schedule sync completed: ${result.upserted} upserted, ${result.errors} errors`);
+    } catch (error) {
+      console.error("[Scheduler] Notion schedule sync failed:", error);
+    }
+  });
+
   // 起動時に遅延実行（リトライあり）
-  // サーバー起動直後はネットワークが不安定な場合があるため、最大3回リトライする
   setTimeout(async () => {
     const maxRetries = 3;
     let attempt = 0;
@@ -104,17 +115,23 @@ export function initializeScheduler() {
       try {
         const result = await syncNotionReservationsToDB();
         console.log(`[Scheduler] Initial sync completed: ${result.upserted} upserted, ${result.errors} errors`);
-        break; // 成功したらループ終了
+        break;
       } catch (error) {
         console.error(`[Scheduler] Initial Notion reservation sync failed (attempt ${attempt}):`, error);
         if (attempt < maxRetries) {
-          const waitMs = attempt * 30 * 1000; // 30秒、60秒と待機時間を増やす
-          console.log(`[Scheduler] Retrying in ${waitMs / 1000}s...`);
+          const waitMs = attempt * 30 * 1000;
           await new Promise(resolve => setTimeout(resolve, waitMs));
         }
       }
     }
-  }, 5000); // 起動から5秒待ってから実行
+    // 予定DBも起動時に同期
+    try {
+      await syncNotionSchedules();
+      console.log("[Scheduler] Initial schedule sync completed");
+    } catch (error) {
+      console.error("[Scheduler] Initial schedule sync failed:", error);
+    }
+  }, 5000);
 
   console.log("[Scheduler] Cron jobs initialized");
   console.log("  - Old logs cleanup: Daily at 2:00 AM");

@@ -818,3 +818,10 @@
 - [x] 予約データが0件になっている原因を調査（mysql2のTZ変換バグ）
 - [x] db.tsのgetDbでtimezone:'+00:00'を指定して修正
 - [x] チェックポイント保存
+
+## Phase 109: Notion「予定」DB連携で予約フォームの満席表示
+- [x] Notionに「予定」データベースを新規作成（予定名・開始日時・終了日時）
+- [x] DBにnotionSchedulesテーブルを追加してpnpm db:push
+- [x] Notion同期処理（notionSchedulesSync）を実装
+- [x] getBookedSlotsにnotionSchedulesの時間帯を追加
+- [x] チェックポイント保存

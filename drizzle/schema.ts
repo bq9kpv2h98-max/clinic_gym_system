@@ -816,3 +816,21 @@ export const notionReservations = mysqlTable("notionReservations", {
 });
 export type NotionReservation = typeof notionReservations.$inferSelect;
 export type InsertNotionReservation = typeof notionReservations.$inferInsert;
+
+/**
+ * Notion予定テーブル（ブロック時間帯管理）
+ * Notionの「予定」DBと同期し、予約フォームで満席表示に使用する
+ */
+export const notionSchedules = mysqlTable("notionSchedules", {
+  id: int("id").autoincrement().primaryKey(),
+  notionPageId: varchar("notionPageId", { length: 100 }).unique(), // NotionページID
+  title: varchar("title", { length: 200 }).notNull(), // 予定名
+  startAt: timestamp("startAt").notNull(), // 開始日時（JST）
+  endAt: timestamp("endAt").notNull(), // 終了日時（JST）
+  memo: text("memo"), // メモ
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotionSchedule = typeof notionSchedules.$inferSelect;
+export type InsertNotionSchedule = typeof notionSchedules.$inferInsert;
