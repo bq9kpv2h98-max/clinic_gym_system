@@ -213,7 +213,11 @@ export default function ReservationForm() {
   const [weekStart, setWeekStart] = useState(() => getTodayStart());
 
   // 設定取得（定休日・受付締切時間・臢時休業日・予約可能日数）
-  const { data: settingsData } = trpc.settings.getClinicSettings.useQuery();
+  // 設定は5分間キャッシュして再フェッチを抑制（高速化）
+  const { data: settingsData } = trpc.settings.getClinicSettings.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000, // 5分間
+    refetchOnWindowFocus: false,
+  });
   const closedDays: number[] = settingsData?.closedDays ?? [0];
   const cutoffHours: number = (settingsData as any)?.bookingCutoffHours ?? 4;
   const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];

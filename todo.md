@@ -807,3 +807,9 @@
 - [x] ReservationForm.tsx の完了画面のLINE_URLを新URLに変更
 - [x] Dashboard.tsx のLINE公式アカウントリンクを新URLに変更
 - [x] チェックポイント保存
+
+## Phase 107: 予約フォームの読み込み高速化
+- [x] getClinicSettings を1クエリで全設定を取得するように最適化（4回→1回）
+- [x] getBookedSlots のNotionフォールバックを無効化（DBのみ使用）
+- [x] 設定データをstaleTime付きでキャッシュ（再フェッチ頻度を下げる）
+- [x] チェックポイント保存

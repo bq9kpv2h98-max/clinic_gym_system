@@ -3,14 +3,14 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { syncNotionReservationsToDB } from "../notionSync";
 import { getDb } from "../db";
 import { clinicSettings } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const CLOSED_DAYS_KEY = "closedDays";
 const CUTOFF_HOURS_KEY = "bookingCutoffHours";
 const BLOCKED_DATES_KEY = "blockedDates";
 const ADVANCE_DAYS_KEY = "bookingAdvanceDays";
 
-// 設定値を取得するヘルパー
+// 設定値を取得するヘルパー（単一キー）
 async function getSetting(key: string, defaultValue: unknown) {
   const db = await getDb();
   if (!db) return defaultValue;
@@ -21,6 +21,22 @@ async function getSetting(key: string, defaultValue: unknown) {
   } catch {
     return defaultValue;
   }
+}
+
+// 複数設定値を1クエリで取得するヘルパー
+async function getAllSettings(keys: string[]): Promise<Record<string, unknown>> {
+  const db = await getDb();
+  if (!db) return {};
+  const rows = await db.select().from(clinicSettings).where(inArray(clinicSettings.key, keys));
+  const result: Record<string, unknown> = {};
+  for (const row of rows) {
+    try {
+      result[row.key] = JSON.parse(row.value);
+    } catch {
+      result[row.key] = row.value;
+    }
+  }
+  return result;
 }
 
 // 設定値を保存するヘルパー
@@ -38,11 +54,13 @@ async function upsertSetting(key: string, value: unknown) {
 
 export const settingsRouter = router({
   // 全設定を取得（公開 - 予約フォームから参照するため）
+  // 1クエリで全設定を取得して高速化
   getClinicSettings: publicProcedure.query(async () => {
-    const closedDays = (await getSetting(CLOSED_DAYS_KEY, [0])) as number[];
-    const bookingCutoffHours = (await getSetting(CUTOFF_HOURS_KEY, 4)) as number;
-    const blockedDates = (await getSetting(BLOCKED_DATES_KEY, [])) as string[];
-    const bookingAdvanceDays = (await getSetting(ADVANCE_DAYS_KEY, 7)) as number;
+    const all = await getAllSettings([CLOSED_DAYS_KEY, CUTOFF_HOURS_KEY, BLOCKED_DATES_KEY, ADVANCE_DAYS_KEY]);
+    const closedDays = (all[CLOSED_DAYS_KEY] ?? [0]) as number[];
+    const bookingCutoffHours = (all[CUTOFF_HOURS_KEY] ?? 4) as number;
+    const blockedDates = (all[BLOCKED_DATES_KEY] ?? []) as string[];
+    const bookingAdvanceDays = (all[ADVANCE_DAYS_KEY] ?? 7) as number;
     return { closedDays, bookingCutoffHours, blockedDates, bookingAdvanceDays };
   }),
 
