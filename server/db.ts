@@ -1,5 +1,6 @@
 import { eq, and, gte, lt, ne, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { InsertUser, users, notionReservations } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -9,7 +10,13 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // timezone: '+00:00' を指定してmysql2がDateをUTCとして扱うようにする
+      // これにより、サーバーのローカルTZに関係なく正確な時刻が得られる
+      const pool = mysql.createPool({
+        uri: process.env.DATABASE_URL,
+        timezone: '+00:00',
+      });
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
