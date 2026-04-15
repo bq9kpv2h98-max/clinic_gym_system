@@ -825,3 +825,9 @@
 - [x] Notion同期処理（notionSchedulesSync）を実装
 - [x] getBookedSlotsにnotionSchedulesの時間帯を追加
 - [x] チェックポイント保存
+
+## Phase 110: Notion同期間隔だ30分おきに変更
+- [x] scheduler.ts の予約・予定同期を毎時→30分おきに変更
+- [x] notionSchedulesSync.ts のDB IDを正しいIDに修正
+- [x] 「終了日時」のstart/end値を開始・終了時刻として取得するよう修正
+- [x] チェックポイント保存

@@ -83,8 +83,8 @@ export function initializeScheduler() {
     }
   });
 
-  // Notion予約DB同期（1時間ごとに実行）
-  cron.schedule("0 * * * *", async () => {
+  // Notion予約DB同期（30分おきに実行）
+  cron.schedule("0,30 * * * *", async () => {
     console.log("[Scheduler] Starting Notion reservation sync...");
     try {
       const result = await syncNotionReservationsToDB();
@@ -94,8 +94,8 @@ export function initializeScheduler() {
     }
   });
 
-  // Notion予定DB同期（1時間ごとに実行）
-  cron.schedule("0 * * * *", async () => {
+  // Notion予定DB同期（30分おきに実行）
+  cron.schedule("0,30 * * * *", async () => {
     console.log("[Scheduler] Starting Notion schedule sync...");
     try {
       const result = await syncNotionSchedules();

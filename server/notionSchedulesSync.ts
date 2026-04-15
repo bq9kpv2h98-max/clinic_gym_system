@@ -12,7 +12,7 @@ import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 import { notionSchedules } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
-const NOTION_SCHEDULE_DB_ID = "6d510b2b41284b349d2f7e93afffb267";
+const NOTION_SCHEDULE_DB_ID = "e617e3214f9a4132803bc615f0c14dcf";
 const NOTION_API_VERSION = "2022-06-28";
 
 interface NotionPage {
@@ -40,8 +40,9 @@ async function fetchAllNotionSchedules(token: string): Promise<NotionPage[]> {
   const jstNow = new Date(now.getTime() + jstOffset);
   const todayJst = jstNow.toISOString().slice(0, 10);
 
+  // 「終了日時」のstart値（開始時刻）で今日以降をフィルタリング
   const filter = {
-    property: "開始日時",
+    property: "終了日時",
     date: {
       on_or_after: todayJst,
     },
@@ -129,6 +130,34 @@ function getRichText(
 }
 
 /**
+ * Notion日付範囲プロパティから開始時刻（start）を取得
+ */
+function getDateRangeStart(
+  props: Record<string, unknown>,
+  key: string
+): string | null {
+  const prop = props[key] as
+    | { type: string; date?: { start?: string; end?: string } }
+    | undefined;
+  if (!prop || prop.type !== "date" || !prop.date?.start) return null;
+  return prop.date.start;
+}
+
+/**
+ * Notion日付範囲プロパティから終了時刻（end）を取得
+ */
+function getDateRangeEnd(
+  props: Record<string, unknown>,
+  key: string
+): string | null {
+  const prop = props[key] as
+    | { type: string; date?: { start?: string; end?: string } }
+    | undefined;
+  if (!prop || prop.type !== "date" || !prop.date?.end) return null;
+  return prop.date.end;
+}
+
+/**
  * ISO日時文字列をUTC Dateに変換（JST文字列の場合はオフセット補正）
  */
 function parseToUtcDate(isoStr: string): Date {
@@ -167,8 +196,9 @@ export async function syncNotionSchedules(): Promise<SyncResult> {
     try {
       const props = page.properties;
       const title = getTitleText(props, "予定名");
-      const startStr = getDateValue(props, "開始日時");
-      const endStr = getDateValue(props, "終了日時");
+      // 「終了日時」のstart値が開始時刻、end値が終了時刻
+      const startStr = getDateRangeStart(props, "終了日時");
+      const endStr = getDateRangeEnd(props, "終了日時");
       const memo = getRichText(props, "メモ");
 
       if (!startStr || !endStr) {
