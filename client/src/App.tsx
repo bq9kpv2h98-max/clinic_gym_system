@@ -41,6 +41,8 @@ const MedicalRecordDetail = lazy(() => import("./pages/MedicalRecordDetail"));
 const StaffTablet = lazy(() => import("./pages/StaffTablet"));
 const StaffHome = lazy(() => import("./pages/StaffHome"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Questionnaire = lazy(() => import("./pages/Questionnaire"));
+const QuestionnaireList = lazy(() => import("./pages/QuestionnaireList"));
 
 function PageLoader() {
   return (
@@ -89,6 +91,8 @@ function Router() {
         <Route path="/staff/home" component={StaffHome} />
         <Route path="/staff/tablet" component={StaffTablet} />
         <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/questionnaire" component={Questionnaire} />
+        <Route path="/questionnaire-list" component={QuestionnaireList} />
         <Route path="/404" component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

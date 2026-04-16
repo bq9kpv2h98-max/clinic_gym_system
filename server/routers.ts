@@ -27,6 +27,7 @@ import { medicalRecordsRouter } from "./routers/medical-records";
 import { qrPrintRouter } from "./routers/qr-print";
 import { monthlyReportsRouter } from "./routers/monthly-reports";
 import { settingsRouter } from "./routers/settings";
+import { questionnaireRouter } from "./routers/questionnaire";
 
 
 export const appRouter = router({
@@ -57,6 +58,7 @@ export const appRouter = router({
   qrPrint: qrPrintRouter,
   monthlyReports: monthlyReportsRouter,
   settings: settingsRouter,
+  questionnaire: questionnaireRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

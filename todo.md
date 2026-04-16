@@ -831,3 +831,10 @@
 - [x] notionSchedulesSync.ts のDB IDを正しいIDに修正
 - [x] 「終了日時」のstart/end値を開始・終了時刻として取得するよう修正
 - [x] チェックポイント保存
+
+## Phase 111: デジタル問診票の実装
+- [x] DBスキーマにquestionnaireテーブルを追加してpnpm db:push
+- [x] 問診票フォームページ（/questionnaire）を実装（PDF内容に準拠）
+- [x] tRPCルーターに問診票の保存・取得プロシージを追加
+- [x] 管理画面（スタッフ）から問診票を閲覧できる機能を追加
+- [x] チェックポイント保存

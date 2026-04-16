@@ -834,3 +834,52 @@ export const notionSchedules = mysqlTable("notionSchedules", {
 });
 export type NotionSchedule = typeof notionSchedules.$inferSelect;
 export type InsertNotionSchedule = typeof notionSchedules.$inferInsert;
+
+/**
+ * 問診票テーブル
+ * 初診時の問診票回答を保存する
+ */
+export const questionnaires = mysqlTable("questionnaires", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId"), // 顧客ID（紐付け後）
+  customerUuid: varchar("customerUuid", { length: 64 }), // 顧客UUID
+  // 基本情報
+  visitDate: varchar("visitDate", { length: 20 }), // 来院日
+  // 解決したいこと
+  mainConcern: text("mainConcern"), // 今回当院で解決したいこと
+  // 気になる症状（チェックボックス・JSON配列）
+  symptoms: text("symptoms"), // ["頭痛","不眠",...] JSON
+  symptomsOther: varchar("symptomsOther", { length: 200 }), // その他症状
+  symptomsMemo: text("symptomsMemo"), // MEMO
+  // 不自由なこと（チェックボックス・JSON配列）
+  inconveniences: text("inconveniences"), // JSON配列
+  inconveniencesOther: varchar("inconveniencesOther", { length: 200 }),
+  inconveniencesMemo: text("inconveniencesMemo"),
+  // 症状への考え方
+  attitude: varchar("attitude", { length: 200 }),
+  // 施術希望
+  treatmentPrefs: text("treatmentPrefs"), // JSON配列
+  // 過去の病気・ケガ
+  pastIllness: varchar("pastIllness", { length: 300 }),
+  pastInjury: varchar("pastInjury", { length: 300 }),
+  pastOther: varchar("pastOther", { length: 300 }),
+  // 過去の通院
+  pastClinic: text("pastClinic"), // JSON配列
+  pastClinicOther: varchar("pastClinicOther", { length: 200 }),
+  // 女性限定
+  pregnancyStatus: varchar("pregnancyStatus", { length: 100 }),
+  pregnancyMonths: int("pregnancyMonths"), // 産後ヶ月目
+  // SNS投稿可否
+  snsPermission: varchar("snsPermission", { length: 50 }), // "可"|"顔モザイクありで可"|"不可"
+  // 通いやすい曜日・時間
+  preferredDays: text("preferredDays"), // JSON配列
+  preferredTimes: text("preferredTimes"), // JSON配列
+  // 来店きっかけ
+  referralSource: text("referralSource"), // JSON配列
+  referralName: varchar("referralName", { length: 100 }), // ご紹介者名
+  referralOther: varchar("referralOther", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Questionnaire = typeof questionnaires.$inferSelect;
+export type InsertQuestionnaire = typeof questionnaires.$inferInsert;
