@@ -845,6 +845,14 @@ export const questionnaires = mysqlTable("questionnaires", {
   customerUuid: varchar("customerUuid", { length: 64 }), // 顧客UUID
   // 基本情報
   visitDate: varchar("visitDate", { length: 20 }), // 来院日
+  // 患者基本情報
+  patientName: varchar("patientName", { length: 100 }), // お名前
+  patientNameKana: varchar("patientNameKana", { length: 100 }), // フリガナ
+  phoneNumber: varchar("phoneNumber", { length: 20 }), // 電話番号
+  birthDate: varchar("birthDate", { length: 20 }), // 生年月日
+  address: varchar("address", { length: 300 }), // ご住所
+  email: varchar("email", { length: 320 }), // メールアドレス
+  occupation: varchar("occupation", { length: 100 }), // ご職業
   // 解決したいこと
   mainConcern: text("mainConcern"), // 今回当院で解決したいこと
   // 気になる症状（チェックボックス・JSON配列）

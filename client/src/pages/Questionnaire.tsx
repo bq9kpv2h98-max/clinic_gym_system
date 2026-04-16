@@ -96,7 +96,14 @@ function CheckboxGroup({
 export default function Questionnaire() {
   const [submitted, setSubmitted] = useState(false);
 
-  // フォーム状態
+  // フォーム状態 - 基本情報
+  const [patientName, setPatientName] = useState("");
+  const [patientNameKana, setPatientNameKana] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [occupation, setOccupation] = useState("");
   const [mainConcern, setMainConcern] = useState("");
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [symptomsOther, setSymptomsOther] = useState("");
@@ -134,6 +141,13 @@ export default function Questionnaire() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     submitMutation.mutate({
+      patientName,
+      patientNameKana,
+      phoneNumber,
+      birthDate,
+      address,
+      email,
+      occupation,
       mainConcern,
       symptoms: JSON.stringify(symptoms),
       symptomsOther,
@@ -196,6 +210,86 @@ export default function Questionnaire() {
         </Card>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* 基本情報 */}
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <SectionTitle>基本情報</SectionTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">お名前 <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="山田 太郎"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">フリガナ</Label>
+                  <Input
+                    placeholder="ヤマダ タロウ"
+                    value={patientNameKana}
+                    onChange={(e) => setPatientNameKana(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">電話番号</Label>
+                  <Input
+                    placeholder="090-0000-0000"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">生年月日</Label>
+                  <Input
+                    placeholder="1990/01/01"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-1 block">ご住所</Label>
+                <Input
+                  placeholder="東京都渋谷区..."
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">メールアドレス</Label>
+                  <Input
+                    placeholder="example@email.com"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-1 block">ご職業</Label>
+                  <Input
+                    placeholder="会社員、主婦 など"
+                    value={occupation}
+                    onChange={(e) => setOccupation(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* 解決したいこと */}
           <Card>

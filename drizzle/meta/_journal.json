@@ -197,6 +197,13 @@
       "when": 1776321272273,
       "tag": "0027_steep_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1776347342341,
+      "tag": "0028_sad_cargill",
+      "breakpoints": true
     }
   ]
 }

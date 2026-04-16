@@ -838,3 +838,10 @@
 - [x] tRPCルーターに問診票の保存・取得プロシージを追加
 - [x] 管理画面（スタッフ）から問診票を閲覧できる機能を追加
 - [x] チェックポイント保存
+
+## Phase 112: 問診票に基本情報欄を追加
+- [x] DBスキーマに patientName/patientNameKana/phoneNumber/birthDate/address/email/occupation を追加
+- [x] pnpm db:push でマイグレーション実行
+- [x] questionnaire.ts の submitInput と insert に基本情報フィールドを追加
+- [x] Questionnaire.tsx にフリガナ・お名前・電話番号・生年月日・住所・メール・職業の入力欄を追加
+- [x] チェックポイント保存

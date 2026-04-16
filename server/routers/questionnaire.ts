@@ -5,6 +5,13 @@ import { questionnaires } from "../../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
 
 const submitInput = z.object({
+  patientName: z.string().optional(),
+  patientNameKana: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  birthDate: z.string().optional(),
+  address: z.string().optional(),
+  email: z.string().optional(),
+  occupation: z.string().optional(),
   mainConcern: z.string().optional(),
   symptoms: z.string().optional(), // JSON
   symptomsOther: z.string().optional(),
@@ -37,6 +44,13 @@ export const questionnaireRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB connection failed");
       await db.insert(questionnaires).values({
+        patientName: input.patientName,
+        patientNameKana: input.patientNameKana,
+        phoneNumber: input.phoneNumber,
+        birthDate: input.birthDate,
+        address: input.address,
+        email: input.email,
+        occupation: input.occupation,
         mainConcern: input.mainConcern,
         symptoms: input.symptoms,
         symptomsOther: input.symptomsOther,
