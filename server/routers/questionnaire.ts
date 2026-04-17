@@ -44,24 +44,7 @@ export const questionnaireRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("DB connection failed");
-      // LINE通知を送信
-      try {
-        const name = input.patientName || "（未入力）";
-        const kana = input.patientNameKana ? `（${input.patientNameKana}）` : "";
-        const phone = input.phoneNumber || "未入力";
-        const referral = (() => {
-          try { return (JSON.parse(input.referralSource || "[]") as string[]).join("・"); } catch { return "未入力"; }
-        })();
-        const concern = input.mainConcern || "未入力";
-        await notifyOwner({
-          title: `📋 新しい問診票が届きました`,
-          content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\nご相談内容：${concern}`,
-        });
-      } catch (e) {
-        console.error("[Questionnaire] LINE通知エラー:", e);
-      }
-
-      await db.insert(questionnaires).values({
+      const result = await db.insert(questionnaires).values({
         patientName: input.patientName,
         patientNameKana: input.patientNameKana,
         phoneNumber: input.phoneNumber,
@@ -92,7 +75,30 @@ export const questionnaireRouter = router({
         referralName: input.referralName,
         referralOther: input.referralOther,
       });
-      return { success: true };
+      // 挿入されたIDを取得
+      const insertId = result[0]?.insertId as number | undefined;
+
+      // LINE通知を送信（DB保存後にIDを含める）
+      try {
+        const name = input.patientName || "（未入力）";
+        const kana = input.patientNameKana ? `（${input.patientNameKana}）` : "";
+        const phone = input.phoneNumber || "未入力";
+        const referral = (() => {
+          try { return (JSON.parse(input.referralSource || "[]") as string[]).join("・"); } catch { return "未入力"; }
+        })();
+        const concern = input.mainConcern || "未入力";
+        const detailUrl = insertId
+          ? `https://ulu-connect.com/questionnaire/detail/${insertId}`
+          : "https://ulu-connect.com/questionnaire-list";
+        await notifyOwner({
+          title: `📋 新しい問診票が届きました`,
+          content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\nご相談内容：${concern}\n\n🔗 問診票を確認する\n${detailUrl}`,
+        });
+      } catch (e) {
+        console.error("[Questionnaire] LINE通知エラー:", e);
+      }
+
+      return { success: true, id: insertId };
     }),
 
   // 問診票一覧を取得（管理者用）

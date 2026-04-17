@@ -850,3 +850,9 @@
 - [ ] QuestionnaireList.tsx の一覧にお名前・電話番号・来店きっかけを表示
 - [ ] 問診票提出時にLINE通知を送る機能を実装
 - [ ] チェックポイント保存
+
+## Phase 114: LINE通知から問診票詳細を直接開けるようにする
+- [ ] questionnaire.ts の submit でDBに保存後、IDを取得してURLをLINE通知に含める
+- [ ] 問診票詳細ページ（/questionnaire/detail/:id）を実装する（ログイン不要で閲覧可能）
+- [ ] App.tsx にルートを追加
+- [ ] チェックポイント保存
