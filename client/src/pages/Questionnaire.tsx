@@ -261,7 +261,7 @@ export default function Questionnaire() {
               <div>
                 <Label className="text-sm font-medium mb-1 block">ご住所</Label>
                 <Input
-                  placeholder="東京都渋谷区..."
+                  placeholder="姫路市...「例：姫路市市川町1-1」"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="text-sm"
