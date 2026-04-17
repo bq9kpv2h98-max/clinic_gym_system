@@ -112,18 +112,34 @@ export default function QuestionnaireList() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-400">{date}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {q.patientName && (
+                            <p className="text-sm font-semibold text-gray-900 truncate">{q.patientName}</p>
+                          )}
+                          {q.patientNameKana && (
+                            <p className="text-xs text-gray-400 truncate">({q.patientNameKana})</p>
+                          )}
+                        </div>
+                        {q.phoneNumber && (
+                          <p className="text-xs text-gray-500 mt-0.5">☎️ {q.phoneNumber}</p>
+                        )}
                         {q.mainConcern && (
-                          <p className="text-sm font-medium text-gray-800 mt-0.5 truncate">
-                            {q.mainConcern}
-                          </p>
+                          <p className="text-sm text-gray-700 mt-0.5 truncate">{q.mainConcern}</p>
+                        )}
+                        {parseJson(q.referralSource).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {parseJson(q.referralSource).map((s) => (
+                              <Badge key={s} variant="outline" className="text-xs px-1.5 py-0 border-blue-200 text-blue-600">{s}</Badge>
+                            ))}
+                          </div>
                         )}
                         {symptoms.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {symptoms.slice(0, 4).map((s) => (
+                            {symptoms.slice(0, 3).map((s) => (
                               <Badge key={s} variant="secondary" className="text-xs px-1.5 py-0">{s}</Badge>
                             ))}
-                            {symptoms.length > 4 && (
-                              <Badge variant="outline" className="text-xs px-1.5 py-0">+{symptoms.length - 4}</Badge>
+                            {symptoms.length > 3 && (
+                              <Badge variant="outline" className="text-xs px-1.5 py-0">+{symptoms.length - 3}</Badge>
                             )}
                           </div>
                         )}

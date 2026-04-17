@@ -845,3 +845,8 @@
 - [x] questionnaire.ts の submitInput と insert に基本情報フィールドを追加
 - [x] Questionnaire.tsx にフリガナ・お名前・電話番号・生年月日・住所・メール・職業の入力欄を追加
 - [x] チェックポイント保存
+
+## Phase 113: 問診票一覧改善・提出時LINE通知
+- [ ] QuestionnaireList.tsx の一覧にお名前・電話番号・来店きっかけを表示
+- [ ] 問診票提出時にLINE通知を送る機能を実装
+- [ ] チェックポイント保存

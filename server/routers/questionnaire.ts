@@ -3,6 +3,7 @@ import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { questionnaires } from "../../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
+import { notifyOwner } from "../_core/notification";
 
 const submitInput = z.object({
   patientName: z.string().optional(),
@@ -43,6 +44,23 @@ export const questionnaireRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("DB connection failed");
+      // LINE通知を送信
+      try {
+        const name = input.patientName || "（未入力）";
+        const kana = input.patientNameKana ? `（${input.patientNameKana}）` : "";
+        const phone = input.phoneNumber || "未入力";
+        const referral = (() => {
+          try { return (JSON.parse(input.referralSource || "[]") as string[]).join("・"); } catch { return "未入力"; }
+        })();
+        const concern = input.mainConcern || "未入力";
+        await notifyOwner({
+          title: `📋 新しい問診票が届きました`,
+          content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\nご相談内容：${concern}`,
+        });
+      } catch (e) {
+        console.error("[Questionnaire] LINE通知エラー:", e);
+      }
+
       await db.insert(questionnaires).values({
         patientName: input.patientName,
         patientNameKana: input.patientNameKana,
