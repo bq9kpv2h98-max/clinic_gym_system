@@ -87,12 +87,25 @@ export const questionnaireRouter = router({
           try { return (JSON.parse(input.referralSource || "[]") as string[]).join("・"); } catch { return "未入力"; }
         })();
         const concern = input.mainConcern || "未入力";
+        const symptoms = (() => {
+          try {
+            const arr = JSON.parse(input.symptoms || "[]") as string[];
+            const extra = input.symptomsOther ? `・${input.symptomsOther}` : "";
+            return arr.length ? arr.join("・") + extra : (input.symptomsOther || "未入力");
+          } catch { return input.symptomsOther || "未入力"; }
+        })();
+        const treatmentPrefs = (() => {
+          try {
+            const arr = JSON.parse(input.treatmentPrefs || "[]") as string[];
+            return arr.length ? arr.join("・") : "未入力";
+          } catch { return "未入力"; }
+        })();
         const detailUrl = insertId
           ? `https://ulu-connect.com/questionnaire/detail/${insertId}`
           : "https://ulu-connect.com/questionnaire-list";
         await notifyOwner({
           title: `📋 新しい問診票が届きました`,
-          content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\nご相談内容：${concern}\n\n🔗 問診票を確認する\n${detailUrl}`,
+          content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\n\n【症状・お悩み】\n${concern}\n気になる症状：${symptoms}\n施術希望：${treatmentPrefs}\n\n🔗 問診票を確認する\n${detailUrl}`,
         });
       } catch (e) {
         console.error("[Questionnaire] LINE通知エラー:", e);
