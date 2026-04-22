@@ -67,7 +67,7 @@ export async function cleanupOldLogs() {
 }
 
 // スクリプトとして直接実行された場合
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.RUN_AS_SCRIPT === "true") {
   cleanupOldLogs()
     .then((result) => {
       console.log("古いログの削除が完了しました:", result);

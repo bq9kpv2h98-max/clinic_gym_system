@@ -110,7 +110,7 @@ export async function sendReservationReminders() {
 }
 
 // 直接実行された場合（手動実行）
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.RUN_AS_SCRIPT === "true") {
   sendReservationReminders()
     .then(() => {
       console.log("Reservation reminder job completed");

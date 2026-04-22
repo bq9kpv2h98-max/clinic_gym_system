@@ -168,7 +168,7 @@ export async function expirePoints() {
 }
 
 // スクリプトとして直接実行された場合
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.RUN_AS_SCRIPT === "true") {
   expirePoints()
     .then(() => {
       console.log("期限切れポイント自動失効ジョブが正常に完了しました");

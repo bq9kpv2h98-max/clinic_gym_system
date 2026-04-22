@@ -230,7 +230,12 @@ export default function ReservationForm() {
 
   const { data: bookedSlotsData, isLoading: bookedSlotsLoading } = trpc.reservations.getBookedSlots.useQuery(
     { date: selectedDateStr },
-    { enabled: !!selectedDateStr }
+    {
+      enabled: !!selectedDateStr,
+      refetchInterval: 30 * 1000, // 30秒ごとに自動更新
+      refetchIntervalInBackground: false, // タブがアクティブな時のみ更新
+      staleTime: 20 * 1000, // 20秒間はキャッシュを使用
+    }
   );
 
   // スロットが満席かどうか判定

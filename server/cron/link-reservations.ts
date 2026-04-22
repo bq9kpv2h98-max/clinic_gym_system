@@ -156,7 +156,7 @@ export async function linkReservationsAutomatically(): Promise<LinkLog> {
 }
 
 // スクリプトとして直接実行された場合
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.RUN_AS_SCRIPT === "true") {
   linkReservationsAutomatically()
     .then((log) => {
       console.log("\n=== 紐付け結果 ===");

@@ -161,7 +161,7 @@ export async function notifyExpiringPoints() {
 }
 
 // スクリプトとして直接実行された場合
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.RUN_AS_SCRIPT === "true") {
   notifyExpiringPoints()
     .then(() => {
       console.log("ポイント有効期限事前通知ジョブが正常に完了しました");

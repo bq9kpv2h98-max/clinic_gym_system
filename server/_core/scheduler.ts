@@ -13,6 +13,7 @@ import { cleanupOldLogs } from "../cron/cleanup-old-logs";
 import { sendReservationReminders } from "../cron/send-reminders";
 import { expirePoints } from "../cron/expire-points";
 import { notifyExpiringPoints } from "../cron/notify-expiring-points";
+import { checkServerHealth } from "../cron/health-check";
 
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing cron jobs...");
@@ -132,6 +133,15 @@ export function initializeScheduler() {
       console.error("[Scheduler] Initial schedule sync failed:", error);
     }
   }, 5000);
+
+  // 本番サーバー死活監視（5分おきに実行）
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await checkServerHealth();
+    } catch (error) {
+      console.error("[Scheduler] Health check failed:", error);
+    }
+  });
 
   console.log("[Scheduler] Cron jobs initialized");
   console.log("  - Old logs cleanup: Daily at 2:00 AM");
