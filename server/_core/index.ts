@@ -33,7 +33,28 @@ async function startServer() {
 
   const port = parseInt(process.env.PORT || "3000");
 
-  server.listen(port, () => {
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Killing existing process and retrying...`);
+      // ポートを強制的に解放して再起動
+      const { execSync } = require('child_process');
+      try {
+        execSync(`fuser -k ${port}/tcp 2>/dev/null || true`);
+      } catch (_) {}
+      setTimeout(() => {
+        server.close();
+        server.listen(port, '0.0.0.0', () => {
+          console.log(`Server running on http://localhost:${port}/`);
+          initializeScheduler();
+        });
+      }, 1000);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
+
+  server.listen(port, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${port}/`);
     
     // Initialize cron jobs
