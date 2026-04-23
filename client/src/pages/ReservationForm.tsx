@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
+import HolidayJp from "@holiday-jp/holiday_jp";
 import {
   ChevronLeft, ChevronRight, Loader2, Check,
 } from "lucide-react";
@@ -271,11 +272,21 @@ export default function ReservationForm() {
       return d;
     });
 
-  // 定休日・臢時休業日かどうか判定
+  // 日本の祝日かどうか判定
+  const isJapaneseHoliday = (date: Date): { isHoliday: boolean; name: string } => {
+    const isHoliday = HolidayJp.isHoliday(date);
+    if (!isHoliday) return { isHoliday: false, name: "" };
+    const holidays = HolidayJp.between(date, date);
+    const name = holidays.length > 0 ? holidays[0].name : "祝日";
+    return { isHoliday: true, name };
+  };
+
+  // 定休日・臨時休業日・祝日かどうか判定
   const isClosedDay = (date: Date): boolean => {
     if (closedDays.includes(date.getDay())) return true;
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    return blockedDates.includes(dateStr);
+    if (blockedDates.includes(dateStr)) return true;
+    return isJapaneseHoliday(date).isHoliday;
   };
 
   const isOutOfAdvanceRange = (date: Date): boolean => {
@@ -528,6 +539,7 @@ export default function ReservationForm() {
               const dayOfWeek = date.getDay();
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
+              const holidayInfo = isJapaneseHoliday(date);
               const isDisabled = isPast || isClosed;
               const isOutOfRangeClickable = isOutOfRange && !isPast && !isClosed;
               return (
@@ -559,11 +571,16 @@ export default function ReservationForm() {
                 >
                   <span className={cn(
                     "text-base leading-none",
-                    isSelected ? "text-white" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-900"
+                    isSelected ? "text-white" : (isSun || holidayInfo.isHoliday) ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-900"
                   )}>
                     {date.getDate()}
                   </span>
-                  {isToday && !isSelected && (
+                  {holidayInfo.isHoliday && !isSelected && (
+                    <span className="text-[8px] leading-none text-red-400 mt-0.5 block truncate max-w-full px-0.5" title={holidayInfo.name}>
+                      祝
+                    </span>
+                  )}
+                  {isToday && !isSelected && !holidayInfo.isHoliday && (
                     <span className="w-1 h-1 rounded-full bg-black mt-1 block" />
                   )}
                 </button>
