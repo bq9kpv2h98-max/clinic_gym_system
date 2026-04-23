@@ -540,14 +540,22 @@ export default function ReservationForm() {
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
               const holidayInfo = isJapaneseHoliday(date);
+              const isHolidayClosed = holidayInfo.isHoliday;
               const isDisabled = isPast || isClosed;
               const isOutOfRangeClickable = isOutOfRange && !isPast && !isClosed;
               return (
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isDisabled && !isOutOfRangeClickable}
+                  disabled={isDisabled && !isOutOfRangeClickable && !isHolidayClosed}
                   onClick={() => {
+                    if (isHolidayClosed) {
+                      toast.error(`${holidayInfo.name}のため休業日です`, {
+                        description: "LINEよりお問い合わせください",
+                        duration: 3000,
+                      });
+                      return;
+                    }
                     if (isOutOfRangeClickable) {
                       setShowOutOfRangeLine(true);
                       return;
