@@ -551,8 +551,18 @@ export default function ReservationForm() {
                   onClick={() => {
                     if (isHolidayClosed) {
                       toast.error(`${holidayInfo.name}のため休業日です`, {
-                        description: "LINEよりお問い合わせください",
-                        duration: 3000,
+                        description: (
+                          <a
+                            href="https://lin.ee/pvsHToe"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[#06C755] font-bold underline underline-offset-2 mt-1"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.03 2 11c0 3.07 1.6 5.8 4.1 7.57V22l3.4-1.87c.81.22 1.66.34 2.5.34 5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
+                            LINEでお問い合わせはこちら
+                          </a>
+                        ) as unknown as string,
+                        duration: 5000,
                       });
                       return;
                     }
