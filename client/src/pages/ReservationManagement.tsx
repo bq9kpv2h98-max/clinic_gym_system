@@ -95,12 +95,15 @@ export default function ReservationManagement() {
   // 日時フォーマット
   const formatDateTime = (date: Date | null, timeSlot: string | null) => {
     if (!date) return "未設定";
-    const dateStr = new Date(date).toLocaleDateString("ja-JP", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "short",
-    });
+    // DBはUTCで保存されているが、フォーム送信時にJSTの日付をUTCとして保存しているため
+    // UTCの年月日をそのまま使用する（ローカルタイムゾーン変換なし）
+    const d = new Date(date);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+    const weekday = weekdays[d.getUTCDay()];
+    const dateStr = `${year}年${month}月${day}日(${weekday})`;
     if (!timeSlot) return dateStr;
     // スロット値から終了時刻を計算（例: "10:00" → "10:00～11:30"）
     const [h, m] = timeSlot.split(":").map(Number);

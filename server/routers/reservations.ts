@@ -248,12 +248,15 @@ export const reservationsRouter = router({
       // スタッフに通知
       try {
         const formatDate = (date: Date) => {
-          return date.toLocaleDateString("ja-JP", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "short",
-          });
+          // DBはUTCで保存されているが、フォーム送信時にJSTの日付をUTCとして保存しているため
+          // UTCの年月日をそのまま使用する（サーバータイムゾーンに依存しない）
+          const d = new Date(date);
+          const year = d.getUTCFullYear();
+          const month = d.getUTCMonth() + 1;
+          const day = d.getUTCDate();
+          const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+          const weekday = weekdays[d.getUTCDay()];
+          return `${year}年${month}月${day}日(${weekday})`;
         };
 
         let notificationContent = `新しい予約リクエストが届きました。\n\n`;
