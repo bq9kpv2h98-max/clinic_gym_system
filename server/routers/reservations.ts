@@ -52,12 +52,12 @@ export const reservationsRouter = router({
         city: z.string().optional(),
         addressLine: z.string().optional(),
         firstChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]),
-        firstChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]),
+        firstChoiceTimeSlot: z.string(),
         firstChoiceTimeDetail: z.string().optional(),
         secondChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]).optional(),
-        secondChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]).optional(),
+        secondChoiceTimeSlot: z.string().optional(),
         thirdChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]).optional(),
-        thirdChoiceTimeSlot: z.enum(["10:00-13:00", "13:00-17:00", "17:00-"]).optional(),
+        thirdChoiceTimeSlot: z.string().optional(),
         notes: z.string().optional(),
       })
     )
@@ -260,7 +260,19 @@ export const reservationsRouter = router({
         notificationContent += `お客様名: ${input.customerName}\n`;
         notificationContent += `電話番号: ${input.customerPhone}\n`;
         notificationContent += `メール: ${input.customerEmail}\n\n`;
-        notificationContent += `第1希望: ${formatDate(input.firstChoiceDate)} ${input.firstChoiceTimeSlot}\n`;
+        // スロット値から終了時刻を計算（例: "10:00" → "10:00～11:30"）
+        const calcEndTime = (startStr: string): string => {
+          const [h, m] = startStr.split(":").map(Number);
+          if (isNaN(h) || isNaN(m)) return startStr;
+          const totalMin = h * 60 + m + 90;
+          const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
+          const endM = String(totalMin % 60).padStart(2, "0");
+          return `${startStr}～${endH}:${endM}`;
+        };
+        const fmt1stTime = input.firstChoiceTimeDetail
+          ? calcEndTime(input.firstChoiceTimeDetail)
+          : calcEndTime(input.firstChoiceTimeSlot);
+        notificationContent += `第1希望: ${formatDate(input.firstChoiceDate)} ${fmt1stTime}\n`;
         if (input.secondChoiceDate && input.secondChoiceTimeSlot) {
           notificationContent += `第2希望: ${formatDate(input.secondChoiceDate)} ${input.secondChoiceTimeSlot}\n`;
         }
