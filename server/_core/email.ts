@@ -95,6 +95,16 @@ export async function sendReservationConfirmationEmail(params: {
     });
   };
 
+  // スロット値から終了時刻を計算（例: "10:00" → "10:00～11:30"）
+  const formatTimeSlot = (slot: string): string => {
+    const [h, m] = slot.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return slot;
+    const totalMin = h * 60 + m + 90;
+    const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
+    const endM = String(totalMin % 60).padStart(2, "0");
+    return `${slot}～${endH}:${endM}`;
+  };
+
   const html = `
 <!DOCTYPE html>
 <html lang="ja">
@@ -124,20 +134,20 @@ export async function sendReservationConfirmationEmail(params: {
       
       <div style="margin-bottom: 15px;">
         <strong style="color: #667eea;">第1希望</strong><br>
-        <span style="font-size: 16px;">${formatDate(firstChoiceDate)} ${firstChoiceTimeSlot}</span>
+        <span style="font-size: 16px;">${formatDate(firstChoiceDate)} ${formatTimeSlot(firstChoiceTimeSlot)}</span>
       </div>
       
       ${secondChoiceDate && secondChoiceTimeSlot ? `
       <div style="margin-bottom: 15px;">
         <strong style="color: #666;">第2希望</strong><br>
-        <span style="font-size: 14px;">${formatDate(secondChoiceDate)} ${secondChoiceTimeSlot}</span>
+        <span style="font-size: 14px;">${formatDate(secondChoiceDate)} ${formatTimeSlot(secondChoiceTimeSlot)}</span>
       </div>
       ` : ''}
       
       ${thirdChoiceDate && thirdChoiceTimeSlot ? `
       <div style="margin-bottom: 15px;">
         <strong style="color: #666;">第3希望</strong><br>
-        <span style="font-size: 14px;">${formatDate(thirdChoiceDate)} ${thirdChoiceTimeSlot}</span>
+        <span style="font-size: 14px;">${formatDate(thirdChoiceDate)} ${formatTimeSlot(thirdChoiceTimeSlot)}</span>
       </div>
       ` : ''}
     </div>

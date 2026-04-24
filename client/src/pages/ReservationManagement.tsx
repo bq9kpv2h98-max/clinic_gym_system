@@ -101,7 +101,16 @@ export default function ReservationManagement() {
       day: "numeric",
       weekday: "short",
     });
-    return `${dateStr} ${timeSlot || ""}`;
+    if (!timeSlot) return dateStr;
+    // スロット値から終了時刻を計算（例: "10:00" → "10:00～11:30"）
+    const [h, m] = timeSlot.split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) {
+      const totalMin = h * 60 + m + 90;
+      const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
+      const endM = String(totalMin % 60).padStart(2, "0");
+      return `${dateStr} ${timeSlot}～${endH}:${endM}`;
+    }
+    return `${dateStr} ${timeSlot}`;
   };
 
   // 予約詳細を開く
