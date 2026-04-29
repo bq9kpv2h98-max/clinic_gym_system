@@ -26,7 +26,7 @@ import { customers } from "../../drizzle/schema";
 import QRCode from "qrcode";
 import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
-import { sendReservationConfirmationEmail } from "../_core/email";
+import { sendReservationConfirmationEmail, sendReservationConfirmedEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
 import { createNotionReservation, createNotionCustomer, getBookedSlotsForDate, getReservationAnalytics } from "../notion";
 import { notifyOwner } from "../_core/notification";
@@ -407,6 +407,30 @@ export const reservationsRouter = router({
     )
     .mutation(async ({ input }) => {
       await updateReservationStatus(input.reservationId, input.status);
+
+      // 確定時に顧客へ確定通知メールを送信
+      if (input.status === "confirmed") {
+        try {
+          const reservation = await getReservationById(input.reservationId);
+          if (reservation && reservation.customerEmail) {
+            // 確定日時が設定されている場合はそれを使用、なければ第1希望を使用
+            const confirmedDate = reservation.confirmedDate ?? reservation.firstChoiceDate;
+            const confirmedTimeSlot = reservation.confirmedTimeSlot ?? reservation.firstChoiceTimeSlot;
+            await sendReservationConfirmedEmail({
+              to: reservation.customerEmail,
+              customerName: reservation.customerName,
+              reservationId: reservation.reservationId,
+              confirmedDate,
+              confirmedTimeSlot,
+            });
+            console.log(`[Reservation] Confirmation email sent to ${reservation.customerEmail}`);
+          }
+        } catch (emailError) {
+          // メール送信エラーはステータス更新の成功に影響しない
+          console.error("[Reservation] Failed to send confirmation email:", emailError);
+        }
+      }
+
       return { success: true };
     }),
 

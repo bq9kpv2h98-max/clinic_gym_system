@@ -64,8 +64,12 @@ export default function ReservationManagement() {
 
   // 予約ステータス更新
   const updateStatusMutation = trpc.reservations.updateStatus.useMutation({
-    onSuccess: () => {
-      toast.success("ステータスを更新しました");
+    onSuccess: (_data, variables) => {
+      if (variables.status === "confirmed") {
+        toast.success("予約を確定しました。顧客へ確定通知メールを送信しました。");
+      } else {
+        toast.success("ステータスを更新しました");
+      }
       refetch();
       setIsDetailDialogOpen(false);
     },

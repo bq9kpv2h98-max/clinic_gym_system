@@ -896,3 +896,9 @@
 - [x] DB保存時・表示時のタイムゾーン変換を調査
 - [x] 管理画面の日付表示を修正（LINE通知と一致させる）
 - [x] チェックポイント保存
+
+## Phase 123: 予約確定時に顧客へ確定通知メールを送信
+- [x] email.tsに確定通知メールテンプレートを追加（確定日時・来院案内を含む）
+- [x] reservations.tsのupdateStatus APIで「confirmed」時にメール送信を実装
+- [x] 管理画面（ReservationManagement.tsx）の確定ボタンでメール送信フラグを表示
+- [x] チェックポイント保存
