@@ -173,19 +173,28 @@ export async function sendReservationConfirmationEmail(params: {
     </div>
     ` : ''}
     
-    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-      <h2 style="font-size: 18px; color: #667eea; margin-top: 0;">来院時のご案内</h2>
-      <ul style="font-size: 14px; color: #666; padding-left: 20px;">
-        <li>受付で診察券QRコードをご提示ください</li>
-        <li>初回の方は問診票のご記入をお願いいたします</li>
-        <li>ご予約時間の5分前にお越しください</li>
-      </ul>
+    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+      <p style="margin: 0; font-size: 14px; color: #856404;">
+        <strong>📌 来院時のご案内</strong><br>
+        ・ご予約時刻の5分前にお越しください<br>
+        ・初回の方は問診票のご記入をお願いいたします
+      </p>
     </div>
-    
+
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+      <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: bold; color: #111;">ULU整骨院 ULU GYM</p>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: #666;">〒 アクセスはこちら</p>
+      <a href="https://maps.app.goo.gl/7Zh9LzwsMtpTFA6X8" style="display: inline-block; background: #4285f4; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold;">📍 Google マップで見る</a>
+    </div>
+
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0 0 12px 0; font-size: 14px; color: #333;">お問い合わせはこちらまで</p>
+      <a href="https://lin.ee/u7Y0twE" style="display: inline-block; background: #06c755; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-size: 15px; font-weight: bold;">💬 LINEでお問い合わせ</a>
+    </div>
+
     <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
       <p style="font-size: 12px; color: #999; margin: 0;">
-        このメールは自動送信されています。<br>
-        ご不明な点がございましたら、お気軽にお問い合わせください。
+        このメールは自動送信されています。
       </p>
     </div>
   </div>
