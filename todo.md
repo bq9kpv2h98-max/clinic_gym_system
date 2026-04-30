@@ -902,3 +902,11 @@
 - [x] reservations.tsのupdateStatus APIで「confirmed」時にメール送信を実装
 - [x] 管理画面（ReservationManagement.tsx）の確定ボタンでメール送信フラグを表示
 - [x] チェックポイント保存
+
+## Phase 124: 予約前日リマインダーメール自動送信
+- [x] email.tsにリマインダーメールテンプレートを追加
+- [x] /api/scheduled/reminder エンドポイントを実装（翻日確定予約を取得してメール送信）
+- [x] メール送信元をonboarding@resend.devに変更
+- [x] 新規予約の日付ずれ修正（UTC正午固定）
+- [ ] スケジュールタスクを設定（毎日夜20時に実行）
+- [ ] チェックポイント保存・デプロイ後にスケジュール設定

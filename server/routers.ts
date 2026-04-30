@@ -28,6 +28,7 @@ import { qrPrintRouter } from "./routers/qr-print";
 import { monthlyReportsRouter } from "./routers/monthly-reports";
 import { settingsRouter } from "./routers/settings";
 import { questionnaireRouter } from "./routers/questionnaire";
+import { reminderRouter } from "./routers/reminder";
 
 
 export const appRouter = router({
@@ -59,6 +60,7 @@ export const appRouter = router({
   monthlyReports: monthlyReportsRouter,
   settings: settingsRouter,
   questionnaire: questionnaireRouter,
+  reminder: reminderRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

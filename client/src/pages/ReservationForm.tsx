@@ -571,9 +571,16 @@ export default function ReservationForm() {
                       return;
                     }
                     setShowOutOfRangeLine(false);
+                    // JSTの日付をUTC正午に固定してDBに保存（タイムゾーンずれ防止）
+                    const utcNoon = new Date(Date.UTC(
+                      date.getFullYear(),
+                      date.getMonth(),
+                      date.getDate(),
+                      12, 0, 0, 0
+                    ));
                     setFormData((prev) => ({
                       ...prev,
-                      firstChoiceDate: date,
+                      firstChoiceDate: utcNoon,
                       firstChoiceTimeSlot: "",
                     }));
                   }}

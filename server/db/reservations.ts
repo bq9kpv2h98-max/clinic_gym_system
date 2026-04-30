@@ -117,6 +117,50 @@ export async function getReservationsByDateRange(
 }
 
 /**
+ * 翻日の確定済み予約を取得（リマインダー用）
+ * confirmedDateが翻日で、statusがconfirmedの予約を返す
+ */
+export async function getTomorrowConfirmedReservations() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // 翻日の開始（UTCベース、日本時間に合わせて計算）
+  // DBはJST日付をUTCとして保存しているため、UTCの値をそのまま使用
+  const now = new Date();
+  // JSTの明日日付を計算（UTC+9）
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const jstTomorrow = new Date(jstNow);
+  jstTomorrow.setUTCDate(jstTomorrow.getUTCDate() + 1);
+  // 翻日の00:00:00～23:59:59（UTC値として保存されているためUTC値で検索）
+  const startOfTomorrow = new Date(Date.UTC(
+    jstTomorrow.getUTCFullYear(),
+    jstTomorrow.getUTCMonth(),
+    jstTomorrow.getUTCDate(),
+    0, 0, 0, 0
+  ));
+  const endOfTomorrow = new Date(Date.UTC(
+    jstTomorrow.getUTCFullYear(),
+    jstTomorrow.getUTCMonth(),
+    jstTomorrow.getUTCDate(),
+    23, 59, 59, 999
+  ));
+
+  const results = await db
+    .select()
+    .from(reservations)
+    .where(
+      and(
+        eq(reservations.status, "confirmed"),
+        gte(reservations.confirmedDate, startOfTomorrow),
+        lte(reservations.confirmedDate, endOfTomorrow)
+      )
+    )
+    .orderBy(asc(reservations.confirmedDate));
+
+  return results;
+}
+
+/**
  * 予約を更新
  */
 export async function updateReservation(
