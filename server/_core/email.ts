@@ -265,21 +265,30 @@ export async function sendReservationConfirmedEmail(params: {
       <p style="font-size: 12px; color: #999; margin-bottom: 0;">予約ID: ${reservationId.slice(0, 8)}</p>
     </div>
 
-    <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #10b981;">
+    <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #10b981;">
       <p style="margin: 0; font-size: 14px; color: #065f46;">
-        <strong>📌 来院時のご案内</strong><br>        ・ご予約時刻の5分前にお越しください<br>
-        ・受付で診察券QRコードをご提示ください<br>
+        <strong>📌 来院時のご案内</strong><br>
+        ・ご予約時刻の5分前にお越しください<br>
         ・初回の方は問診票のご記入をお願いいたします
       </p>
     </div>
 
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+      <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: bold; color: #111;">ULU整骨院 ULU GYM</p>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: #666;">〒 アクセスはこちら</p>
+      <a href="https://maps.app.goo.gl/7Zh9LzwsMtpTFA6X8" style="display: inline-block; background: #4285f4; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold;">📍 Google マップで見る</a>
+    </div>
+
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0 0 12px 0; font-size: 14px; color: #333;">お問い合わせはこちらまで</p>
+      <a href="https://lin.ee/u7Y0twE" style="display: inline-block; background: #06c755; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-size: 15px; font-weight: bold;">💬 LINEでお問い合わせ</a>
+    </div>
+
     <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
       <p style="font-size: 12px; color: #999; margin: 0;">
-        このメールは自動送信されています。<br>
-        ご不明な点がございましたら、お気軽にお問い合わせください。
+        このメールは自動送信されています。
       </p>
-    </div>
-  </div>
+    </div>  </div>
 </body>
 </html>
   `;
