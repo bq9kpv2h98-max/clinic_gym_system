@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { questionnaires } from "../../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
 import { notifyOwner } from "../_core/notification";
+import { siteConfig } from "../../shared/siteConfig";
 
 const submitInput = z.object({
   patientName: z.string().optional(),
@@ -101,8 +102,8 @@ export const questionnaireRouter = router({
           } catch { return "未入力"; }
         })();
         const detailUrl = insertId
-          ? `https://ulu-connect.com/questionnaire/detail/${insertId}`
-          : "https://ulu-connect.com/questionnaire-list";
+          ? `${siteConfig.siteUrl}/questionnaire/detail/${insertId}`
+          : `${siteConfig.siteUrl}/questionnaire-list`;
         await notifyOwner({
           title: `📋 新しい問診票が届きました`,
           content: `お名前：${name}${kana}\n電話番号：${phone}\n来店きっかけ：${referral}\n\n【症状・お悩み】\n${concern}\n気になる症状：${symptoms}\n施術希望：${treatmentPrefs}\n\n🔗 問診票を確認する\n${detailUrl}`,

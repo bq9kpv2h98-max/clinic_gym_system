@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
+import { siteConfig } from "../../../shared/siteConfig";
 import HolidayJp from "@holiday-jp/holiday_jp";
 import {
   ChevronLeft, ChevronRight, Loader2, Check,
@@ -108,7 +109,7 @@ function SectionLabel({ number, title, required }: { number: string; title: stri
 
 // ===== 完了画面 =====
 function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; timeSlot: string }) {
-  const LINE_URL = "https://lin.ee/pvsHToe";
+  const LINE_URL = siteConfig.lineUrlPublic;
 
   const formatDate = (d: Date) =>
     d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
@@ -122,7 +123,7 @@ function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; 
     const endStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${endH}${endM}00`;
     const params = new URLSearchParams({
       action: "TEMPLATE",
-      text: "ULU GROUP 予約",
+      text: `${siteConfig.brandName} 予約`,
       dates: `${startStr}/${endStr}`,
       details: `${name}様の予約`,
     });
@@ -334,7 +335,7 @@ export default function ReservationForm() {
     furiganaRef.current.reading = "";
   };
 
-  const facilityId = "facility-001";
+  const facilityId = siteConfig.facilityId;
 
   const selectedSlotInfo = ALL_TIME_SLOTS.find(s => s.value === formData.firstChoiceTimeSlot);
   const selectedSlotLabel = selectedSlotInfo
@@ -451,7 +452,7 @@ export default function ReservationForm() {
 
       {/* ヘッダー */}
       <header className="px-6 pt-10 pb-8 border-b border-gray-100">
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">ULU GROUP</p>
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">{siteConfig.brandName}</p>
         <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">
           予約フォーム
         </h1>
@@ -553,7 +554,7 @@ export default function ReservationForm() {
                       toast.error(`${holidayInfo.name}のため休業日です`, {
                         description: (
                           <a
-                            href="https://lin.ee/pvsHToe"
+                            href={siteConfig.lineUrlPublic}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 text-[#06C755] font-bold underline underline-offset-2 mt-1"
@@ -616,7 +617,7 @@ export default function ReservationForm() {
           {/* 期間外日付クリック時のLINE案内 */}
           {showOutOfRangeLine && (
             <a
-              href="https://lin.ee/pvsHToe"
+              href={siteConfig.lineUrlPublic}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 flex items-center gap-3 bg-[#06C755] px-4 py-3 w-full transition-opacity active:opacity-80 touch-manipulation"
@@ -701,7 +702,7 @@ export default function ReservationForm() {
 
         {/* ===== LINE予約案内 ===== */}
         <a
-          href="https://lin.ee/pvsHToe"
+          href={siteConfig.lineUrlPublic}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-xl bg-[#06C755] px-4 py-3.5 flex items-center gap-3 hover:bg-[#05b34c] active:opacity-80 transition-colors touch-manipulation"

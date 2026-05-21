@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { siteConfig } from "../../../shared/siteConfig";
 import { useErrorHandler } from "@/hooks/useErrorHandler";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -619,7 +620,7 @@ const Dashboard: React.FC = () => {
         {/* フッター */}
         <div className="p-4 border-t border-gray-200">
           {sidebarOpen && (
-            <p className="text-xs text-gray-500">© 2024 ULU Group</p>
+            <p className="text-xs text-gray-500">© 2024 {siteConfig.shortName}</p>
           )}
         </div>
       </div>

@@ -4,8 +4,8 @@
  * /api/health エンドポイントを定期的にチェックし、
  * サーバーが応答しない場合にLINE通知を送信します。
  */
-
 import { notifyOwnerViaLine } from "../_core/line";
+import { siteConfig } from "../../shared/siteConfig";
 
 // 連続失敗回数を追跡（再起動後にリセット）
 let consecutiveFailures = 0;
@@ -18,7 +18,7 @@ const ALERT_INTERVAL_MS = 30 * 60 * 1000;
  * 本番サーバーのヘルスチェックを実行
  */
 export async function checkServerHealth(): Promise<void> {
-  const healthUrl = process.env.HEALTH_CHECK_URL || "https://ulu-connect.com/api/health";
+  const healthUrl = process.env.HEALTH_CHECK_URL || `${siteConfig.siteUrl}/api/health`;
 
   try {
     const controller = new AbortController();
@@ -66,7 +66,7 @@ export async function checkServerHealth(): Promise<void> {
         console.log("[HealthCheck] Sending LINE alert...");
         await notifyOwnerViaLine({
           title: "🔴 サーバー障害アラート",
-          content: `本番サーバーが応答していません！\n\n連続失敗回数: ${consecutiveFailures}回\nエラー: ${errorMessage}\n検知時刻: ${jstTime}\n\nURL: https://ulu-connect.com\n\n管理画面から再デプロイをお試しください。`,
+          content: `本番サーバーが応答していません！\n\n連続失敗回数: ${consecutiveFailures}回\nエラー: ${errorMessage}\n検知時刻: ${jstTime}\n\nURL: ${siteConfig.siteUrl}\n\n管理画面から再デプロイをお試しください。`,
         }).catch((e) => {
           console.error("[HealthCheck] Failed to send LINE alert:", e);
         });

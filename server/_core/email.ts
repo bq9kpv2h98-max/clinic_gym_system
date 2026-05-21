@@ -5,6 +5,8 @@
  * 環境変数RESEND_API_KEYが必要です。
  */
 
+import { siteConfig } from "../../shared/siteConfig";
+
 interface SendEmailParams {
   to: string;
   subject: string;
@@ -182,14 +184,14 @@ export async function sendReservationConfirmationEmail(params: {
     </div>
 
     <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
-      <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: bold; color: #111;">ULU整骨院 ULU GYM</p>
+      <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: bold; color: #111;">${siteConfig.name}</p>
       <p style="margin: 0 0 12px 0; font-size: 13px; color: #666;">〒 アクセスはこちら</p>
-      <a href="https://maps.app.goo.gl/7Zh9LzwsMtpTFA6X8" style="display: inline-block; background: #4285f4; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold;">📍 Google マップで見る</a>
+      <a href="${siteConfig.googleMapsUrl}" style="display: inline-block; background: #4285f4; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold;">📍 Google マップで見る</a>
     </div>
 
     <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb; text-align: center;">
       <p style="margin: 0 0 12px 0; font-size: 14px; color: #333;">お問い合わせはこちらまで</p>
-      <a href="https://lin.ee/u7Y0twE" style="display: inline-block; background: #06c755; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-size: 15px; font-weight: bold;">💬 LINEでお問い合わせ</a>
+      <a href="${siteConfig.lineUrlContact}" style="display: inline-block; background: #06c755; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-size: 15px; font-weight: bold;">💬 LINEでお問い合わせ</a>
     </div>
 
     <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
@@ -403,7 +405,7 @@ export async function sendReservationReminderEmail(params: {
 
   return sendEmail({
     to,
-    subject: "【明日のご予約】ULU整骨院 ULU GYM ご予約のご確認",
+    subject: `【明日のご予約】${siteConfig.name} ご予約のご確認`,
     html,
   });
 }

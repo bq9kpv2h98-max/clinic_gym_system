@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Eye, Calendar } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { siteConfig } from "../../../shared/siteConfig";
 
 interface SettlementData {
   month: string;
@@ -59,9 +60,9 @@ const SettlementReport: React.FC = () => {
   const [settlementData, setSettlementData] = useState<SettlementData | null>(null);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
 
-  // ダミーfacilityId（実際にはユーザー情報から取得）
-  const facilityId = "facility_001";
-  const facilityName = "ULU Group";
+  // siteConfigから取得
+  const facilityId = siteConfig.facilityId;
+  const facilityName = siteConfig.shortName;
 
   // 月次データ取得
   const getMonthlyData = trpc.settlement.getMonthlyData.useQuery(

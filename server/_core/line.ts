@@ -5,6 +5,8 @@
  * 環境変数LINE_CHANNEL_ACCESS_TOKENとLINE_NOTIFY_USER_IDが必要です。
  */
 
+import { siteConfig } from "../../shared/siteConfig";
+
 interface SendLineMessageParams {
   to: string;
   message: string;

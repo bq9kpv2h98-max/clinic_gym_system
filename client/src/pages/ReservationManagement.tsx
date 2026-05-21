@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { siteConfig } from "../../../shared/siteConfig";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,7 @@ export default function ReservationManagement() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   // 仮の施設ID（実際は認証情報から取得）
-  const facilityId = "facility-001";
+  const facilityId = siteConfig.facilityId;
 
   // 予約一覧を取得
   const { data: reservations, isLoading, refetch } = trpc.reservations.listByFacility.useQuery({
