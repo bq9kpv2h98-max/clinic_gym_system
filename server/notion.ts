@@ -86,6 +86,7 @@ export async function createNotionReservation(reservation: {
   serviceType?: string;
   status: string;
   reservationDateTime: Date;
+  timeSlot?: string; // 例: "13:00" または "13:00～14:30"
   notes?: string;
   staff?: string;
 }) {
@@ -101,12 +102,40 @@ export async function createNotionReservation(reservation: {
     const notionStatus = statusMapping[reservation.status] || "予定中";
     const serviceType = reservation.serviceType || "整体";
 
+    // 日付をUTC基準で取得（フォームからはUTC正午で保存されている）
+    const d = reservation.reservationDateTime;
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    // 時刻を解析して開始・終了のISO文字列を生成
+    let startISO = `${dateStr}T00:00:00.000Z`;
+    let endISO = `${dateStr}T01:30:00.000Z`;
+    if (reservation.timeSlot) {
+      // "13:00" または "13:00～14:30" 形式に対応
+      const startMatch = reservation.timeSlot.match(/^(\d{1,2}):(\d{2})/);
+      if (startMatch) {
+        const startH = parseInt(startMatch[1], 10);
+        const startM = parseInt(startMatch[2], 10);
+        // JSTをUTCに変換（-9時間）
+        const startUTCH = startH - 9;
+        startISO = `${dateStr}T${String(startUTCH < 0 ? startUTCH + 24 : startUTCH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00.000Z`;
+        // 終了時刻（90分後）
+        const endTotalMin = startH * 60 + startM + 90;
+        const endH = Math.floor(endTotalMin / 60) - 9;
+        const endM = endTotalMin % 60;
+        endISO = `${dateStr}T${String(endH < 0 ? endH + 24 : endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00.000Z`;
+      }
+    }
+
     const properties = {
-      Name: `${reservation.customerName} - ${serviceType}`,
+      Name: reservation.customerName,
       "顧客名": reservation.customerName,
       "サービス種別": serviceType,
       "ステータス": notionStatus,
-      "date:予約日時:start": reservation.reservationDateTime.toISOString().split('T')[0],
+      "date:予約日時:start": startISO,
+      "date:予約日時:end": endISO,
       "date:予約日時:is_datetime": 1,
       "予約メモ": reservation.notes || "",
       "担当者": reservation.staff || "",

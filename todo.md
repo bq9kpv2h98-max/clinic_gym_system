@@ -917,3 +917,8 @@
 - [x] フロントエンド・バックエンドをsiteConfigから参照するように修正
 - [x] Claude向けセットアップガイド（SETUP_GUIDE.md）を作成
 - [x] チェックポイント保存
+
+## Phase 126: 予約フォームからNotionカレンダーへ日時・名前を正しく反映
+- [x] createNotionReservationに時刻情報を含めてカレンダーに反映
+- [x] Notionページのタイトル（Name）を顧客名のみに修正
+- [x] チェックポイント保存

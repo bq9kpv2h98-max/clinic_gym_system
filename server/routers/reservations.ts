@@ -216,6 +216,7 @@ export const reservationsRouter = router({
                 serviceType: "整体",
                 status: "pending",
                 reservationDateTime: input.firstChoiceDate,
+                timeSlot: input.firstChoiceTimeDetail || input.firstChoiceTimeSlot,
                 notes: input.notes,
               });
             }
