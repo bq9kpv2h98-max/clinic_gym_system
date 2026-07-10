@@ -100,6 +100,62 @@ export async function getUserByOpenId(openId: string) {
 // TODO: add feature queries here as your schema grows.
 
 /**
+ * 指定月の日付ごとの予約数を取得（月間カレンダー表示用）
+ * @param year JST年
+ * @param month JST月（1-12）
+ * @returns { 'YYYY-MM-DD': count } の形式
+ */
+export async function getMonthlyBookedCounts(year: number, month: number): Promise<Record<string, number>> {
+  const db = await getDb();
+  if (!db) return {};
+
+  // JST月の開始と終了をUTC範囲に変換
+  const startUTC = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) - 9 * 60 * 60 * 1000);
+  const endUTC = new Date(Date.UTC(year, month, 1, 0, 0, 0) - 9 * 60 * 60 * 1000);
+
+  const toJSTDateStr = (d: Date): string => {
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, '0')}-${String(jst.getUTCDate()).padStart(2, '0')}`;
+  };
+
+  try {
+    const reservationRows = await db
+      .select({ startAt: notionReservations.startAt })
+      .from(notionReservations)
+      .where(
+        and(
+          gte(notionReservations.startAt, startUTC),
+          lt(notionReservations.startAt, endUTC),
+          or(
+            isNull(notionReservations.status),
+            ne(notionReservations.status, 'キャンセル')
+          )
+        )
+      );
+
+    const scheduleRows = await db
+      .select({ startAt: notionSchedules.startAt })
+      .from(notionSchedules)
+      .where(
+        and(
+          gte(notionSchedules.startAt, startUTC),
+          lt(notionSchedules.startAt, endUTC)
+        )
+      );
+
+    const counts: Record<string, number> = {};
+    for (const row of [...reservationRows, ...scheduleRows]) {
+      const dateStr = toJSTDateStr(row.startAt);
+      counts[dateStr] = (counts[dateStr] || 0) + 1;
+    }
+    return counts;
+  } catch (error) {
+    console.error('[DB] getMonthlyBookedCounts error:', error);
+    return {};
+  }
+}
+
+/**
  * 指定日付（YYYY-MM-DD、JST）の予約済みスロットをDBから取得
  * キャンセルを除く全ステータスを対象にする
  */

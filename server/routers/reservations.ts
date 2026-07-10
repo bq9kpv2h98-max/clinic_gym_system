@@ -30,7 +30,7 @@ import { sendReservationConfirmationEmail, sendReservationConfirmedEmail } from 
 import { saveReservationToSheets } from "../_core/googleSheets";
 import { createNotionReservation, createNotionCustomer, getBookedSlotsForDate, getReservationAnalytics } from "../notion";
 import { notifyOwner } from "../_core/notification";
-import { getBookedSlotsFromDB } from "../db";
+import { getBookedSlotsFromDB, getMonthlyBookedCounts } from "../db";
 
 export const reservationsRouter = router({
   /**
@@ -494,6 +494,33 @@ export const reservationsRouter = router({
         serviceType: '',
       }));
       return { slots, source: 'db' as const };
+    }),
+
+  /**
+   * 電話番号で既存顧客を検索（顧客フォーム用・公開API）
+   */
+  lookupByPhone: publicProcedure
+    .input(z.object({ phone: z.string() }))
+    .query(async ({ input }) => {
+      const customer = await findCustomerByPhone(input.phone);
+      if (!customer) return null;
+      return {
+        fullName: customer.fullName,
+        email: customer.email || '',
+      };
+    }),
+
+  /**
+   * 月間空き状況を取得（顧客カレンダー表示用・公開API）
+   */
+  getMonthlyAvailability: publicProcedure
+    .input(z.object({
+      year: z.number().int().min(2020).max(2100),
+      month: z.number().int().min(1).max(12),
+    }))
+    .query(async ({ input }) => {
+      const counts = await getMonthlyBookedCounts(input.year, input.month);
+      return counts;
     }),
 
   /**

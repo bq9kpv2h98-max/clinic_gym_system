@@ -190,6 +190,13 @@ function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; 
   );
 }
 
+// LINEアイコン（SVG）
+const LineIcon = () => (
+  <svg className="w-5 h-5 text-white flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+  </svg>
+);
+
 // ===== メインコンポーネント =====
 export default function ReservationForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -205,19 +212,23 @@ export default function ReservationForm() {
     notes: "",
   });
 
-  // 今日を週の開始日として使用（日曜固定ではなく今日から表示）
-  const getTodayStart = (): Date => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
+  // カレンダー表示月
+  const [calMonth, setCalMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
 
-  const [weekStart, setWeekStart] = useState(() => getTodayStart());
+  // 期間外日付クリック時のLINE案内
+  const [showOutOfRangeLine, setShowOutOfRangeLine] = useState(false);
 
-  // 設定取得（定休日・受付締切時間・臢時休業日・予約可能日数）
-  // 設定は5分間キャッシュして再フェッチを抑制（高速化）
+  // 電話番号での既存顧客検索用（blur後に設定）
+  const [phoneLookupPhone, setPhoneLookupPhone] = useState("");
+  // 既存顧客バナーを手動で閉じた場合
+  const [dismissedLookup, setDismissedLookup] = useState(false);
+
+  // 設定取得（定休日・受付締切時間・臨時休業日・予約可能日数）
   const { data: settingsData } = trpc.settings.getClinicSettings.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000, // 5分間
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
   const closedDays: number[] = settingsData?.closedDays ?? [0];
@@ -225,18 +236,34 @@ export default function ReservationForm() {
   const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];
   const bookingAdvanceDays: number = (settingsData as any)?.bookingAdvanceDays ?? 7;
 
-  // 選択日の予約済みスロットをDBから取得
+  // 月間空き状況取得
+  const { data: monthlyAvailability } = trpc.reservations.getMonthlyAvailability.useQuery(
+    { year: calMonth.year, month: calMonth.month },
+    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+  );
+
+  // 既存顧客検索（電話番号でblur後に実行）
+  const { data: existingCustomer, isLoading: isLookingUp } = trpc.reservations.lookupByPhone.useQuery(
+    { phone: phoneLookupPhone },
+    {
+      enabled: isValidPhone(phoneLookupPhone),
+      staleTime: 60 * 1000,
+      retry: false,
+    }
+  );
+
+  // 選択日の予約済みスロット
   const selectedDateStr = formData.firstChoiceDate
-    ? `${formData.firstChoiceDate.getFullYear()}-${String(formData.firstChoiceDate.getMonth() + 1).padStart(2, "0")}-${String(formData.firstChoiceDate.getDate()).padStart(2, "0")}`
+    ? `${formData.firstChoiceDate.getUTCFullYear()}-${String(formData.firstChoiceDate.getUTCMonth() + 1).padStart(2, "0")}-${String(formData.firstChoiceDate.getUTCDate()).padStart(2, "0")}`
     : "";
 
   const { data: bookedSlotsData, isLoading: bookedSlotsLoading } = trpc.reservations.getBookedSlots.useQuery(
     { date: selectedDateStr },
     {
       enabled: !!selectedDateStr,
-      refetchInterval: 30 * 1000, // 30秒ごとに自動更新
-      refetchIntervalInBackground: false, // タブがアクティブな時のみ更新
-      staleTime: 20 * 1000, // 20秒間はキャッシュを使用
+      refetchInterval: 30 * 1000,
+      refetchIntervalInBackground: false,
+      staleTime: 20 * 1000,
     }
   );
 
@@ -255,25 +282,54 @@ export default function ReservationForm() {
     });
   };
 
-  // 受付締切チェック（cutoffHours時間前を過ぎたスロットは選択不可）
+  // 受付締切チェック
   const isSlotPastCutoff = (date: Date, slotValue: string): boolean => {
     if (!date) return false;
     const [sh, sm] = slotValue.split(":").map(Number);
-    const slotDateTime = new Date(date);
-    slotDateTime.setHours(sh, sm, 0, 0);
+    const slotDateTime = new Date(Date.UTC(
+      date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), sh - 9, sm, 0, 0
+    ));
     const now = new Date();
     const cutoffMs = cutoffHours * 60 * 60 * 1000;
     return slotDateTime.getTime() - now.getTime() < cutoffMs;
   };
 
-  const getWeekDays = (start: Date): Date[] =>
-    Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      return d;
-    });
+  // 月カレンダーの日付グリッド生成（先頭の空白を含む）
+  const getMonthDays = (year: number, month: number): (Date | null)[] => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const startDow = firstDay.getDay();
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startDow; i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      days.push(new Date(year, month - 1, d));
+    }
+    return days;
+  };
 
-  // 日本の祝日かどうか判定
+  // 空き状況インジケーター（DBの予約数から算出）
+  const getAvailability = (dateStr: string): "open" | "limited" | "full" | null => {
+    if (!monthlyAvailability) return null;
+    const count = monthlyAvailability[dateStr] ?? 0;
+    if (count >= 10) return "full";
+    if (count >= 4) return "limited";
+    return "open";
+  };
+
+  // 既存顧客情報を自動入力
+  const handleApplyExistingCustomer = () => {
+    if (!existingCustomer) return;
+    setFormData((prev) => ({
+      ...prev,
+      customerName: existingCustomer.fullName,
+      customerEmail: existingCustomer.email || prev.customerEmail,
+    }));
+    setFieldErrors((prev) => ({ ...prev, customerName: "", customerEmail: "" }));
+    setDismissedLookup(true);
+    toast.success("お客様情報を自動入力しました");
+  };
+
+  // 日本の祝日判定
   const isJapaneseHoliday = (date: Date): { isHoliday: boolean; name: string } => {
     const isHoliday = HolidayJp.isHoliday(date);
     if (!isHoliday) return { isHoliday: false, name: "" };
@@ -282,7 +338,7 @@ export default function ReservationForm() {
     return { isHoliday: true, name };
   };
 
-  // 定休日・臨時休業日・祝日かどうか判定
+  // 定休日・臨時休業日・祝日判定
   const isClosedDay = (date: Date): boolean => {
     if (closedDays.includes(date.getDay())) return true;
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -291,7 +347,6 @@ export default function ReservationForm() {
   };
 
   const isOutOfAdvanceRange = (date: Date): boolean => {
-    // today は render 時に定義されるため、内部で再計算
     const _today = new Date();
     _today.setHours(0, 0, 0, 0);
     const maxDate = new Date(_today);
@@ -300,9 +355,26 @@ export default function ReservationForm() {
     return date > maxDate;
   };
 
+  // 前月・次月ナビ制御
+  const canGoPrevMonth = (): boolean => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    return calMonth.year > currentYear || (calMonth.year === currentYear && calMonth.month > currentMonth);
+  };
+
+  const canGoNextMonth = (): boolean => {
+    const nextYear = calMonth.month === 12 ? calMonth.year + 1 : calMonth.year;
+    const nextMonth = calMonth.month === 12 ? 1 : calMonth.month + 1;
+    const firstOfNext = new Date(nextYear, nextMonth - 1, 1);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const maxDate = new Date(now);
+    maxDate.setDate(now.getDate() + bookingAdvanceDays - 1);
+    return firstOfNext <= maxDate;
+  };
+
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
-  // 期間外日付クリック時のLINE案内ステート
-  const [showOutOfRangeLine, setShowOutOfRangeLine] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -387,6 +459,10 @@ export default function ReservationForm() {
       setFormData((prev) => ({ ...prev, customerPhone: normalized }));
     }
     validateField("customerPhone", normalized);
+    if (isValidPhone(normalized)) {
+      setPhoneLookupPhone(normalized);
+      setDismissedLookup(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -443,7 +519,19 @@ export default function ReservationForm() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const weekDays = getWeekDays(weekStart);
+  const monthDays = getMonthDays(calMonth.year, calMonth.month);
+
+  // 選択日の表示用文字列（UTC日付を使用）
+  const selectedDateDisplay = formData.firstChoiceDate
+    ? (() => {
+        const d = formData.firstChoiceDate;
+        const y = d.getUTCFullYear();
+        const mo = d.getUTCMonth() + 1;
+        const da = d.getUTCDate();
+        const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getUTCDay()];
+        return `${mo}月${da}日(${dow})`;
+      })()
+    : "";
 
   return (
     <div className="min-h-screen bg-white">
@@ -468,103 +556,84 @@ export default function ReservationForm() {
         <section id="section-datetime">
           <SectionLabel number="01" title="ご希望日時" required />
 
-          {/* 週ナビゲーション */}
-          <div className="flex items-center justify-between mb-4">
+          {/* 月ナビゲーション */}
+          <div className="flex items-center justify-between mb-3">
             <button
               type="button"
               onClick={() => {
-                const prev = new Date(weekStart);
-                prev.setDate(weekStart.getDate() - 7);
-                // 今日より前に戻れないように制限
-                const minStart = new Date(today);
-                if (prev >= minStart) setWeekStart(prev);
-                else setWeekStart(minStart);
+                setCalMonth((prev) => {
+                  if (prev.month === 1) return { year: prev.year - 1, month: 12 };
+                  return { year: prev.year, month: prev.month - 1 };
+                });
               }}
-              disabled={weekStart.toDateString() === today.toDateString()}
+              disabled={!canGoPrevMonth()}
               className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="前の週"
+              aria-label="前の月"
             >
               <ChevronLeft className="w-5 h-5 text-gray-900" />
             </button>
-            <span className="text-xs font-bold tracking-widest text-gray-500">
-              {weekStart.getFullYear()}.{String(weekStart.getMonth() + 1).padStart(2, "0")}
+            <span className="text-sm font-black tracking-widest text-gray-800">
+              {calMonth.year}年{calMonth.month}月
             </span>
             <button
               type="button"
               onClick={() => {
-                const next = new Date(weekStart);
-                next.setDate(weekStart.getDate() + 7);
-                // 次の週の開始日が予約可能期間内の場合のみ進む
-                const _today2 = new Date();
-                _today2.setHours(0, 0, 0, 0);
-                const maxDate2 = new Date(_today2);
-                maxDate2.setDate(_today2.getDate() + bookingAdvanceDays - 1);
-                if (next <= maxDate2) setWeekStart(next);
+                setCalMonth((prev) => {
+                  if (prev.month === 12) return { year: prev.year + 1, month: 1 };
+                  return { year: prev.year, month: prev.month + 1 };
+                });
               }}
-              disabled={(() => {
-                const next = new Date(weekStart);
-                next.setDate(weekStart.getDate() + 7);
-                const _today3 = new Date();
-                _today3.setHours(0, 0, 0, 0);
-                const maxDate3 = new Date(_today3);
-                maxDate3.setDate(_today3.getDate() + bookingAdvanceDays - 1);
-                return next > maxDate3;
-              })()}
+              disabled={!canGoNextMonth()}
               className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="次の週"
+              aria-label="次の月"
             >
               <ChevronRight className="w-5 h-5 text-gray-900" />
             </button>
           </div>
 
-          {/* 日付ボタン列 */}
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((date, i) => {
-              const dow = date.getDay();
-              const label = DAY_LABELS[dow];
-              return (
-                <div key={i} className={cn(
-                  "text-center text-[10px] font-bold tracking-wider pb-2",
-                  dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-gray-400"
-                )}>
-                  {label}
-                </div>
-              );
-            })}
-            {weekDays.map((date) => {
+          {/* 曜日ヘッダー */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAY_LABELS.map((label, i) => (
+              <div key={label} className={cn(
+                "text-center text-[10px] font-bold py-1.5",
+                i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
+              )}>
+                {label}
+              </div>
+            ))}
+          </div>
+
+          {/* 月カレンダーグリッド */}
+          <div className="grid grid-cols-7 gap-px bg-gray-100 border border-gray-100 rounded-sm">
+            {monthDays.map((date, i) => {
+              if (!date) {
+                return <div key={`empty-${i}`} className="bg-white aspect-square" />;
+              }
+
               const isPast = date < today;
               const isClosed = isClosedDay(date);
               const isOutOfRange = isOutOfAdvanceRange(date);
-              const isSelected = formData.firstChoiceDate?.toDateString() === date.toDateString();
-              const isToday = date.toDateString() === today.toDateString();
-              const dayOfWeek = date.getDay();
-              const isSun = dayOfWeek === 0;
-              const isSat = dayOfWeek === 6;
               const holidayInfo = isJapaneseHoliday(date);
-              const isHolidayClosed = holidayInfo.isHoliday;
+              const isSelected = formData.firstChoiceDate
+                ? (formData.firstChoiceDate.getUTCFullYear() === date.getFullYear() &&
+                   formData.firstChoiceDate.getUTCMonth() === date.getMonth() &&
+                   formData.firstChoiceDate.getUTCDate() === date.getDate())
+                : false;
+              const isToday = date.toDateString() === today.toDateString();
+              const dow = date.getDay();
+              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+              const availability = (!isPast && !isClosed && !isOutOfRange) ? getAvailability(dateStr) : null;
               const isDisabled = isPast || isClosed;
               const isOutOfRangeClickable = isOutOfRange && !isPast && !isClosed;
+
               return (
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isDisabled && !isOutOfRangeClickable && !isHolidayClosed}
+                  disabled={isDisabled && !isOutOfRangeClickable}
                   onClick={() => {
-                    if (isHolidayClosed) {
-                      toast.error(`${holidayInfo.name}のため休業日です`, {
-                        description: (
-                          <a
-                            href={siteConfig.lineUrlPublic}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[#06C755] font-bold underline underline-offset-2 mt-1"
-                          >
-                            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.03 2 11c0 3.07 1.6 5.8 4.1 7.57V22l3.4-1.87c.81.22 1.66.34 2.5.34 5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
-                            LINEでお問い合わせはこちら
-                          </a>
-                        ) as unknown as string,
-                        duration: 5000,
-                      });
+                    if (holidayInfo.isHoliday) {
+                      toast.error(`${holidayInfo.name}のため休業日です`);
                       return;
                     }
                     if (isOutOfRangeClickable) {
@@ -572,12 +641,8 @@ export default function ReservationForm() {
                       return;
                     }
                     setShowOutOfRangeLine(false);
-                    // JSTの日付をUTC正午に固定してDBに保存（タイムゾーンずれ防止）
                     const utcNoon = new Date(Date.UTC(
-                      date.getFullYear(),
-                      date.getMonth(),
-                      date.getDate(),
-                      12, 0, 0, 0
+                      date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0
                     ));
                     setFormData((prev) => ({
                       ...prev,
@@ -586,32 +651,51 @@ export default function ReservationForm() {
                     }));
                   }}
                   className={cn(
-                    "aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all select-none",
+                    "relative aspect-square flex flex-col items-center justify-center bg-white transition-all select-none",
                     "active:scale-90 touch-manipulation",
                     isDisabled && !isOutOfRangeClickable && "opacity-20 cursor-not-allowed",
                     isOutOfRangeClickable && "opacity-40 cursor-pointer hover:opacity-60",
-                    isSelected && "bg-black text-white",
-                    !isSelected && !isDisabled && "hover:bg-gray-100",
-                    !isSelected && isToday && "ring-1 ring-black ring-inset",
+                    isSelected && "bg-black",
+                    !isSelected && !isDisabled && !isOutOfRangeClickable && "hover:bg-gray-50",
+                    isToday && !isSelected && "ring-1 ring-inset ring-black",
                   )}
                 >
                   <span className={cn(
-                    "text-base leading-none",
-                    isSelected ? "text-white" : (isSun || holidayInfo.isHoliday) ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-900"
+                    "text-sm font-bold leading-none",
+                    isSelected ? "text-white"
+                      : (dow === 0 || holidayInfo.isHoliday) ? "text-red-500"
+                      : dow === 6 ? "text-blue-500"
+                      : "text-gray-900"
                   )}>
                     {date.getDate()}
                   </span>
-                  {holidayInfo.isHoliday && !isSelected && (
-                    <span className="text-[8px] leading-none text-red-400 mt-0.5 block truncate max-w-full px-0.5" title={holidayInfo.name}>
-                      祝
+                  {/* 空き状況インジケーター */}
+                  {availability && !isSelected && (
+                    <span className={cn(
+                      "text-[9px] font-bold leading-none mt-0.5",
+                      availability === "open" && "text-green-500",
+                      availability === "limited" && "text-orange-400",
+                      availability === "full" && "text-gray-300",
+                    )}>
+                      {availability === "open" ? "○" : availability === "limited" ? "△" : "×"}
                     </span>
-                  )}
-                  {isToday && !isSelected && !holidayInfo.isHoliday && (
-                    <span className="w-1 h-1 rounded-full bg-black mt-1 block" />
                   )}
                 </button>
               );
             })}
+          </div>
+
+          {/* 凡例 */}
+          <div className="flex items-center gap-5 mt-2 px-1">
+            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+              <span className="text-green-500 font-bold text-xs">○</span>空きあり
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+              <span className="text-orange-400 font-bold text-xs">△</span>残りわずか
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+              <span className="text-gray-300 font-bold text-xs">×</span>満席
+            </span>
           </div>
 
           {/* 期間外日付クリック時のLINE案内 */}
@@ -622,9 +706,7 @@ export default function ReservationForm() {
               rel="noopener noreferrer"
               className="mt-3 flex items-center gap-3 bg-[#06C755] px-4 py-3 w-full transition-opacity active:opacity-80 touch-manipulation"
             >
-              <svg className="w-5 h-5 text-white flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-              </svg>
+              <LineIcon />
               <div className="flex-1">
                 <p className="text-white text-xs font-black leading-tight">その日のご予約は、LINEよりお問い合わせください</p>
                 <p className="text-white/80 text-[10px] mt-0.5">タップしてLINEを開く</p>
@@ -636,7 +718,7 @@ export default function ReservationForm() {
           {formData.firstChoiceDate ? (
             <div className="mt-6">
               <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-4">
-                {formData.firstChoiceDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} の時間を選択
+                {selectedDateDisplay} の時間を選択
               </p>
               {bookedSlotsLoading ? (
                 <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
@@ -800,19 +882,53 @@ export default function ReservationForm() {
             />
 
             {/* 電話番号 */}
-            <MinimalInput
-              id="phone"
-              label="電話番号"
-              required
-              type="tel"
-              inputMode="numeric"
-              value={formData.customerPhone}
-              onChange={(v) => handleInputChange("customerPhone", v)}
-              onBlur={handlePhoneBlur}
-              error={fieldErrors.customerPhone}
-              hint="ハイフン不要・全角でも自動変換（例：09012345678）"
-              autoComplete="tel"
-            />
+            <div>
+              <MinimalInput
+                id="phone"
+                label="電話番号"
+                required
+                type="tel"
+                inputMode="numeric"
+                value={formData.customerPhone}
+                onChange={(v) => handleInputChange("customerPhone", v)}
+                onBlur={handlePhoneBlur}
+                error={fieldErrors.customerPhone}
+                hint="ハイフン不要・全角でも自動変換（例：09012345678）"
+                autoComplete="tel"
+              />
+
+              {/* 既存顧客の自動認識バナー */}
+              {isLookingUp && isValidPhone(phoneLookupPhone) && (
+                <div className="mt-2 flex items-center gap-2 text-gray-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-[10px] tracking-wider">顧客情報を確認中...</span>
+                </div>
+              )}
+              {existingCustomer && !dismissedLookup && phoneLookupPhone && (
+                <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-black text-blue-900">{existingCustomer.fullName}様ですか？</p>
+                    <p className="text-[10px] text-blue-500 mt-0.5">タップでお名前・メールを自動入力します</p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleApplyExistingCustomer}
+                      className="text-[11px] font-black text-white bg-blue-600 px-3 py-1.5 active:opacity-80 touch-manipulation"
+                    >
+                      はい
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDismissedLookup(true)}
+                      className="text-[11px] text-blue-400 px-2 py-1.5 touch-manipulation"
+                    >
+                      別の方
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* メールアドレス */}
             <MinimalInput
@@ -861,9 +977,7 @@ export default function ReservationForm() {
             <div className="bg-gray-50 p-5 space-y-3">
               <div className="flex justify-between items-baseline">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Date</span>
-                <span className="text-sm font-bold text-gray-900">
-                  {formData.firstChoiceDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
-                </span>
+                <span className="text-sm font-bold text-gray-900">{selectedDateDisplay}</span>
               </div>
               <div className="flex justify-between items-baseline">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
