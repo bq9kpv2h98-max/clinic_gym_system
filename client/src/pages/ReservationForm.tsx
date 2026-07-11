@@ -212,11 +212,13 @@ export default function ReservationForm() {
     notes: "",
   });
 
-  // カレンダー表示月
-  const [calMonth, setCalMonth] = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
+  // 週開始日（今日から始まる7日間）
+  const getTodayStart = (): Date => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  const [weekStart, setWeekStart] = useState(() => getTodayStart());
 
   // 期間外日付クリック時のLINE案内
   const [showOutOfRangeLine, setShowOutOfRangeLine] = useState(false);
@@ -236,11 +238,22 @@ export default function ReservationForm() {
   const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];
   const bookingAdvanceDays: number = (settingsData as any)?.bookingAdvanceDays ?? 7;
 
-  // 月間空き状況取得
-  const { data: monthlyAvailability } = trpc.reservations.getMonthlyAvailability.useQuery(
-    { year: calMonth.year, month: calMonth.month },
+  // 週の月間空き状況取得（週が月をまたぐ場合は翌月も取得）
+  const weekStartMonth = { year: weekStart.getFullYear(), month: weekStart.getMonth() + 1 };
+  const weekEndDate = new Date(weekStart);
+  weekEndDate.setDate(weekStart.getDate() + 6);
+  const weekEndMonth = { year: weekEndDate.getFullYear(), month: weekEndDate.getMonth() + 1 };
+  const spansMonths = weekStartMonth.month !== weekEndMonth.month || weekStartMonth.year !== weekEndMonth.year;
+
+  const { data: availabilityMonth1 } = trpc.reservations.getMonthlyAvailability.useQuery(
+    weekStartMonth,
     { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
+  const { data: availabilityMonth2 } = trpc.reservations.getMonthlyAvailability.useQuery(
+    weekEndMonth,
+    { enabled: spansMonths, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+  );
+  const monthlyAvailability = { ...availabilityMonth1, ...(spansMonths ? availabilityMonth2 : {}) };
 
   // 既存顧客検索（電話番号でblur後に実行）
   const { data: existingCustomer, isLoading: isLookingUp } = trpc.reservations.lookupByPhone.useQuery(
@@ -294,22 +307,17 @@ export default function ReservationForm() {
     return slotDateTime.getTime() - now.getTime() < cutoffMs;
   };
 
-  // 月カレンダーの日付グリッド生成（先頭の空白を含む）
-  const getMonthDays = (year: number, month: number): (Date | null)[] => {
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0);
-    const startDow = firstDay.getDay();
-    const days: (Date | null)[] = [];
-    for (let i = 0; i < startDow; i++) days.push(null);
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-      days.push(new Date(year, month - 1, d));
-    }
-    return days;
-  };
+  // 週の7日を生成
+  const getWeekDays = (start: Date): Date[] =>
+    Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
 
   // 空き状況インジケーター（DBの予約数から算出）
   const getAvailability = (dateStr: string): "open" | "limited" | "full" | null => {
-    if (!monthlyAvailability) return null;
+    if (!availabilityMonth1 && !availabilityMonth2) return null;
     const count = monthlyAvailability[dateStr] ?? 0;
     if (count >= 10) return "full";
     if (count >= 4) return "limited";
@@ -353,25 +361,6 @@ export default function ReservationForm() {
     maxDate.setDate(_today.getDate() + bookingAdvanceDays - 1);
     maxDate.setHours(23, 59, 59, 999);
     return date > maxDate;
-  };
-
-  // 前月・次月ナビ制御
-  const canGoPrevMonth = (): boolean => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    return calMonth.year > currentYear || (calMonth.year === currentYear && calMonth.month > currentMonth);
-  };
-
-  const canGoNextMonth = (): boolean => {
-    const nextYear = calMonth.month === 12 ? calMonth.year + 1 : calMonth.year;
-    const nextMonth = calMonth.month === 12 ? 1 : calMonth.month + 1;
-    const firstOfNext = new Date(nextYear, nextMonth - 1, 1);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const maxDate = new Date(now);
-    maxDate.setDate(now.getDate() + bookingAdvanceDays - 1);
-    return firstOfNext <= maxDate;
   };
 
   const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -519,7 +508,7 @@ export default function ReservationForm() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const monthDays = getMonthDays(calMonth.year, calMonth.month);
+  const weekDays = getWeekDays(weekStart);
 
   // 選択日の表示用文字列（UTC日付を使用）
   const selectedDateDisplay = formData.firstChoiceDate
@@ -556,60 +545,62 @@ export default function ReservationForm() {
         <section id="section-datetime">
           <SectionLabel number="01" title="ご希望日時" required />
 
-          {/* 月ナビゲーション */}
-          <div className="flex items-center justify-between mb-3">
+          {/* 週ナビゲーション */}
+          <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={() => {
-                setCalMonth((prev) => {
-                  if (prev.month === 1) return { year: prev.year - 1, month: 12 };
-                  return { year: prev.year, month: prev.month - 1 };
-                });
+                const prev = new Date(weekStart);
+                prev.setDate(weekStart.getDate() - 7);
+                if (prev >= today) setWeekStart(prev);
+                else setWeekStart(new Date(today));
               }}
-              disabled={!canGoPrevMonth()}
+              disabled={weekStart.toDateString() === today.toDateString()}
               className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="前の月"
+              aria-label="前の週"
             >
               <ChevronLeft className="w-5 h-5 text-gray-900" />
             </button>
-            <span className="text-sm font-black tracking-widest text-gray-800">
-              {calMonth.year}年{calMonth.month}月
+            <span className="text-xs font-bold tracking-widest text-gray-500">
+              {weekStart.getFullYear()}.{String(weekStart.getMonth() + 1).padStart(2, "0")}
             </span>
             <button
               type="button"
               onClick={() => {
-                setCalMonth((prev) => {
-                  if (prev.month === 12) return { year: prev.year + 1, month: 1 };
-                  return { year: prev.year, month: prev.month + 1 };
-                });
+                const next = new Date(weekStart);
+                next.setDate(weekStart.getDate() + 7);
+                const maxDate = new Date(today);
+                maxDate.setDate(today.getDate() + bookingAdvanceDays - 1);
+                if (next <= maxDate) setWeekStart(next);
               }}
-              disabled={!canGoNextMonth()}
+              disabled={(() => {
+                const next = new Date(weekStart);
+                next.setDate(weekStart.getDate() + 7);
+                const maxDate = new Date(today);
+                maxDate.setDate(today.getDate() + bookingAdvanceDays - 1);
+                return next > maxDate;
+              })()}
               className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="次の月"
+              aria-label="次の週"
             >
               <ChevronRight className="w-5 h-5 text-gray-900" />
             </button>
           </div>
 
-          {/* 曜日ヘッダー */}
-          <div className="grid grid-cols-7 mb-1">
-            {DAY_LABELS.map((label, i) => (
-              <div key={label} className={cn(
-                "text-center text-[10px] font-bold py-1.5",
-                i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
-              )}>
-                {label}
-              </div>
-            ))}
-          </div>
-
-          {/* 月カレンダーグリッド */}
-          <div className="grid grid-cols-7 gap-px bg-gray-100 border border-gray-100 rounded-sm">
-            {monthDays.map((date, i) => {
-              if (!date) {
-                return <div key={`empty-${i}`} className="bg-white aspect-square" />;
-              }
-
+          {/* 日付ボタン列（曜日ラベル） */}
+          <div className="grid grid-cols-7 gap-1">
+            {weekDays.map((date, i) => {
+              const dow = date.getDay();
+              return (
+                <div key={i} className={cn(
+                  "text-center text-[10px] font-bold tracking-wider pb-2",
+                  dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-gray-400"
+                )}>
+                  {DAY_LABELS[dow]}
+                </div>
+              );
+            })}
+            {weekDays.map((date) => {
               const isPast = date < today;
               const isClosed = isClosedDay(date);
               const isOutOfRange = isOutOfAdvanceRange(date);
@@ -630,10 +621,18 @@ export default function ReservationForm() {
                 <button
                   key={date.toISOString()}
                   type="button"
-                  disabled={isDisabled && !isOutOfRangeClickable}
+                  disabled={isDisabled && !isOutOfRangeClickable && !holidayInfo.isHoliday}
                   onClick={() => {
                     if (holidayInfo.isHoliday) {
-                      toast.error(`${holidayInfo.name}のため休業日です`);
+                      toast.error(`${holidayInfo.name}のため休業日です`, {
+                        description: (
+                          <a href={siteConfig.lineUrlPublic} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[#06C755] font-bold underline underline-offset-2 mt-1">
+                            LINEでお問い合わせはこちら
+                          </a>
+                        ) as unknown as string,
+                        duration: 5000,
+                      });
                       return;
                     }
                     if (isOutOfRangeClickable) {
@@ -651,17 +650,17 @@ export default function ReservationForm() {
                     }));
                   }}
                   className={cn(
-                    "relative aspect-square flex flex-col items-center justify-center bg-white transition-all select-none",
+                    "aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all select-none",
                     "active:scale-90 touch-manipulation",
                     isDisabled && !isOutOfRangeClickable && "opacity-20 cursor-not-allowed",
                     isOutOfRangeClickable && "opacity-40 cursor-pointer hover:opacity-60",
-                    isSelected && "bg-black",
-                    !isSelected && !isDisabled && !isOutOfRangeClickable && "hover:bg-gray-50",
-                    isToday && !isSelected && "ring-1 ring-inset ring-black",
+                    isSelected && "bg-black text-white",
+                    !isSelected && !isDisabled && "hover:bg-gray-100",
+                    !isSelected && isToday && "ring-1 ring-black ring-inset",
                   )}
                 >
                   <span className={cn(
-                    "text-sm font-bold leading-none",
+                    "text-base leading-none",
                     isSelected ? "text-white"
                       : (dow === 0 || holidayInfo.isHoliday) ? "text-red-500"
                       : dow === 6 ? "text-blue-500"
@@ -679,6 +678,14 @@ export default function ReservationForm() {
                     )}>
                       {availability === "open" ? "○" : availability === "limited" ? "△" : "×"}
                     </span>
+                  )}
+                  {holidayInfo.isHoliday && !isSelected && (
+                    <span className="text-[8px] leading-none text-red-400 mt-0.5 block truncate max-w-full px-0.5">
+                      祝
+                    </span>
+                  )}
+                  {isToday && !isSelected && !holidayInfo.isHoliday && !availability && (
+                    <span className="w-1 h-1 rounded-full bg-black mt-1 block" />
                   )}
                 </button>
               );
