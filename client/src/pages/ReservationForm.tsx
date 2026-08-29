@@ -8,15 +8,20 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// 30分刻時間枠を生成（10:00〜19:30、各スロットは1.5時間単位）
+// Reformer’s Atelier: Notion正本の空き枠を、静かな30分刻みで提示する。
+// 30分刻時間枠を生成（10:00〜21:00、新規予約は90分）
 function generateTimeSlots(): Array<{ value: string; label: string; endTime: string }> {
   const slots = [];
-  for (let h = 10; h <= 19; h++) {
+  const [openHour, openMinute] = siteConfig.openTime.split(":").map(Number);
+  const [closeHour, closeMinute] = siteConfig.closeTime.split(":").map(Number);
+  const closeMinutes = closeHour * 60 + closeMinute;
+  for (let h = openHour; h <= closeHour; h++) {
     for (let m = 0; m < 60; m += 30) {
-      if (h === 19 && m > 30) break;
+      if (h === openHour && m < openMinute) continue;
       const startH = String(h).padStart(2, "0");
       const startM = String(m).padStart(2, "0");
-      const endMinutes = h * 60 + m + 90;
+      const endMinutes = h * 60 + m + siteConfig.appointmentDurationMinutes;
+      if (endMinutes > closeMinutes) continue;
       const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
       const endM = String(endMinutes % 60).padStart(2, "0");
       const value = `${startH}:${startM}`;
@@ -285,7 +290,7 @@ export default function ReservationForm() {
     if (!bookedSlotsData?.slots) return false;
     const [sh, sm] = slotValue.split(":").map(Number);
     const slotStart = sh * 60 + sm;
-    const slotEnd = slotStart + 90;
+    const slotEnd = slotStart + siteConfig.appointmentDurationMinutes;
     return bookedSlotsData.slots.some((booked) => {
       const [bsh, bsm] = booked.start.split(":").map(Number);
       const [beh, bem] = booked.end.split(":").map(Number);
@@ -315,7 +320,7 @@ export default function ReservationForm() {
       return d;
     });
 
-  // 空き状況インジケーター（DBの予約数から算出）
+  // 空き状況インジケーター（Notionカレンダーの予約・予定から算出）
   const getAvailability = (dateStr: string): "open" | "limited" | "full" | null => {
     if (!availabilityMonth1 && !availabilityMonth2) return null;
     const count = monthlyAvailability[dateStr] ?? 0;
@@ -534,8 +539,8 @@ export default function ReservationForm() {
           予約フォーム
         </h1>
         <p className="text-xs text-gray-400 mt-3 leading-relaxed">
-          フォームにご入力の上、お申し込みください。<br />
-          担当者より確認のご連絡をさしあげます。
+          Notionカレンダーの空き枠を表示しています。<br />
+          お申し込み後、担当者より確認のご連絡をさしあげます。
         </p>
       </header>
 

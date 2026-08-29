@@ -58,7 +58,7 @@ export const siteConfig = {
   // ─────────────────────────────────────────────
   /** 予約フォームのメニュー一覧 */
   reservationMenus: [
-    { value: "initial", label: "初回体験（60分）" },
+    { value: "initial", label: "初回体験（90分）" },
     { value: "regular", label: "通常施術（60分）" },
     { value: "gym", label: "パーソナルトレーニング（60分）" },
     { value: "combo", label: "整骨院＋ジムセット（90分）" },
@@ -72,7 +72,7 @@ export const siteConfig = {
   /** 営業開始時刻（HH:MM形式） */
   openTime: "10:00",
   /** 営業終了時刻（HH:MM形式） */
-  closeTime: "20:00",
+  closeTime: "21:00",
   /** 予約スロットの間隔（分） */
   slotIntervalMinutes: 30,
   /** 施術時間（分）— カレンダーの終了時刻計算に使用 */

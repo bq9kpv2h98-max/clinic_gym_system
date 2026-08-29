@@ -565,7 +565,10 @@ export const reservations = mysqlTable("reservations", {
   // メモ
   notes: varchar("notes", { length: 1000 }),
   staffNotes: varchar("staffNotes", { length: 1000 }), // スタッフ用メモ
-  
+  // Notion正本の予約ページ。スタッフ操作を同じ予定へ反映するために保持する。
+  notionPageId: varchar("notionPageId", { length: 100 }),
+  notionPageUrl: varchar("notionPageUrl", { length: 512 }),
+
   // タイムスタンプ
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

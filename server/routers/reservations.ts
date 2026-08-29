@@ -7,6 +7,7 @@
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import HolidayJp from "@holiday-jp/holiday_jp";
 import {
   createReservation,
   getReservationById,
@@ -28,9 +29,54 @@ import { storagePut } from "../storage";
 import { eq } from "drizzle-orm";
 import { sendReservationConfirmationEmail, sendReservationConfirmedEmail } from "../_core/email";
 import { saveReservationToSheets } from "../_core/googleSheets";
-import { createNotionReservation, createNotionCustomer, getBookedSlotsForDate, getReservationAnalytics } from "../notion";
+import { getReservationAnalytics } from "../notion";
+import {
+  createNotionCalendarReservation,
+  getNotionBlockedSlotsForDate,
+  getNotionMonthlyAvailability,
+  listNotionCalendarReservations,
+  updateNotionCalendarReservation,
+} from "../notionCalendar";
 import { notifyOwner } from "../_core/notification";
-import { getBookedSlotsFromDB, getMonthlyBookedCounts } from "../db";
+import { siteConfig } from "../../shared/siteConfig";
+
+function formatJstDate(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function getJstReservationWindow(date: Date, timeSlot: string): { startAt: Date; endAt: Date } {
+  const match = timeSlot.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) throw new Error("予約時間の形式が正しくありません");
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (minutes % siteConfig.slotIntervalMinutes !== 0) {
+    throw new Error(`${siteConfig.slotIntervalMinutes}分刻みの時間を選択してください。`);
+  }
+  const jstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  if (siteConfig.closedDays.includes(jstDate.getUTCDay()) || HolidayJp.isHoliday(jstDate)) {
+    throw new Error("日曜・祝日は休業日のため予約できません。");
+  }
+  const startAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hours - 9, minutes, 0));
+  const endAt = new Date(startAt.getTime() + siteConfig.appointmentDurationMinutes * 60 * 1000);
+  const [openHour, openMinute] = siteConfig.openTime.split(":").map(Number);
+  const [closeHour, closeMinute] = siteConfig.closeTime.split(":").map(Number);
+  const selectedStart = hours * 60 + minutes;
+  const selectedEnd = selectedStart + siteConfig.appointmentDurationMinutes;
+  const opening = openHour * 60 + openMinute;
+  const closing = closeHour * 60 + closeMinute;
+  if (selectedStart < opening || selectedEnd > closing) {
+    throw new Error(`営業時間（${siteConfig.openTime}〜${siteConfig.closeTime}）内で選択してください。`);
+  }
+  return { startAt, endAt };
+}
+
+async function ensureNotionSlotIsAvailable(date: Date, timeSlot: string): Promise<{ startAt: Date; endAt: Date }> {
+  const window = getJstReservationWindow(date, timeSlot);
+  const blockedSlots = await getNotionBlockedSlotsForDate(formatJstDate(date));
+  const overlaps = blockedSlots.some((slot) => window.startAt < slot.endAt && window.endAt > slot.startAt);
+  if (overlaps) throw new Error("選択された時間帯はすでに埋まっています。別の時間を選択してください。");
+  return window;
+}
 
 export const reservationsRouter = router({
   /**
@@ -63,6 +109,14 @@ export const reservationsRouter = router({
     )
     .mutation(async ({ input }) => {
       const reservationId = nanoid();
+      const reservationWindow = await ensureNotionSlotIsAvailable(input.firstChoiceDate, input.firstChoiceTimeDetail || input.firstChoiceTimeSlot);
+      const notionReservation = await createNotionCalendarReservation({
+        customerName: input.customerName,
+        serviceType: "整体",
+        startAt: reservationWindow.startAt,
+        endAt: reservationWindow.endAt,
+        notes: input.notes,
+      });
 
       // 電話番号で既存顧客をチェック
       let customerId: string | undefined;
@@ -148,6 +202,8 @@ export const reservationsRouter = router({
         thirdChoiceTimeSlot: input.thirdChoiceTimeSlot || null,
         notes: input.notes || null,
         status: "pending",
+        notionPageId: notionReservation.pageId,
+        notionPageUrl: notionReservation.pageUrl,
       });
 
       // 確認メールを送信
@@ -178,53 +234,6 @@ export const reservationsRouter = router({
           }
         }
       }
-
-      // Notion予約履歴に同期（バックグラウンドで非同期実行・エラーがあってもシステムは続行）
-      void (async () => {
-        try {
-          const db = await getDb();
-          if (db) {
-            const customerData = await db
-              .select()
-              .from(customers)
-              .where(eq(customers.customerId, customerId))
-              .limit(1);
-            
-            if (customerData.length > 0) {
-              const customer = customerData[0];
-              
-              if (!customer.notionPageUrl) {
-                const notionCustomer = await createNotionCustomer({
-                  customerId: customer.customerId,
-                  fullName: customer.fullName,
-                  phone: customer.phone,
-                  email: customer.email || undefined,
-                });
-                
-                if (notionCustomer) {
-                  await db.update(customers)
-                    .set({
-                      notionPageUrl: notionCustomer.url,
-                      notionPageId: notionCustomer.pageId,
-                    })
-                    .where(eq(customers.customerId, customerId));
-                }
-              }
-              
-              await createNotionReservation({
-                customerName: input.customerName,
-                serviceType: "整体",
-                status: "pending",
-                reservationDateTime: input.firstChoiceDate,
-                timeSlot: input.firstChoiceTimeDetail || input.firstChoiceTimeSlot,
-                notes: input.notes,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Notion sync error (background):", error);
-        }
-      })();
 
       // Google Sheetsに保存（エラーがあってもシステムは続行）
       try {
@@ -343,6 +352,16 @@ export const reservationsRouter = router({
     }),
 
   /**
+   * Notionを正本とするスタッフ用予約一覧。
+   * 手動でNotionカレンダーに加えた予約も同じ一覧へ表示する。
+   */
+  listNotion: protectedProcedure
+    .input(z.object({ startDate: z.date(), endDate: z.date() }))
+    .query(async ({ input }) => {
+      return listNotionCalendarReservations(input.startDate, input.endDate);
+    }),
+
+  /**
    * ステータスで予約一覧を取得（スタッフ用）
    */
   listByStatus: protectedProcedure
@@ -392,7 +411,30 @@ export const reservationsRouter = router({
     )
     .mutation(async ({ input }) => {
       const { reservationId, ...data } = input;
+      const reservation = await getReservationById(reservationId);
+      if (!reservation) throw new Error("予約が見つかりません");
+      if (reservation.notionPageId) {
+        await updateNotionCalendarReservation(reservation.notionPageId, {
+          status: data.status,
+          staffNotes: data.staffNotes,
+        });
+      }
       await updateReservation(reservationId, data);
+      return { success: true };
+    }),
+
+  /** Notion予約履歴の状態とスタッフメモを直接更新する。 */
+  updateNotion: protectedProcedure
+    .input(z.object({
+      pageId: z.string(),
+      status: z.enum(["pending", "confirmed", "completed", "cancelled", "no_show"]).optional(),
+      staffNotes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await updateNotionCalendarReservation(input.pageId, {
+        status: input.status,
+        staffNotes: input.staffNotes,
+      });
       return { success: true };
     }),
 
@@ -407,12 +449,16 @@ export const reservationsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const reservation = await getReservationById(input.reservationId);
+      if (!reservation) throw new Error("予約が見つかりません");
+      if (reservation.notionPageId) {
+        await updateNotionCalendarReservation(reservation.notionPageId, { status: input.status });
+      }
       await updateReservationStatus(input.reservationId, input.status);
 
       // 確定時に顧客へ確定通知メールを送信
       if (input.status === "confirmed") {
         try {
-          const reservation = await getReservationById(input.reservationId);
           if (reservation && reservation.customerEmail) {
             // 確定日時が設定されている場合はそれを使用、なければ第1希望を使用
             const confirmedDate = reservation.confirmedDate ?? reservation.firstChoiceDate;
@@ -457,6 +503,9 @@ export const reservationsRouter = router({
         throw new Error("電話番号が一致しません");
       }
 
+      if (reservation.notionPageId) {
+        await updateNotionCalendarReservation(reservation.notionPageId, { status: "cancelled" });
+      }
       await updateReservationStatus(input.reservationId, "cancelled");
       return { success: true };
     }),
@@ -478,8 +527,7 @@ export const reservationsRouter = router({
   getBookedSlots: publicProcedure
     .input(z.object({ date: z.string() })) // YYYY-MM-DD
     .query(async ({ input }) => {
-      // DBのみから取得（高速・全件対応）
-      const dbSlots = await getBookedSlotsFromDB(input.date);
+      const notionSlots = await getNotionBlockedSlotsForDate(input.date);
       // JST時刻のHH:MM形式に変換（フロントエンドの形式に合わせる）
       const toJstHHMM = (d: Date): string => {
         const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
@@ -487,13 +535,13 @@ export const reservationsRouter = router({
         const m = jst.getUTCMinutes().toString().padStart(2, '0');
         return `${h}:${m}`;
       };
-      const slots = dbSlots.map(s => ({
+      const slots = notionSlots.map(s => ({
         start: toJstHHMM(s.startAt),
-        end: s.endAt ? toJstHHMM(s.endAt) : toJstHHMM(new Date(s.startAt.getTime() + 90 * 60 * 1000)),
+        end: toJstHHMM(s.endAt),
         status: 'booked',
-        serviceType: '',
+        serviceType: s.source,
       }));
-      return { slots, source: 'db' as const };
+      return { slots, source: 'notion' as const };
     }),
 
   /**
@@ -519,8 +567,7 @@ export const reservationsRouter = router({
       month: z.number().int().min(1).max(12),
     }))
     .query(async ({ input }) => {
-      const counts = await getMonthlyBookedCounts(input.year, input.month);
-      return counts;
+      return getNotionMonthlyAvailability(input.year, input.month);
     }),
 
   /**

@@ -1,13 +1,11 @@
-import { useState } from "react";
+// Reformer’s Atelier: Notion正本の予定を、落ち着いたカルテのように確認・更新するスタッフ画面。
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { siteConfig } from "../../../shared/siteConfig";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -25,668 +24,267 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Calendar, Clock, User, Phone, Mail, FileText,
-  CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight,
-  LayoutList, CalendarDays,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  ExternalLink,
+  FileText,
+  RefreshCw,
+  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type ReservationStatus = "pending" | "confirmed" | "completed" | "cancelled" | "no_show";
+type ReservationStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
-const STATUS_CONFIG: Record<ReservationStatus, {
-  label: string;
-  variant: "default" | "secondary" | "destructive" | "outline";
-  icon: any;
-  color: string;
-}> = {
-  pending:   { label: "保留中",       variant: "outline",     icon: AlertCircle,  color: "bg-yellow-100 border-yellow-300 text-yellow-800" },
-  confirmed: { label: "確定",         variant: "default",     icon: CheckCircle2, color: "bg-green-100 border-green-300 text-green-800" },
-  completed: { label: "完了",         variant: "secondary",   icon: CheckCircle2, color: "bg-gray-100 border-gray-300 text-gray-600" },
-  cancelled: { label: "キャンセル",   variant: "destructive", icon: XCircle,      color: "bg-red-100 border-red-300 text-red-700" },
-  no_show:   { label: "無断キャンセル", variant: "destructive", icon: XCircle,    color: "bg-red-100 border-red-300 text-red-700" },
+type NotionReservation = {
+  pageId: string;
+  pageUrl: string;
+  customerName: string;
+  serviceType: string | null;
+  status: ReservationStatus;
+  startAt: Date;
+  endAt: Date;
+  notes: string;
+  staffNotes: string;
 };
 
-const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+const STATUS_CONFIG: Record<ReservationStatus, { label: string; className: string }> = {
+  pending: { label: "予約リクエスト", className: "border-amber-200 bg-amber-50 text-amber-800" },
+  confirmed: { label: "確定", className: "border-sky-200 bg-sky-50 text-sky-800" },
+  completed: { label: "完了", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+  cancelled: { label: "キャンセル", className: "border-rose-200 bg-rose-50 text-rose-800" },
+};
 
-// 週の月曜日を取得
-function getMondayOf(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
+const DAYS = ["月", "火", "水", "木", "金", "土", "日"];
+
+function mondayOf(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  const day = value.getDay();
+  value.setDate(value.getDate() - (day === 0 ? 6 : day - 1));
+  return value;
+}
+
+function isSameDayInJst(left: Date, right: Date) {
+  const offset = 9 * 60 * 60 * 1000;
+  const a = new Date(left.getTime() + offset);
+  const b = new Date(right.getTime() + offset);
+  return a.getUTCFullYear() === b.getUTCFullYear()
+    && a.getUTCMonth() === b.getUTCMonth()
+    && a.getUTCDate() === b.getUTCDate();
+}
+
+function timeInJst(value: Date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
+function dateInJst(value: Date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(value));
 }
 
 export default function ReservationManagement() {
-  const [selectedStatus, setSelectedStatus] = useState<ReservationStatus | "all">("all");
-  const [selectedReservation, setSelectedReservation] = useState<any>(null);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [staffNotes, setStaffNotes] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "week">("list");
-  const { loading: isAuthLoading, isAuthenticated } = useAuth({
-    redirectOnUnauthenticated: true,
-  });
-  const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
+  const { loading: isAuthLoading, isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  const [selectedReservation, setSelectedReservation] = useState<NotionReservation | null>(null);
+  const [draftStatus, setDraftStatus] = useState<ReservationStatus>("pending");
+  const [draftStaffNotes, setDraftStaffNotes] = useState("");
 
-  const facilityId = siteConfig.facilityId;
+  const weekEnd = useMemo(() => {
+    const value = new Date(weekStart);
+    value.setDate(value.getDate() + 7);
+    return value;
+  }, [weekStart]);
 
-  // 予約一覧（リストビュー用）
-  const { data: reservations, isLoading, refetch } = trpc.reservations.listByFacility.useQuery(
-    { facilityId },
-    { enabled: isAuthenticated }
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => {
+      const value = new Date(weekStart);
+      value.setDate(value.getDate() + index);
+      return value;
+    }),
+    [weekStart]
   );
 
-  // 週カレンダー用：週の日付範囲
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-
-  const { data: weekReservations, refetch: refetchWeek } = trpc.reservations.listByDateRange.useQuery(
-    { facilityId, startDate: weekStart, endDate: weekEnd },
-    { enabled: isAuthenticated && viewMode === "week" }
+  const { data: reservations, isLoading, error, refetch, isFetching } = trpc.reservations.listNotion.useQuery(
+    { startDate: weekStart, endDate: weekEnd },
+    { enabled: isAuthenticated, staleTime: 30 * 1000, refetchOnWindowFocus: true }
   );
 
-  // 予約更新
-  const updateMutation = trpc.reservations.update.useMutation({
+  const updateMutation = trpc.reservations.updateNotion.useMutation({
     onSuccess: () => {
-      toast.success("予約を更新しました");
-      refetch();
-      refetchWeek();
-      setIsDetailDialogOpen(false);
+      toast.success("Notionカレンダーを更新しました");
+      setSelectedReservation(null);
+      void refetch();
     },
-    onError: (error) => toast.error(`エラー: ${error.message}`),
+    onError: (mutationError) => toast.error(`Notionの更新に失敗しました: ${mutationError.message}`),
   });
 
-  // 予約ステータス更新
-  const updateStatusMutation = trpc.reservations.updateStatus.useMutation({
-    onSuccess: (_data, variables) => {
-      if (variables.status === "confirmed") {
-        toast.success("予約を確定しました。顧客へ確定通知メールを送信しました。");
-      } else {
-        toast.success("ステータスを更新しました");
-      }
-      refetch();
-      refetchWeek();
-      setIsDetailDialogOpen(false);
-    },
-    onError: (error) => toast.error(`エラー: ${error.message}`),
-  });
-
-  // 予約削除
-  const deleteMutation = trpc.reservations.delete.useMutation({
-    onSuccess: () => {
-      toast.success("予約を削除しました");
-      refetch();
-      refetchWeek();
-      setIsDetailDialogOpen(false);
-    },
-    onError: (error) => toast.error(`エラー: ${error.message}`),
-  });
-
-  // フィルタリング
-  const filteredReservations = reservations?.filter((item) => {
-    if (selectedStatus === "all") return true;
-    return item.reservation.status === selectedStatus;
-  });
-
-  // 日時フォーマット（UTCの年月日をそのまま使用）
-  const formatDateTime = (date: Date | null, timeSlot: string | null) => {
-    if (!date) return "未設定";
-    const d = new Date(date);
-    const year = d.getUTCFullYear();
-    const month = d.getUTCMonth() + 1;
-    const day = d.getUTCDate();
-    const weekday = DAY_LABELS[d.getUTCDay()];
-    const dateStr = `${year}年${month}月${day}日(${weekday})`;
-    if (!timeSlot) return dateStr;
-    const [h, m] = timeSlot.split(":").map(Number);
-    if (!isNaN(h) && !isNaN(m)) {
-      const totalMin = h * 60 + m + siteConfig.appointmentDurationMinutes;
-      const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
-      const endM = String(totalMin % 60).padStart(2, "0");
-      return `${dateStr} ${timeSlot}～${endH}:${endM}`;
-    }
-    return `${dateStr} ${timeSlot}`;
-  };
-
-  const openDetail = (reservation: any) => {
+  const openReservation = (reservation: NotionReservation) => {
     setSelectedReservation(reservation);
-    setStaffNotes(reservation.reservation.staffNotes || "");
-    setIsDetailDialogOpen(true);
+    setDraftStatus(reservation.status);
+    setDraftStaffNotes(reservation.staffNotes ?? "");
   };
 
-  const handleStatusUpdate = (reservationId: string, status: ReservationStatus) => {
-    updateStatusMutation.mutate({ reservationId, status });
-  };
-
-  const handleSaveStaffNotes = () => {
+  const saveReservation = () => {
     if (!selectedReservation) return;
     updateMutation.mutate({
-      reservationId: selectedReservation.reservation.reservationId,
-      staffNotes: staffNotes.trim(),
+      pageId: selectedReservation.pageId,
+      status: draftStatus,
+      staffNotes: draftStaffNotes,
     });
   };
 
-  const handleDelete = (reservationId: string) => {
-    if (confirm("この予約を削除してもよろしいですか？")) {
-      deleteMutation.mutate({ reservationId });
-    }
-  };
-
-  // 週カレンダー用：指定日の予約を取得（UTCの日付で比較）
-  const getReservationsForDay = (date: Date) => {
-    if (!weekReservations) return [];
-    return weekReservations
-      .filter((r) => {
-        if (!r.firstChoiceDate) return false;
-        const d = new Date(r.firstChoiceDate);
-        return (
-          d.getUTCFullYear() === date.getFullYear() &&
-          d.getUTCMonth() === date.getMonth() &&
-          d.getUTCDate() === date.getDate()
-        );
-      })
-      .sort((a, b) => {
-        const ta = a.firstChoiceTimeSlot || "";
-        const tb = b.firstChoiceTimeSlot || "";
-        return ta.localeCompare(tb);
-      });
-  };
-
-  // 週の7日配列
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return d;
-  });
-
-  const todayStr = new Date().toDateString();
-
   if (isAuthLoading || !isAuthenticated) {
-    return (
-      <div className="container py-8">
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          ログイン状態を確認中...
-        </div>
-      </div>
-    );
+    return <div className="container py-16 text-center text-muted-foreground">ログイン状態を確認中です…</div>;
   }
 
-  if (isLoading && viewMode === "list") {
+  if (error) {
     return (
-      <div className="container py-8">
-        <div className="flex items-center justify-center h-64 text-muted-foreground">読み込み中...</div>
+      <div className="container py-10">
+        <Card className="max-w-2xl border-rose-200">
+          <CardHeader><CardTitle>Notionカレンダーを取得できませんでした</CardTitle></CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>Notionの接続設定またはデータソースの共有状態を確認してから、もう一度読み込んでください。</p>
+            <Button onClick={() => void refetch()}><RefreshCw className="mr-2 h-4 w-4" />再読み込み</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="container py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">予約管理</h1>
-        <p className="text-muted-foreground">予約の確認・管理を行います</p>
+    <div className="container py-8 md:py-10">
+      <div className="mb-8 flex flex-col gap-5 border-b border-border pb-7 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground">NOTION CALENDAR · STAFF VIEW</p>
+          <h1 className="text-3xl font-bold tracking-tight">予約管理</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Notionカレンダーを正本として表示しています。Web予約とNotionで追加した予定を同じ週の中で確認できます。
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />更新
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href="https://app.notion.com/p/2c7fc32c8e8e81a0b588e4fd6e93cb16" target="_blank" rel="noreferrer">
+              Notionを開く<ExternalLink className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </div>
       </div>
 
-      {/* ビュー切り替え */}
-      <div className="flex items-center gap-2 mb-6">
-        <button
-          onClick={() => setViewMode("list")}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm font-medium border transition-colors",
-            viewMode === "list"
-              ? "bg-black text-white border-black"
-              : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-          )}
-        >
-          <LayoutList className="w-4 h-4" />
-          リスト
-        </button>
-        <button
-          onClick={() => setViewMode("week")}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm font-medium border transition-colors",
-            viewMode === "week"
-              ? "bg-black text-white border-black"
-              : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-          )}
-        >
-          <CalendarDays className="w-4 h-4" />
-          週カレンダー
-        </button>
-      </div>
-
-      {/* ===== リストビュー ===== */}
-      {viewMode === "list" && (
-        <>
-          <Tabs value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as ReservationStatus | "all")} className="mb-6">
-            <TabsList>
-              <TabsTrigger value="all">すべて ({reservations?.length || 0})</TabsTrigger>
-              <TabsTrigger value="pending">
-                保留中 ({reservations?.filter(r => r.reservation.status === "pending").length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="confirmed">
-                確定 ({reservations?.filter(r => r.reservation.status === "confirmed").length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="completed">
-                完了 ({reservations?.filter(r => r.reservation.status === "completed").length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="cancelled">
-                キャンセル ({reservations?.filter(r => r.reservation.status === "cancelled").length || 0})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {filteredReservations && filteredReservations.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredReservations.map((item) => {
-                const { reservation, customer } = item;
-                const StatusIcon = STATUS_CONFIG[reservation.status as ReservationStatus].icon;
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b bg-muted/25 py-4">
+          <div className="flex items-center gap-3">
+            <CalendarDays className="h-5 w-5" />
+            <CardTitle className="text-base">週別カレンダー</CardTitle>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" aria-label="前の週" onClick={() => setWeekStart((value) => new Date(value.getFullYear(), value.getMonth(), value.getDate() - 7))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-32 text-center text-sm font-semibold">
+              {weekStart.getFullYear()}年{weekStart.getMonth() + 1}月
+            </span>
+            <Button variant="ghost" size="icon" aria-label="次の週" onClick={() => setWeekStart((value) => new Date(value.getFullYear(), value.getMonth(), value.getDate() + 7))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="py-20 text-center text-sm text-muted-foreground">Notionカレンダーを読み込んでいます…</div>
+          ) : (
+            <div className="grid min-w-[840px] grid-cols-7 overflow-x-auto">
+              {weekDays.map((day, index) => {
+                const events = (reservations ?? []).filter((reservation) => isSameDayInJst(new Date(reservation.startAt), day));
+                const isClosed = day.getDay() === 0;
+                const isToday = isSameDayInJst(new Date(), day);
                 return (
-                  <Card
-                    key={reservation.reservationId}
-                    className="hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => openDetail(item)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CardTitle className="text-lg">{reservation.customerName}</CardTitle>
-                            <Badge variant={STATUS_CONFIG[reservation.status as ReservationStatus].variant}>
-                              <StatusIcon className="w-3 h-3 mr-1" />
-                              {STATUS_CONFIG[reservation.status as ReservationStatus].label}
-                            </Badge>
-                          </div>
-                          <CardDescription className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <Phone className="w-4 h-4" />
-                              {reservation.customerPhone}
-                            </div>
-                            {reservation.customerEmail && (
-                              <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4" />
-                                {reservation.customerEmail}
-                              </div>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <div className="text-right text-sm text-muted-foreground">
-                          <div>予約ID: {reservation.reservationId.slice(0, 8)}</div>
-                          <div>登録: {new Date(reservation.createdAt).toLocaleDateString("ja-JP")}</div>
-                        </div>
+                  <div key={day.toISOString()} className={cn("min-h-[420px] border-r border-border p-3 last:border-r-0", isClosed && "bg-muted/30", isToday && "bg-sky-50/45")}>
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{DAYS[index]}</p>
+                        <p className={cn("text-lg font-semibold", isToday && "text-sky-700")}>{day.getDate()}</p>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <Calendar className="w-4 h-4 mt-1 text-muted-foreground" />
-                          <div className="flex-1">
-                            <div className="font-medium">第1希望</div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatDateTime(reservation.firstChoiceDate, reservation.firstChoiceTimeSlot)}
-                            </div>
-                          </div>
-                        </div>
-                        {reservation.secondChoiceDate && (
-                          <div className="flex items-start gap-2">
-                            <Calendar className="w-4 h-4 mt-1 text-muted-foreground" />
-                            <div className="flex-1">
-                              <div className="font-medium">第2希望</div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatDateTime(reservation.secondChoiceDate, reservation.secondChoiceTimeSlot)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {reservation.confirmedDate && (
-                          <div className="flex items-start gap-2 p-2 bg-green-50 rounded">
-                            <CheckCircle2 className="w-4 h-4 mt-1 text-green-600" />
-                            <div className="flex-1">
-                              <div className="font-medium text-green-900">確定日時</div>
-                              <div className="text-sm text-green-700">
-                                {formatDateTime(reservation.confirmedDate, reservation.confirmedTimeSlot)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ワンクリック操作ボタン */}
-                        {reservation.status === "pending" && (
-                          <div
-                            className="flex gap-2 pt-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7"
-                              onClick={() => handleStatusUpdate(reservation.reservationId, "confirmed")}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              確定する
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-7"
-                              onClick={() => handleStatusUpdate(reservation.reservationId, "cancelled")}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              キャンセル
-                            </Button>
-                          </div>
-                        )}
-                        {reservation.status === "confirmed" && (
-                          <div
-                            className="flex gap-2 pt-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7"
-                              onClick={() => handleStatusUpdate(reservation.reservationId, "completed")}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              完了にする
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-7"
-                              onClick={() => handleStatusUpdate(reservation.reservationId, "no_show")}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              無断キャンセル
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      {isClosed && <span className="text-[10px] font-medium text-muted-foreground">定休</span>}
+                    </div>
+                    <div className="space-y-2">
+                      {events.map((reservation) => (
+                        <button
+                          type="button"
+                          key={reservation.pageId}
+                          onClick={() => openReservation(reservation)}
+                          className="w-full border border-border bg-background p-2 text-left transition hover:border-foreground/40 hover:shadow-sm"
+                        >
+                          <p className="flex items-center gap-1 text-xs font-semibold"><Clock3 className="h-3 w-3" />{timeInJst(new Date(reservation.startAt))}–{timeInJst(new Date(reservation.endAt))}</p>
+                          <p className="mt-1 truncate text-sm font-semibold">{reservation.customerName}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{reservation.serviceType ?? "予定"}</p>
+                          <Badge variant="outline" className={cn("mt-2 text-[10px]", STATUS_CONFIG[reservation.status].className)}>{STATUS_CONFIG[reservation.status].label}</Badge>
+                        </button>
+                      ))}
+                      {events.length === 0 && <p className="pt-5 text-center text-xs text-muted-foreground">予定なし</p>}
+                    </div>
+                  </div>
                 );
               })}
             </div>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                予約がありません
-              </CardContent>
-            </Card>
           )}
-        </>
-      )}
+        </CardContent>
+      </Card>
 
-      {/* ===== 週カレンダービュー ===== */}
-      {viewMode === "week" && (
-        <div>
-          {/* 週ナビゲーション */}
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => {
-                const prev = new Date(weekStart);
-                prev.setDate(weekStart.getDate() - 7);
-                setWeekStart(prev);
-              }}
-              className="w-8 h-8 flex items-center justify-center border border-gray-200 hover:bg-gray-50 transition-colors"
-              aria-label="前の週"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-sm font-bold text-gray-700">
-              {weekStart.getFullYear()}年{weekStart.getMonth() + 1}月{weekStart.getDate()}日
-              〜
-              {weekEnd.getMonth() + 1}月{weekEnd.getDate()}日
-            </span>
-            <button
-              onClick={() => {
-                const next = new Date(weekStart);
-                next.setDate(weekStart.getDate() + 7);
-                setWeekStart(next);
-              }}
-              className="w-8 h-8 flex items-center justify-center border border-gray-200 hover:bg-gray-50 transition-colors"
-              aria-label="次の週"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setWeekStart(getMondayOf(new Date()))}
-              className="text-xs px-3 py-1.5 border border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              今週
-            </button>
-          </div>
-
-          {/* カレンダーグリッド */}
-          <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-sm overflow-hidden">
-            {/* 曜日ヘッダー */}
-            {weekDays.map((date, i) => {
-              const isToday = date.toDateString() === todayStr;
-              const dow = date.getDay();
-              return (
-                <div
-                  key={`header-${i}`}
-                  className={cn(
-                    "bg-white px-2 py-2 text-center",
-                    isToday && "bg-black text-white"
-                  )}
-                >
-                  <div className={cn(
-                    "text-[10px] font-bold",
-                    !isToday && (dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-gray-400")
-                  )}>
-                    {DAY_LABELS[dow]}
-                  </div>
-                  <div className={cn(
-                    "text-base font-black leading-none mt-0.5",
-                    !isToday && "text-gray-800"
-                  )}>
-                    {date.getDate()}
-                  </div>
-                  <div className={cn("text-[9px] mt-0.5", !isToday && "text-gray-400")}>
-                    {date.getMonth() + 1}/{date.getDate()}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* 予約カラム */}
-            {weekDays.map((date, i) => {
-              const dayReservations = getReservationsForDay(date);
-              const isToday = date.toDateString() === todayStr;
-              return (
-                <div
-                  key={`col-${i}`}
-                  className={cn(
-                    "bg-white min-h-[160px] p-1.5 space-y-1",
-                    isToday && "bg-blue-50/30"
-                  )}
-                >
-                  {dayReservations.length === 0 && (
-                    <div className="text-center text-[10px] text-gray-300 pt-4">—</div>
-                  )}
-                  {dayReservations.map((r) => {
-                    const status = r.status as ReservationStatus;
-                    const cfg = STATUS_CONFIG[status];
-                    return (
-                      <button
-                        key={r.reservationId}
-                        type="button"
-                        onClick={() => openDetail({ reservation: r, customer: null })}
-                        className={cn(
-                          "w-full text-left px-1.5 py-1 border rounded-sm text-[10px] leading-tight transition-opacity hover:opacity-80 active:opacity-60",
-                          cfg.color
-                        )}
-                      >
-                        <div className="font-bold truncate">{r.customerName}</div>
-                        {r.firstChoiceTimeSlot && (
-                          <div className="opacity-70 mt-0.5">{r.firstChoiceTimeSlot}〜</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 凡例 */}
-          <div className="flex items-center gap-4 mt-3 px-1">
-            {(Object.entries(STATUS_CONFIG) as [ReservationStatus, typeof STATUS_CONFIG[ReservationStatus]][]).map(([key, cfg]) => (
-              <span key={key} className={cn("flex items-center gap-1 text-[10px] px-1.5 py-0.5 border rounded-sm", cfg.color)}>
-                {cfg.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ===== 予約詳細ダイアログ ===== */}
       {selectedReservation && (
-        <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <Dialog open={Boolean(selectedReservation)} onOpenChange={(open) => !open && setSelectedReservation(null)}>
+          <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>予約詳細</DialogTitle>
-              <DialogDescription>
-                予約ID: {selectedReservation.reservation.reservationId}
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><UserRound className="h-5 w-5" />予約詳細</DialogTitle>
+              <DialogDescription>Notionカレンダーの予定を直接更新します。</DialogDescription>
             </DialogHeader>
-
             <div className="space-y-6">
-              {/* 顧客情報 */}
-              <div>
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  顧客情報
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">お名前</span>
-                    <span className="font-medium">{selectedReservation.reservation.customerName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">電話番号</span>
-                    <span className="font-medium">{selectedReservation.reservation.customerPhone}</span>
-                  </div>
-                  {selectedReservation.reservation.customerEmail && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">メールアドレス</span>
-                      <span className="font-medium">{selectedReservation.reservation.customerEmail}</span>
-                    </div>
-                  )}
-                  {selectedReservation.customer && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">顧客ID</span>
-                      <span className="font-mono text-xs">{selectedReservation.customer.customerId}</span>
-                    </div>
-                  )}
-                </div>
+              <div className="grid gap-3 rounded-md bg-muted/45 p-4 text-sm">
+                <div className="flex justify-between gap-5"><span className="text-muted-foreground">お名前</span><span className="font-medium">{selectedReservation.customerName}</span></div>
+                <div className="flex justify-between gap-5"><span className="text-muted-foreground">日時</span><span className="text-right font-medium">{dateInJst(new Date(selectedReservation.startAt))} {timeInJst(new Date(selectedReservation.startAt))}–{timeInJst(new Date(selectedReservation.endAt))}</span></div>
+                <div className="flex justify-between gap-5"><span className="text-muted-foreground">メニュー</span><span className="font-medium">{selectedReservation.serviceType ?? "未設定"}</span></div>
               </div>
-
-              {/* 予約日時 */}
-              <div>
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  予約日時
-                </h3>
-                <div className="space-y-3">
-                  <div className="p-3 bg-muted rounded">
-                    <div className="font-medium mb-1">第1希望</div>
-                    <div className="text-sm">
-                      {formatDateTime(selectedReservation.reservation.firstChoiceDate, selectedReservation.reservation.firstChoiceTimeSlot)}
-                    </div>
-                  </div>
-                  {selectedReservation.reservation.secondChoiceDate && (
-                    <div className="p-3 bg-muted rounded">
-                      <div className="font-medium mb-1">第2希望</div>
-                      <div className="text-sm">
-                        {formatDateTime(selectedReservation.reservation.secondChoiceDate, selectedReservation.reservation.secondChoiceTimeSlot)}
-                      </div>
-                    </div>
-                  )}
-                  {selectedReservation.reservation.thirdChoiceDate && (
-                    <div className="p-3 bg-muted rounded">
-                      <div className="font-medium mb-1">第3希望</div>
-                      <div className="text-sm">
-                        {formatDateTime(selectedReservation.reservation.thirdChoiceDate, selectedReservation.reservation.thirdChoiceTimeSlot)}
-                      </div>
-                    </div>
-                  )}
-                  {selectedReservation.reservation.confirmedDate && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded">
-                      <div className="font-medium mb-1 text-green-900">確定日時</div>
-                      <div className="text-sm text-green-700">
-                        {formatDateTime(selectedReservation.reservation.confirmedDate, selectedReservation.reservation.confirmedTimeSlot)}
-                      </div>
-                    </div>
-                  )}
+              {selectedReservation.notes && (
+                <div>
+                  <Label className="mb-2 flex items-center gap-2"><FileText className="h-4 w-4" />お客様メモ</Label>
+                  <p className="rounded-md border bg-muted/25 p-3 text-sm leading-6">{selectedReservation.notes}</p>
                 </div>
-              </div>
-
-              {/* ステータス */}
+              )}
               <div>
-                <Label>ステータス</Label>
-                <Select
-                  value={selectedReservation.reservation.status}
-                  onValueChange={(value) => handleStatusUpdate(selectedReservation.reservation.reservationId, value as ReservationStatus)}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label htmlFor="reservationStatus">予約状態</Label>
+                <Select value={draftStatus} onValueChange={(value) => setDraftStatus(value as ReservationStatus)}>
+                  <SelectTrigger id="reservationStatus" className="mt-2"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">保留中</SelectItem>
+                    <SelectItem value="pending">予約リクエスト</SelectItem>
                     <SelectItem value="confirmed">確定</SelectItem>
                     <SelectItem value="completed">完了</SelectItem>
                     <SelectItem value="cancelled">キャンセル</SelectItem>
-                    <SelectItem value="no_show">無断キャンセル</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* メモ */}
-              {selectedReservation.reservation.notes && (
-                <div>
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    顧客メモ
-                  </h3>
-                  <div className="p-3 bg-muted rounded text-sm">
-                    {selectedReservation.reservation.notes}
-                  </div>
-                </div>
-              )}
-
-              {/* スタッフメモ */}
               <div>
                 <Label htmlFor="staffNotes">スタッフメモ</Label>
-                <Textarea
-                  id="staffNotes"
-                  value={staffNotes}
-                  onChange={(event) => setStaffNotes(event.target.value)}
-                  placeholder="スタッフ用のメモを入力..."
-                  className="mt-2"
-                  rows={3}
-                />
+                <Textarea id="staffNotes" className="mt-2" value={draftStaffNotes} onChange={(event) => setDraftStaffNotes(event.target.value)} placeholder="Notionに保存するスタッフ用メモ" rows={4} />
               </div>
             </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                variant="destructive"
-                onClick={() => handleDelete(selectedReservation.reservation.reservationId)}
-              >
-                削除
-              </Button>
-              <Button
-                onClick={handleSaveStaffNotes}
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending ? "保存中..." : "メモを保存"}
-              </Button>
-              <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
-                閉じる
-              </Button>
+            <DialogFooter className="gap-2 sm:justify-between">
+              <Button variant="outline" asChild><a href={selectedReservation.pageUrl} target="_blank" rel="noreferrer">Notionで開く<ExternalLink className="ml-2 h-4 w-4" /></a></Button>
+              <Button onClick={saveReservation} disabled={updateMutation.isPending}>{updateMutation.isPending ? "保存中…" : "Notionへ保存"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
