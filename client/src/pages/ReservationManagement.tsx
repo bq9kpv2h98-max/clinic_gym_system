@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { siteConfig } from "../../../shared/siteConfig";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,15 +63,20 @@ export default function ReservationManagement() {
   const [selectedStatus, setSelectedStatus] = useState<ReservationStatus | "all">("all");
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [staffNotes, setStaffNotes] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "week">("list");
+  const { loading: isAuthLoading, isAuthenticated } = useAuth({
+    redirectOnUnauthenticated: true,
+  });
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
 
   const facilityId = siteConfig.facilityId;
 
   // 予約一覧（リストビュー用）
-  const { data: reservations, isLoading, refetch } = trpc.reservations.listByFacility.useQuery({
-    facilityId,
-  });
+  const { data: reservations, isLoading, refetch } = trpc.reservations.listByFacility.useQuery(
+    { facilityId },
+    { enabled: isAuthenticated }
+  );
 
   // 週カレンダー用：週の日付範囲
   const weekEnd = new Date(weekStart);
@@ -79,7 +85,7 @@ export default function ReservationManagement() {
 
   const { data: weekReservations, refetch: refetchWeek } = trpc.reservations.listByDateRange.useQuery(
     { facilityId, startDate: weekStart, endDate: weekEnd },
-    { enabled: viewMode === "week" }
+    { enabled: isAuthenticated && viewMode === "week" }
   );
 
   // 予約更新
@@ -137,7 +143,7 @@ export default function ReservationManagement() {
     if (!timeSlot) return dateStr;
     const [h, m] = timeSlot.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) {
-      const totalMin = h * 60 + m + 90;
+      const totalMin = h * 60 + m + siteConfig.appointmentDurationMinutes;
       const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
       const endM = String(totalMin % 60).padStart(2, "0");
       return `${dateStr} ${timeSlot}～${endH}:${endM}`;
@@ -147,11 +153,20 @@ export default function ReservationManagement() {
 
   const openDetail = (reservation: any) => {
     setSelectedReservation(reservation);
+    setStaffNotes(reservation.reservation.staffNotes || "");
     setIsDetailDialogOpen(true);
   };
 
   const handleStatusUpdate = (reservationId: string, status: ReservationStatus) => {
     updateStatusMutation.mutate({ reservationId, status });
+  };
+
+  const handleSaveStaffNotes = () => {
+    if (!selectedReservation) return;
+    updateMutation.mutate({
+      reservationId: selectedReservation.reservation.reservationId,
+      staffNotes: staffNotes.trim(),
+    });
   };
 
   const handleDelete = (reservationId: string) => {
@@ -188,6 +203,16 @@ export default function ReservationManagement() {
   });
 
   const todayStr = new Date().toDateString();
+
+  if (isAuthLoading || !isAuthenticated) {
+    return (
+      <div className="container py-8">
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          ログイン状態を確認中...
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading && viewMode === "list") {
     return (
@@ -637,7 +662,8 @@ export default function ReservationManagement() {
                 <Label htmlFor="staffNotes">スタッフメモ</Label>
                 <Textarea
                   id="staffNotes"
-                  defaultValue={selectedReservation.reservation.staffNotes || ""}
+                  value={staffNotes}
+                  onChange={(event) => setStaffNotes(event.target.value)}
                   placeholder="スタッフ用のメモを入力..."
                   className="mt-2"
                   rows={3}
@@ -651,6 +677,12 @@ export default function ReservationManagement() {
                 onClick={() => handleDelete(selectedReservation.reservation.reservationId)}
               >
                 削除
+              </Button>
+              <Button
+                onClick={handleSaveStaffNotes}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? "保存中..." : "メモを保存"}
               </Button>
               <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
                 閉じる

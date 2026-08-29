@@ -122,6 +122,14 @@ const css = `
     background:var(--card);border:1.5px solid var(--navy);
     border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;
   }
+  #ulu-price .reservation-cta-wrap{max-width:520px;margin:0 auto;padding:0 18px 8px}
+  #ulu-price .reservation-cta{
+    display:block;background:var(--accent);color:#fff;text-decoration:none;text-align:center;
+    border-radius:999px;padding:15px 20px;font-size:16px;font-weight:700;letter-spacing:.04em;
+    box-shadow:0 4px 12px rgba(201,150,46,.28);transition:transform .2s,box-shadow .2s;
+  }
+  #ulu-price .reservation-cta:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(201,150,46,.34)}
+  #ulu-price .reservation-cta-note{text-align:center;font-size:12px;font-weight:700;margin-top:7px;color:#666}
 #ulu-price .up-footer{
     background:var(--navy);color:#fff;text-align:center;
     padding:30px 20px;margin-top:60px;font-size:13px;line-height:2;
@@ -172,6 +180,11 @@ const html = `
   <a href="#point">ポイント</a>
   <a href="#monthly">月額プラン</a>
   <a href="#student">学割</a>
+</div>
+
+<div class="reservation-cta-wrap">
+  <a class="reservation-cta" href="/reservation">初回体験・ご予約はこちら</a>
+  <p class="reservation-cta-note">Web予約は24時間受け付けています</p>
 </div>
 
 <div class="wrap">
@@ -332,6 +345,7 @@ const html = `
     </div>
     <div class="cta-band">ほとんどの方は <span class="gold">月4回</span> からスタートしています</div>
     <p class="cta-sub">月1回(60分)¥10,400/月もあり</p>
+    <p style="text-align:center;margin-top:18px"><a class="reservation-cta" href="/reservation">メニューを相談して予約する</a></p>
   </div>
 
   <div class="up-section" id="student">
