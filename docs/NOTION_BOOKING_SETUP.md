@@ -50,7 +50,9 @@ pnpm db:push
 | URL | 利用者 | 用途 |
 |---|---|---|
 | `/reservation` | 顧客 | Notionカレンダーの空き枠を確認して予約を送信 |
-| `/reservations` | スタッフ | Notionカレンダーの週表示、予約状態・スタッフメモの更新、Notionへの直接移動 |
+| `/reservations` | スタッフ | Notionカレンダーの週表示、予約状態・スタッフメモの更新、Notionへの直接移動。現在は一時的にログイン不要です。 |
+
+> **運用上の注意:** 現在の`/reservations`は、画面確認を優先してログインを不要にしています。このURLを一般公開すると、URLを知る第三者も予約情報の閲覧・変更をできる状態になります。本番公開前には、`listNotion`と`updateNotion`を`protectedProcedure`へ戻し、画面側の`useAuth({ redirectOnUnauthenticated: true })`を再有効化してください。
 
 ## 検証手順
 

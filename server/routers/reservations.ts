@@ -356,7 +356,7 @@ export const reservationsRouter = router({
    * Notionを正本とするスタッフ用予約一覧。
    * 手動でNotionカレンダーに加えた予約も同じ一覧へ表示する。
    */
-  listNotion: protectedProcedure
+  listNotion: publicProcedure
     .input(z.object({ startDate: z.date(), endDate: z.date() }))
     .query(async ({ input }) => {
       return listNotionCalendarReservations(input.startDate, input.endDate);
@@ -425,7 +425,7 @@ export const reservationsRouter = router({
     }),
 
   /** Notion予約履歴の状態とスタッフメモを直接更新する。 */
-  updateNotion: protectedProcedure
+  updateNotion: publicProcedure
     .input(z.object({
       pageId: z.string(),
       status: z.enum(["pending", "confirmed", "completed", "cancelled", "no_show"]).optional(),

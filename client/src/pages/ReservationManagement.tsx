@@ -1,7 +1,6 @@
 // Reformer’s Atelier: Notion正本の予定を、落ち着いたカルテのように確認・更新するスタッフ画面。
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { siteConfig } from "../../../shared/siteConfig";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,7 +95,6 @@ function dateInJst(value: Date) {
 }
 
 export default function ReservationManagement() {
-  const { loading: isAuthLoading, isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [selectedReservation, setSelectedReservation] = useState<NotionReservation | null>(null);
   const [draftStatus, setDraftStatus] = useState<ReservationStatus>("pending");
@@ -119,7 +117,7 @@ export default function ReservationManagement() {
 
   const { data: reservations, isLoading, error, refetch, isFetching } = trpc.reservations.listNotion.useQuery(
     { startDate: weekStart, endDate: weekEnd },
-    { enabled: isAuthenticated, staleTime: 30 * 1000, refetchOnWindowFocus: true }
+    { staleTime: 30 * 1000, refetchOnWindowFocus: true }
   );
 
   const updateMutation = trpc.reservations.updateNotion.useMutation({
@@ -146,10 +144,6 @@ export default function ReservationManagement() {
     });
   };
 
-  if (isAuthLoading || !isAuthenticated) {
-    return <div className="container py-16 text-center text-muted-foreground">ログイン状態を確認中です…</div>;
-  }
-
   if (error) {
     return (
       <div className="container py-10">
@@ -173,6 +167,7 @@ export default function ReservationManagement() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Notionカレンダーを正本として表示しています。Web予約とNotionで追加した予定を同じ週の中で確認できます。
           </p>
+          <p className="mt-2 text-xs font-medium text-amber-700">現在は運用確認のため、ログインなしで利用できる設定です。</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
