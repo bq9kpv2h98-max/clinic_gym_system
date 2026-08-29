@@ -105,6 +105,7 @@ export const reservationsRouter = router({
         thirdChoiceDate: z.union([z.date(), z.string().transform(s => new Date(s))]).optional(),
         thirdChoiceTimeSlot: z.string().optional(),
         notes: z.string().optional(),
+        serviceType: z.enum(["整体", "マッサージ", "パーソナルトレーニング", "グループレッスン", "その他"]).default("整体"),
       })
     )
     .mutation(async ({ input }) => {
@@ -112,7 +113,7 @@ export const reservationsRouter = router({
       const reservationWindow = await ensureNotionSlotIsAvailable(input.firstChoiceDate, input.firstChoiceTimeDetail || input.firstChoiceTimeSlot);
       const notionReservation = await createNotionCalendarReservation({
         customerName: input.customerName,
-        serviceType: "整体",
+        serviceType: input.serviceType,
         startAt: reservationWindow.startAt,
         endAt: reservationWindow.endAt,
         notes: input.notes,

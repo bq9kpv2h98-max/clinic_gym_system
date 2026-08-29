@@ -1,1075 +1,243 @@
-import { useState, useRef } from "react";
+// Reformer’s Atelier: 顧客には、Notion正本の予約枠を迷いなく選べる静かな予約体験を提供する。
+import { useMemo, useState } from "react";
+import HolidayJp from "@holiday-jp/holiday_jp";
 import { trpc } from "@/lib/trpc";
 import { siteConfig } from "../../../shared/siteConfig";
-import HolidayJp from "@holiday-jp/holiday_jp";
-import {
-  ChevronLeft, ChevronRight, Loader2, Check,
-} from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Loader2, LockKeyhole, Phone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Reformer’s Atelier: Notion正本の空き枠を、静かな30分刻みで提示する。
-// 30分刻時間枠を生成（10:00〜21:00、新規予約は90分）
-function generateTimeSlots(): Array<{ value: string; label: string; endTime: string }> {
-  const slots = [];
+type MenuValue = (typeof siteConfig.reservationMenus)[number]["value"];
+
+type BookingForm = {
+  menu: MenuValue;
+  date?: Date;
+  time: string;
+  name: string;
+  furigana: string;
+  phone: string;
+  email: string;
+  notes: string;
+  agreed: boolean;
+};
+
+const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+function createUtcDate(year: number, month: number, day: number) {
+  return new Date(Date.UTC(year, month, day));
+}
+
+function todayInJapan() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return createUtcDate(Number(value.year), Number(value.month) - 1, Number(value.day));
+}
+
+function dateKey(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function displayDate(date: Date) {
+  return `${date.getUTCFullYear()}年${date.getUTCMonth() + 1}月${date.getUTCDate()}日（${DAYS[date.getUTCDay()]}）`;
+}
+
+function timeSlots() {
   const [openHour, openMinute] = siteConfig.openTime.split(":").map(Number);
   const [closeHour, closeMinute] = siteConfig.closeTime.split(":").map(Number);
-  const closeMinutes = closeHour * 60 + closeMinute;
-  for (let h = openHour; h <= closeHour; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      if (h === openHour && m < openMinute) continue;
-      const startH = String(h).padStart(2, "0");
-      const startM = String(m).padStart(2, "0");
-      const endMinutes = h * 60 + m + siteConfig.appointmentDurationMinutes;
-      if (endMinutes > closeMinutes) continue;
-      const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
-      const endM = String(endMinutes % 60).padStart(2, "0");
-      const value = `${startH}:${startM}`;
-      const endTime = `${endH}:${endM}`;
-      slots.push({ value, label: `${startH}:${startM}`, endTime });
-    }
+  const opening = openHour * 60 + openMinute;
+  const closing = closeHour * 60 + closeMinute;
+  const slots: Array<{ start: string; end: string }> = [];
+  for (let minutes = opening; minutes + siteConfig.appointmentDurationMinutes <= closing; minutes += siteConfig.slotIntervalMinutes) {
+    const format = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    slots.push({ start: format(minutes), end: format(minutes + siteConfig.appointmentDurationMinutes) });
   }
   return slots;
 }
 
-const ALL_TIME_SLOTS = generateTimeSlots();
+const SLOTS = timeSlots();
 
-// ===== EFOユーティリティ =====
-function normalizePhone(value: string): string {
-  return value
-    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    .replace(/[ー－−]/g, "-")
-    .replace(/[-\s]/g, "");
+function serviceTypeFor(menu: MenuValue): "整体" | "パーソナルトレーニング" {
+  return menu === "gym" || menu === "combo" ? "パーソナルトレーニング" : "整体";
 }
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+function isHolidayOrSunday(date: Date) {
+  return date.getUTCDay() === 0 || HolidayJp.isHoliday(date);
 }
 
-function isValidPhone(phone: string): boolean {
-  return /^\d{10,11}$/.test(phone);
-}
-
-// ===== ミニマルインプット =====
-interface MinimalInputProps {
-  id: string;
-  label: string;
-  required?: boolean;
-  optional?: boolean;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur?: () => void;
-  error?: string;
-  hint?: string;
-  type?: string;
-  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"];
-  autoComplete?: string;
-}
-
-function MinimalInput({
-  id, label, required, optional, value, onChange, onBlur, error, hint, type = "text",
-  inputMode, autoComplete,
-}: MinimalInputProps) {
-  return (
-    <div className="space-y-1">
-      <div
-        className="relative border-b-2 transition-all duration-200"
-        style={{ borderColor: error ? "#ef4444" : "#e5e7eb" }}
-      >
-        <label
-          htmlFor={id}
-          className="absolute left-0 top-0 text-[10px] tracking-widest uppercase font-medium pointer-events-none select-none text-black"
-        >
-          {label}
-          {required && <span className="ml-1.5 text-[9px] font-bold text-red-500 tracking-wider">必須</span>}
-          {optional && <span className="ml-1.5 text-[9px] text-gray-400 tracking-wider">任意</span>}
-        </label>
-        <input
-          id={id}
-          type={type}
-          inputMode={inputMode}
-          autoComplete={autoComplete}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          className="w-full pt-5 pb-2 text-base font-medium text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
-        />
-      </div>
-      {error && <p className="text-xs text-red-500 pt-1">{error}</p>}
-      {!error && hint && <p className="text-[10px] text-gray-400 pt-1">{hint}</p>}
-    </div>
-  );
-}
-
-// ===== セクションヘッダー =====
-function SectionLabel({ number, title, required }: { number: string; title: string; required?: boolean }) {
-  return (
-    <div className="flex items-baseline gap-3 mb-8">
-      <span className="text-[10px] font-black tracking-[0.3em] text-gray-300">{number}</span>
-      <h2 className="text-lg font-black text-gray-900 tracking-tight">{title}</h2>
-      {required && <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">Required</span>}
-    </div>
-  );
-}
-
-// ===== 完了画面 =====
-function CompletionScreen({ name, date, timeSlot }: { name: string; date: Date; timeSlot: string }) {
-  const LINE_URL = siteConfig.lineUrlPublic;
-
-  const formatDate = (d: Date) =>
-    d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
-
-  const generateGoogleCalendarUrl = () => {
-    const startStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${timeSlot.replace(":", "")}00`;
-    const [sh, sm] = timeSlot.split(":").map(Number);
-    const endMinutes = sh * 60 + sm + 90;
-    const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
-    const endM = String(endMinutes % 60).padStart(2, "0");
-    const endStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${endH}${endM}00`;
-    const params = new URLSearchParams({
-      action: "TEMPLATE",
-      text: `${siteConfig.brandName} 予約`,
-      dates: `${startStr}/${endStr}`,
-      details: `${name}様の予約`,
-    });
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
-  };
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="h-1 bg-black w-full" />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-8">
-          <Check className="w-6 h-6 text-white" strokeWidth={3} />
-        </div>
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">Reservation Received</p>
-        <h1 className="text-2xl font-black text-gray-900 mb-8 leading-tight">
-          ご予約を<br />受け付けました
-        </h1>
-        <div className="w-full max-w-xs bg-gray-50 p-6 text-left space-y-3 mb-8">
-          <div className="flex justify-between items-baseline">
-            <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Name</span>
-            <span className="text-sm font-bold text-gray-900">{name}</span>
-          </div>
-          {date && (
-            <div className="flex justify-between items-baseline">
-              <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Date</span>
-              <span className="text-sm font-bold text-gray-900">{formatDate(date)}</span>
-            </div>
-          )}
-          {timeSlot && (
-            <div className="flex justify-between items-baseline">
-              <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
-              <span className="text-sm font-bold text-gray-900">{timeSlot}</span>
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 leading-relaxed mb-10 max-w-xs">
-          担当者より確認のご連絡をいたします。<br />
-          LINEでのご連絡を希望の方は、<br />
-          公式アカウントよりお名前をお送りください。
-        </p>
-        <div className="w-full max-w-xs space-y-3">
-          <a
-            href={LINE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-3 bg-[#06C755] text-white font-bold text-sm py-4 px-6 rounded-none tracking-wide transition-all active:opacity-80 touch-manipulation"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-            </svg>
-            LINE公式アカウントを開く
-          </a>
-          <a
-            href={generateGoogleCalendarUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-2 border-2 border-black text-black font-bold text-sm py-4 px-6 tracking-wide transition-all active:opacity-80 touch-manipulation hover:bg-gray-50"
-          >
-            Googleカレンダーに追加
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// LINEアイコン（SVG）
-const LineIcon = () => (
-  <svg className="w-5 h-5 text-white flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-  </svg>
-);
-
-// ===== メインコンポーネント =====
 export default function ReservationForm() {
-  const [submitted, setSubmitted] = useState(false);
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerFurigana: "",
-    customerPhone: "",
-    customerEmail: "",
-    preferLineContact: false,
-    privacyAgreed: false,
-    firstChoiceDate: undefined as Date | undefined,
-    firstChoiceTimeSlot: "" as string,
+  const [weekStart, setWeekStart] = useState(() => todayInJapan());
+  const [form, setForm] = useState<BookingForm>({
+    menu: "initial",
+    time: "",
+    name: "",
+    furigana: "",
+    phone: "",
+    email: "",
     notes: "",
+    agreed: false,
   });
-
-  // 週開始日（今日から始まる7日間）
-  const getTodayStart = (): Date => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-  const [weekStart, setWeekStart] = useState(() => getTodayStart());
-
-  // 期間外日付クリック時のLINE案内
-  const [showOutOfRangeLine, setShowOutOfRangeLine] = useState(false);
-
-  // 電話番号での既存顧客検索用（blur後に設定）
-  const [phoneLookupPhone, setPhoneLookupPhone] = useState("");
-  // 既存顧客バナーを手動で閉じた場合
-  const [dismissedLookup, setDismissedLookup] = useState(false);
-
-  // 設定取得（定休日・受付締切時間・臨時休業日・予約可能日数）
-  const { data: settingsData } = trpc.settings.getClinicSettings.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-  const closedDays: number[] = settingsData?.closedDays ?? [0];
-  const cutoffHours: number = (settingsData as any)?.bookingCutoffHours ?? 4;
-  const blockedDates: string[] = (settingsData as any)?.blockedDates ?? [];
-  const bookingAdvanceDays: number = (settingsData as any)?.bookingAdvanceDays ?? 7;
-
-  // 週の月間空き状況取得（週が月をまたぐ場合は翌月も取得）
-  const weekStartMonth = { year: weekStart.getFullYear(), month: weekStart.getMonth() + 1 };
-  const weekEndDate = new Date(weekStart);
-  weekEndDate.setDate(weekStart.getDate() + 6);
-  const weekEndMonth = { year: weekEndDate.getFullYear(), month: weekEndDate.getMonth() + 1 };
-  const spansMonths = weekStartMonth.month !== weekEndMonth.month || weekStartMonth.year !== weekEndMonth.year;
-
-  const { data: availabilityMonth1 } = trpc.reservations.getMonthlyAvailability.useQuery(
-    weekStartMonth,
-    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+  const [completed, setCompleted] = useState(false);
+  const today = useMemo(() => todayInJapan(), []);
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => createUtcDate(weekStart.getUTCFullYear(), weekStart.getUTCMonth(), weekStart.getUTCDate() + index)),
+    [weekStart]
   );
-  const { data: availabilityMonth2 } = trpc.reservations.getMonthlyAvailability.useQuery(
-    weekEndMonth,
-    { enabled: spansMonths, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
-  );
-  const monthlyAvailability = { ...availabilityMonth1, ...(spansMonths ? availabilityMonth2 : {}) };
+  const weekEnd = weekDays[6];
+  const monthOne = { year: weekStart.getUTCFullYear(), month: weekStart.getUTCMonth() + 1 };
+  const monthTwo = { year: weekEnd.getUTCFullYear(), month: weekEnd.getUTCMonth() + 1 };
+  const spansMonths = monthOne.year !== monthTwo.year || monthOne.month !== monthTwo.month;
+  const selectedDateKey = form.date ? dateKey(form.date) : "";
 
-  // 既存顧客検索（電話番号でblur後に実行）
-  const { data: existingCustomer, isLoading: isLookingUp } = trpc.reservations.lookupByPhone.useQuery(
-    { phone: phoneLookupPhone },
-    {
-      enabled: isValidPhone(phoneLookupPhone),
-      staleTime: 60 * 1000,
-      retry: false,
-    }
+  const { data: settings } = trpc.settings.getClinicSettings.useQuery(undefined, { staleTime: 5 * 60 * 1000 });
+  const bookingAdvanceDays = (settings as { bookingAdvanceDays?: number } | undefined)?.bookingAdvanceDays ?? 28;
+  const blockedDates = (settings as { blockedDates?: string[] } | undefined)?.blockedDates ?? [];
+  const { data: monthOneAvailability } = trpc.reservations.getMonthlyAvailability.useQuery(monthOne, { staleTime: 30 * 1000 });
+  const { data: monthTwoAvailability } = trpc.reservations.getMonthlyAvailability.useQuery(monthTwo, { enabled: spansMonths, staleTime: 30 * 1000 });
+  const { data: bookedSlots, isLoading: isSlotsLoading, error: slotsError } = trpc.reservations.getBookedSlots.useQuery(
+    { date: selectedDateKey },
+    { enabled: Boolean(selectedDateKey), staleTime: 15 * 1000, refetchInterval: 30 * 1000 }
   );
 
-  // 選択日の予約済みスロット
-  const selectedDateStr = formData.firstChoiceDate
-    ? `${formData.firstChoiceDate.getUTCFullYear()}-${String(formData.firstChoiceDate.getUTCMonth() + 1).padStart(2, "0")}-${String(formData.firstChoiceDate.getUTCDate()).padStart(2, "0")}`
-    : "";
-
-  const { data: bookedSlotsData, isLoading: bookedSlotsLoading } = trpc.reservations.getBookedSlots.useQuery(
-    { date: selectedDateStr },
-    {
-      enabled: !!selectedDateStr,
-      refetchInterval: 30 * 1000,
-      refetchIntervalInBackground: false,
-      staleTime: 20 * 1000,
-    }
-  );
-
-  // スロットが満席かどうか判定
-  const isSlotBooked = (slotValue: string): boolean => {
-    if (!bookedSlotsData?.slots) return false;
-    const [sh, sm] = slotValue.split(":").map(Number);
-    const slotStart = sh * 60 + sm;
-    const slotEnd = slotStart + siteConfig.appointmentDurationMinutes;
-    return bookedSlotsData.slots.some((booked) => {
-      const [bsh, bsm] = booked.start.split(":").map(Number);
-      const [beh, bem] = booked.end.split(":").map(Number);
-      const bookedStart = bsh * 60 + bsm;
-      const bookedEnd = beh * 60 + bem;
-      return slotStart < bookedEnd && slotEnd > bookedStart;
-    });
-  };
-
-  // 受付締切チェック
-  const isSlotPastCutoff = (date: Date, slotValue: string): boolean => {
-    if (!date) return false;
-    const [sh, sm] = slotValue.split(":").map(Number);
-    const slotDateTime = new Date(Date.UTC(
-      date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), sh - 9, sm, 0, 0
-    ));
-    const now = new Date();
-    const cutoffMs = cutoffHours * 60 * 60 * 1000;
-    return slotDateTime.getTime() - now.getTime() < cutoffMs;
-  };
-
-  // 週の7日を生成
-  const getWeekDays = (start: Date): Date[] =>
-    Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      return d;
-    });
-
-  // 空き状況インジケーター（Notionカレンダーの予約・予定から算出）
-  const getAvailability = (dateStr: string): "open" | "limited" | "full" | null => {
-    if (!availabilityMonth1 && !availabilityMonth2) return null;
-    const count = monthlyAvailability[dateStr] ?? 0;
-    if (count >= 10) return "full";
-    if (count >= 4) return "limited";
-    return "open";
-  };
-
-  // 既存顧客情報を自動入力
-  const handleApplyExistingCustomer = () => {
-    if (!existingCustomer) return;
-    setFormData((prev) => ({
-      ...prev,
-      customerName: existingCustomer.fullName,
-      customerEmail: existingCustomer.email || prev.customerEmail,
-    }));
-    setFieldErrors((prev) => ({ ...prev, customerName: "", customerEmail: "" }));
-    setDismissedLookup(true);
-    toast.success("お客様情報を自動入力しました");
-  };
-
-  // 日本の祝日判定
-  const isJapaneseHoliday = (date: Date): { isHoliday: boolean; name: string } => {
-    const isHoliday = HolidayJp.isHoliday(date);
-    if (!isHoliday) return { isHoliday: false, name: "" };
-    const holidays = HolidayJp.between(date, date);
-    const name = holidays.length > 0 ? holidays[0].name : "祝日";
-    return { isHoliday: true, name };
-  };
-
-  // 定休日・臨時休業日・祝日判定
-  const isClosedDay = (date: Date): boolean => {
-    if (closedDays.includes(date.getDay())) return true;
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    if (blockedDates.includes(dateStr)) return true;
-    return isJapaneseHoliday(date).isHoliday;
-  };
-
-  const isOutOfAdvanceRange = (date: Date): boolean => {
-    const _today = new Date();
-    _today.setHours(0, 0, 0, 0);
-    const maxDate = new Date(_today);
-    maxDate.setDate(_today.getDate() + bookingAdvanceDays - 1);
-    maxDate.setHours(23, 59, 59, 999);
-    return date > maxDate;
-  };
-
-  const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
-
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  // フリガナ自動入力（IME compositionイベント）
-  const furiganaRef = useRef<{ reading: string }>({ reading: "" });
-
-  const toKatakana = (str: string) =>
-    str.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
-
-  const handleNameCompositionStart = () => {
-    furiganaRef.current.reading = "";
-  };
-
-  const handleNameCompositionUpdate = (e: React.CompositionEvent<HTMLInputElement>) => {
-    const data = e.data || "";
-    if (data && /^[\u3041-\u3096\u30A0-\u30FF\s\u3000]+$/.test(data)) {
-      furiganaRef.current.reading = data;
-    }
-  };
-
-  const handleNameCompositionEnd = () => {
-    const reading = furiganaRef.current.reading;
-    if (reading) {
-      const kana = toKatakana(reading);
-      setFormData((prev) => ({
-        ...prev,
-        customerFurigana: prev.customerFurigana ? prev.customerFurigana + kana : kana,
-      }));
-    }
-    furiganaRef.current.reading = "";
-  };
-
-  const facilityId = siteConfig.facilityId;
-
-  const selectedSlotInfo = ALL_TIME_SLOTS.find(s => s.value === formData.firstChoiceTimeSlot);
-  const selectedSlotLabel = selectedSlotInfo
-    ? `${selectedSlotInfo.value} 〜 ${selectedSlotInfo.endTime}`
-    : "";
-
-  const createMutation = trpc.reservations.create.useMutation({
+  const createReservation = trpc.reservations.create.useMutation({
     onSuccess: () => {
-      setSubmitted(true);
+      setCompleted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    onError: (error) => {
-      toast.error(`エラー: ${error.message}`);
-    },
+    onError: (error) => toast.error(error.message),
   });
 
-  const handleInputChange = (field: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => ({ ...prev, [field]: "" }));
-    }
+  const availability = { ...monthOneAvailability, ...(spansMonths ? monthTwoAvailability : {}) };
+  const maxDate = useMemo(() => createUtcDate(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + bookingAdvanceDays - 1), [today, bookingAdvanceDays]);
+  const isDateClosed = (date: Date) => isHolidayOrSunday(date) || blockedDates.includes(dateKey(date)) || date < today || date > maxDate;
+  const isSlotUnavailable = (slot: { start: string; end: string }) => {
+    return (bookedSlots?.slots ?? []).some((booked) => slot.start < booked.end && slot.end > booked.start);
   };
 
-  const validateField = (field: string, value: string) => {
-    let error = "";
-    if (field === "customerName" && !value.trim()) {
-      error = "お名前を入力してください";
-    } else if (field === "customerFurigana" && value.trim()) {
-      if (!/^[\u30A0-\u30FF\s　]+$/.test(value.trim())) {
-        error = "カタカナで入力してください";
-      }
-    } else if (field === "customerPhone") {
-      const normalized = normalizePhone(value);
-      if (!normalized) error = "電話番号を入力してください";
-      else if (!isValidPhone(normalized)) error = "10〜11桁の数字で入力してください（例: 09012345678）";
-    } else if (field === "customerEmail") {
-      if (!value.trim()) error = "メールアドレスを入力してください";
-      else if (!isValidEmail(value)) error = "形式が正しくありません（例: name@example.com）";
-    } else if (field === "notes") {
-      if (!value.trim()) error = "お悩み・症状・ご要望を入力してください";
-    }
-    setFieldErrors((prev) => ({ ...prev, [field]: error }));
-    return !error;
+  const updateForm = <Key extends keyof BookingForm>(key: Key, value: BookingForm[Key]) => setForm((current) => ({ ...current, [key]: value }));
+  const selectDate = (date: Date) => {
+    if (isDateClosed(date)) return;
+    setForm((current) => ({ ...current, date, time: "" }));
   };
 
-  const handlePhoneBlur = () => {
-    const normalized = normalizePhone(formData.customerPhone);
-    if (normalized !== formData.customerPhone) {
-      setFormData((prev) => ({ ...prev, customerPhone: normalized }));
-    }
-    validateField("customerPhone", normalized);
-    if (isValidPhone(normalized)) {
-      setPhoneLookupPhone(normalized);
-      setDismissedLookup(false);
-    }
-  };
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.date || !form.time) return toast.error("予約日時を選択してください");
+    if (!form.name.trim() || !form.phone.trim() || !form.email.trim()) return toast.error("お名前、電話番号、メールアドレスを入力してください");
+    if (!/^\d{10,11}$/.test(form.phone.replace(/[-\s]/g, ""))) return toast.error("電話番号は10〜11桁の数字で入力してください");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return toast.error("メールアドレスの形式を確認してください");
+    if (!form.agreed) return toast.error("個人情報の取り扱いへの同意が必要です");
 
-  const handleSubmit = () => {
-    if (!formData.firstChoiceDate || !formData.firstChoiceTimeSlot) {
-      toast.error("希望日時を選択してください");
-      document.getElementById("section-datetime")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    const notesOk = validateField("notes", formData.notes);
-    if (!notesOk) {
-      toast.error("お悩み・症状・ご要望を入力してください");
-      document.getElementById("section-notes")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    const nameOk = validateField("customerName", formData.customerName);
-    const phoneOk = validateField("customerPhone", normalizePhone(formData.customerPhone));
-    const emailOk = validateField("customerEmail", formData.customerEmail);
-    if (!nameOk || !phoneOk || !emailOk) {
-      toast.error("入力内容を確認してください");
-      document.getElementById("section-info")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (!formData.privacyAgreed) {
-      toast.error("個人情報の取り扱いへの同意が必要です");
-      return;
-    }
-    const phone = normalizePhone(formData.customerPhone);
-    createMutation.mutate({
-      facilityId,
-      customerName: formData.customerName,
-      customerFurigana: formData.customerFurigana || undefined,
-      customerPhone: phone,
-      customerEmail: formData.customerEmail,
-      firstChoiceDate: formData.firstChoiceDate!,
-      firstChoiceTimeSlot: formData.firstChoiceTimeSlot,
-      firstChoiceTimeDetail: undefined,
-      secondChoiceDate: undefined,
-      secondChoiceTimeSlot: undefined as any,
-      thirdChoiceDate: undefined,
-      thirdChoiceTimeSlot: undefined as any,
-      notes: formData.notes || undefined,
+    createReservation.mutate({
+      facilityId: siteConfig.facilityId,
+      customerName: form.name.trim(),
+      customerFurigana: form.furigana.trim() || undefined,
+      customerPhone: form.phone.replace(/[-\s]/g, ""),
+      customerEmail: form.email.trim(),
+      firstChoiceDate: form.date,
+      firstChoiceTimeSlot: form.time,
+      firstChoiceTimeDetail: form.time,
+      notes: form.notes.trim() || undefined,
+      serviceType: serviceTypeFor(form.menu),
     });
   };
 
-  if (submitted) {
+  if (completed && form.date) {
+    const selectedSlot = SLOTS.find((slot) => slot.start === form.time);
     return (
-      <CompletionScreen
-        name={formData.customerName}
-        date={formData.firstChoiceDate!}
-        timeSlot={selectedSlotLabel}
-      />
+      <main className="min-h-screen bg-[#f8f6f1] px-4 py-12 sm:px-6">
+        <section className="mx-auto max-w-xl border border-stone-200 bg-white px-6 py-12 text-center shadow-sm sm:px-12">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-stone-900 text-white"><Check className="h-7 w-7" /></div>
+          <p className="mt-7 text-xs font-semibold tracking-[0.22em] text-amber-700">RESERVATION RECEIVED</p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-stone-950">ご予約を受け付けました</h1>
+          <p className="mt-4 text-sm leading-7 text-stone-600">Notionカレンダーに予約リクエストを登録しました。担当者より確認のご連絡を差し上げます。</p>
+          <div className="mt-8 space-y-3 border-y border-stone-200 py-5 text-left text-sm">
+            <div className="flex justify-between gap-5"><span className="text-stone-500">お名前</span><strong>{form.name}</strong></div>
+            <div className="flex justify-between gap-5"><span className="text-stone-500">日時</span><strong className="text-right">{displayDate(form.date)} {selectedSlot ? `${selectedSlot.start}〜${selectedSlot.end}` : form.time}</strong></div>
+          </div>
+          <a className="mt-8 inline-flex items-center justify-center bg-stone-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-stone-700" href={siteConfig.lineUrlPublic} target="_blank" rel="noreferrer">LINEで問い合わせる</a>
+        </section>
+      </main>
     );
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekDays = getWeekDays(weekStart);
-
-  // 選択日の表示用文字列（UTC日付を使用）
-  const selectedDateDisplay = formData.firstChoiceDate
-    ? (() => {
-        const d = formData.firstChoiceDate;
-        const y = d.getUTCFullYear();
-        const mo = d.getUTCMonth() + 1;
-        const da = d.getUTCDate();
-        const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getUTCDay()];
-        return `${mo}月${da}日(${dow})`;
-      })()
-    : "";
-
   return (
-    <div className="min-h-screen bg-white">
-      {/* トップバー */}
-      <div className="h-1 bg-black w-full" />
-
-      {/* ヘッダー */}
-      <header className="px-6 pt-10 pb-8 border-b border-gray-100">
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-2">{siteConfig.brandName}</p>
-        <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">
-          予約フォーム
-        </h1>
-        <p className="text-xs text-gray-400 mt-3 leading-relaxed">
-          Notionカレンダーの空き枠を表示しています。<br />
-          お申し込み後、担当者より確認のご連絡をさしあげます。
-        </p>
+    <main className="min-h-screen bg-[#f8f6f1] text-stone-900">
+      <header className="border-b border-stone-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+          <a href="/" className="text-sm font-black tracking-[0.17em]">ULU <span className="font-medium text-stone-400">BOOKING</span></a>
+          <a href={siteConfig.lineUrlPublic} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-stone-600 hover:text-stone-900"><Phone className="h-4 w-4" />お問い合わせ</a>
+        </div>
       </header>
 
-      <div className="px-6 py-10 space-y-14 max-w-lg mx-auto">
-
-        {/* ===== セクション1: 希望日時 ===== */}
-        <section id="section-datetime">
-          <SectionLabel number="01" title="ご希望日時" required />
-
-          {/* 週ナビゲーション */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                const prev = new Date(weekStart);
-                prev.setDate(weekStart.getDate() - 7);
-                if (prev >= today) setWeekStart(prev);
-                else setWeekStart(new Date(today));
-              }}
-              disabled={weekStart.toDateString() === today.toDateString()}
-              className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="前の週"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-900" />
-            </button>
-            <span className="text-xs font-bold tracking-widest text-gray-500">
-              {weekStart.getFullYear()}.{String(weekStart.getMonth() + 1).padStart(2, "0")}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const next = new Date(weekStart);
-                next.setDate(weekStart.getDate() + 7);
-                const maxDate = new Date(today);
-                maxDate.setDate(today.getDate() + bookingAdvanceDays - 1);
-                if (next <= maxDate) setWeekStart(next);
-              }}
-              disabled={(() => {
-                const next = new Date(weekStart);
-                next.setDate(weekStart.getDate() + 7);
-                const maxDate = new Date(today);
-                maxDate.setDate(today.getDate() + bookingAdvanceDays - 1);
-                return next > maxDate;
-              })()}
-              className="w-8 h-8 flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-              aria-label="次の週"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-900" />
-            </button>
-          </div>
-
-          {/* 日付ボタン列（曜日ラベル） */}
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((date, i) => {
-              const dow = date.getDay();
-              return (
-                <div key={i} className={cn(
-                  "text-center text-[10px] font-bold tracking-wider pb-2",
-                  dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-gray-400"
-                )}>
-                  {DAY_LABELS[dow]}
-                </div>
-              );
-            })}
-            {weekDays.map((date) => {
-              const isPast = date < today;
-              const isClosed = isClosedDay(date);
-              const isOutOfRange = isOutOfAdvanceRange(date);
-              const holidayInfo = isJapaneseHoliday(date);
-              const isSelected = formData.firstChoiceDate
-                ? (formData.firstChoiceDate.getUTCFullYear() === date.getFullYear() &&
-                   formData.firstChoiceDate.getUTCMonth() === date.getMonth() &&
-                   formData.firstChoiceDate.getUTCDate() === date.getDate())
-                : false;
-              const isToday = date.toDateString() === today.toDateString();
-              const dow = date.getDay();
-              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-              const availability = (!isPast && !isClosed && !isOutOfRange) ? getAvailability(dateStr) : null;
-              const isDisabled = isPast || isClosed;
-              const isOutOfRangeClickable = isOutOfRange && !isPast && !isClosed;
-
-              return (
-                <button
-                  key={date.toISOString()}
-                  type="button"
-                  disabled={isDisabled && !isOutOfRangeClickable && !holidayInfo.isHoliday}
-                  onClick={() => {
-                    if (holidayInfo.isHoliday) {
-                      toast.error(`${holidayInfo.name}のため休業日です`, {
-                        description: (
-                          <a href={siteConfig.lineUrlPublic} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[#06C755] font-bold underline underline-offset-2 mt-1">
-                            LINEでお問い合わせはこちら
-                          </a>
-                        ) as unknown as string,
-                        duration: 5000,
-                      });
-                      return;
-                    }
-                    if (isOutOfRangeClickable) {
-                      setShowOutOfRangeLine(true);
-                      return;
-                    }
-                    setShowOutOfRangeLine(false);
-                    const utcNoon = new Date(Date.UTC(
-                      date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0
-                    ));
-                    setFormData((prev) => ({
-                      ...prev,
-                      firstChoiceDate: utcNoon,
-                      firstChoiceTimeSlot: "",
-                    }));
-                  }}
-                  className={cn(
-                    "aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all select-none",
-                    "active:scale-90 touch-manipulation",
-                    isDisabled && !isOutOfRangeClickable && "opacity-20 cursor-not-allowed",
-                    isOutOfRangeClickable && "opacity-40 cursor-pointer hover:opacity-60",
-                    isSelected && "bg-black text-white",
-                    !isSelected && !isDisabled && "hover:bg-gray-100",
-                    !isSelected && isToday && "ring-1 ring-black ring-inset",
-                  )}
-                >
-                  <span className={cn(
-                    "text-base leading-none",
-                    isSelected ? "text-white"
-                      : (dow === 0 || holidayInfo.isHoliday) ? "text-red-500"
-                      : dow === 6 ? "text-blue-500"
-                      : "text-gray-900"
-                  )}>
-                    {date.getDate()}
-                  </span>
-                  {/* 空き状況インジケーター */}
-                  {availability && !isSelected && (
-                    <span className={cn(
-                      "text-[9px] font-bold leading-none mt-0.5",
-                      availability === "open" && "text-green-500",
-                      availability === "limited" && "text-orange-400",
-                      availability === "full" && "text-gray-300",
-                    )}>
-                      {availability === "open" ? "○" : availability === "limited" ? "△" : "×"}
-                    </span>
-                  )}
-                  {holidayInfo.isHoliday && !isSelected && (
-                    <span className="text-[8px] leading-none text-red-400 mt-0.5 block truncate max-w-full px-0.5">
-                      祝
-                    </span>
-                  )}
-                  {isToday && !isSelected && !holidayInfo.isHoliday && !availability && (
-                    <span className="w-1 h-1 rounded-full bg-black mt-1 block" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 凡例 */}
-          <div className="flex items-center gap-5 mt-2 px-1">
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              <span className="text-green-500 font-bold text-xs">○</span>空きあり
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              <span className="text-orange-400 font-bold text-xs">△</span>残りわずか
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              <span className="text-gray-300 font-bold text-xs">×</span>満席
-            </span>
-          </div>
-
-          {/* 期間外日付クリック時のLINE案内 */}
-          {showOutOfRangeLine && (
-            <a
-              href={siteConfig.lineUrlPublic}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex items-center gap-3 bg-[#06C755] px-4 py-3 w-full transition-opacity active:opacity-80 touch-manipulation"
-            >
-              <LineIcon />
-              <div className="flex-1">
-                <p className="text-white text-xs font-black leading-tight">その日のご予約は、LINEよりお問い合わせください</p>
-                <p className="text-white/80 text-[10px] mt-0.5">タップしてLINEを開く</p>
-              </div>
-            </a>
-          )}
-
-          {/* 時間帯選択 */}
-          {formData.firstChoiceDate ? (
-            <div className="mt-6">
-              <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-4">
-                {selectedDateDisplay} の時間を選択
-              </p>
-              {bookedSlotsLoading ? (
-                <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs tracking-wider">予約状況を確認中...</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {ALL_TIME_SLOTS.map((slot) => {
-                    const isSelected = formData.firstChoiceTimeSlot === slot.value;
-                    const isBooked = isSlotBooked(slot.value);
-                    const isPastCutoff = formData.firstChoiceDate
-                      ? isSlotPastCutoff(formData.firstChoiceDate, slot.value)
-                      : false;
-                    const isUnavailable = isBooked || isPastCutoff;
-                    const unavailableLabel = isBooked ? "満席" : isPastCutoff ? "受付終了" : "";
-                    return (
-                      <button
-                        key={slot.value}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => !isUnavailable && handleInputChange("firstChoiceTimeSlot", slot.value)}
-                        className={cn(
-                          "flex flex-col items-center justify-center py-3 px-2 border transition-all",
-                          "active:scale-[0.96] touch-manipulation",
-                          isUnavailable && "bg-gray-100 border-gray-100 cursor-not-allowed opacity-50",
-                          isSelected && !isUnavailable && "bg-black border-black",
-                          !isSelected && !isUnavailable && "bg-white border-gray-200 hover:border-gray-900",
-                        )}
-                      >
-                        <span className={cn(
-                          "text-sm font-black leading-none",
-                          isUnavailable ? "text-gray-400" : isSelected ? "text-white" : "text-gray-900"
-                        )}>
-                          {slot.value}
-                        </span>
-                        <span className={cn(
-                          "text-[9px] mt-1 tracking-wider",
-                          isUnavailable ? "text-gray-300" : isSelected ? "text-gray-400" : "text-gray-400"
-                        )}>
-                          {isUnavailable ? unavailableLabel : `〜${slot.endTime}`}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {formData.firstChoiceTimeSlot && (
-                <p className="text-xs text-gray-500 mt-3 text-center">
-                  選択中: <span className="font-bold text-gray-900">{selectedSlotLabel}</span>
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-6 py-8 border border-dashed border-gray-200 text-center">
-              <p className="text-xs text-gray-400 tracking-wide">上の日付をタップしてください</p>
-            </div>
-          )}
-        </section>
-
-        {/* 区切り線 */}
-        <div className="border-t border-gray-100" />
-
-        {/* ===== LINE予約案内 ===== */}
-        <a
-          href={siteConfig.lineUrlPublic}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-xl bg-[#06C755] px-4 py-3.5 flex items-center gap-3 hover:bg-[#05b34c] active:opacity-80 transition-colors touch-manipulation"
-        >
-          <div className="shrink-0 w-9 h-9 bg-white rounded-full flex items-center justify-center">
-            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#06C755">
-              <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-bold leading-tight">お急ぎの方・LINEで直接ご予約も可能です</p>
-            <p className="text-green-100 text-[11px] mt-0.5 leading-tight">満席の場合や時間の相談はお気軽にお問い合わせください</p>
-          </div>
-        </a>
-
-        {/* ===== セクション2: お悩み・症状・ご要望 ===== */}
-        <section id="section-notes">
-          <SectionLabel number="02" title="お悩み・症状・ご要望" required />
-
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-16">
+        <form onSubmit={submit} className="space-y-10">
           <div>
-            <div className="relative border-b-2 transition-all duration-200"
-              style={{ borderColor: fieldErrors.notes ? "#ef4444" : "#e5e7eb" }}>
-              <textarea
-                id="notes"
-                placeholder="例：肩こりがひどい、腰痛が続いている、ダイエットしたいなど&#10;お気軽にご記入ください"
-                value={formData.notes}
-                onChange={(e) => {
-                  handleInputChange("notes", e.target.value);
-                  if (fieldErrors.notes && e.target.value.trim()) {
-                    setFieldErrors((prev) => ({ ...prev, notes: "" }));
-                  }
-                }}
-                onBlur={() => validateField("notes", formData.notes)}
-                className="w-full pt-2 pb-3 text-sm text-gray-900 bg-transparent outline-none placeholder:text-gray-300 resize-none h-28 focus:border-black transition-colors"
-              />
-            </div>
-            {fieldErrors.notes && (
-              <p className="text-xs text-red-500 pt-1">{fieldErrors.notes}</p>
-            )}
-            {!fieldErrors.notes && (
-              <p className="text-[10px] text-gray-400 pt-1">担当者が事前に確認し、より良い施術のご提案をいたします</p>
-            )}
+            <p className="text-xs font-semibold tracking-[0.22em] text-amber-700">ONLINE RESERVATION</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">ご予約</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-600">Notionカレンダーに登録されている予約・予定をもとに、予約可能な時間のみ表示しています。</p>
           </div>
-        </section>
 
-        {/* 区切り線 */}
-        <div className="border-t border-gray-100" />
-
-        {/* ===== セクション3: お客様情報 ===== */}
-        <section id="section-info">
-          <SectionLabel number="03" title="お客様情報" required />
-
-          <div className="space-y-8">
-            {/* お名前 */}
-            <div className="space-y-1">
-              <div className="relative border-b-2 transition-all duration-200"
-                style={{ borderColor: fieldErrors.customerName ? "#ef4444" : "#e5e7eb" }}>
-                <label
-                  htmlFor="name"
-                  className="absolute left-0 top-0 text-[10px] tracking-widest uppercase font-medium pointer-events-none select-none text-black"
-                >
-                  お名前（フルネーム）
-                  <span className="ml-1.5 text-[9px] font-bold text-red-500 tracking-wider">必須</span>
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  autoComplete="name"
-                  value={formData.customerName}
-                  placeholder="例：山田 太郎"
-                  onChange={(e) => handleInputChange("customerName", e.target.value)}
-                  onBlur={() => validateField("customerName", formData.customerName)}
-                  onCompositionStart={handleNameCompositionStart}
-                  onCompositionUpdate={handleNameCompositionUpdate}
-                  onCompositionEnd={handleNameCompositionEnd}
-                  className="w-full pt-5 pb-2 text-base font-medium text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
-                />
-              </div>
-              {fieldErrors.customerName && (
-                <p className="text-xs text-red-500 pt-1">{fieldErrors.customerName}</p>
-              )}
-            </div>
-
-            {/* フリガナ（自動入力） */}
-            <MinimalInput
-              id="furigana"
-              label="フリガナ"
-              optional
-              value={formData.customerFurigana}
-              onChange={(v) => handleInputChange("customerFurigana", v)}
-              onBlur={() => validateField("customerFurigana", formData.customerFurigana)}
-              error={fieldErrors.customerFurigana}
-              hint="名前を入力すると自動で入ります（カタカナ）"
-              autoComplete="off"
-            />
-
-            {/* 電話番号 */}
-            <div>
-              <MinimalInput
-                id="phone"
-                label="電話番号"
-                required
-                type="tel"
-                inputMode="numeric"
-                value={formData.customerPhone}
-                onChange={(v) => handleInputChange("customerPhone", v)}
-                onBlur={handlePhoneBlur}
-                error={fieldErrors.customerPhone}
-                hint="ハイフン不要・全角でも自動変換（例：09012345678）"
-                autoComplete="tel"
-              />
-
-              {/* 既存顧客の自動認識バナー */}
-              {isLookingUp && isValidPhone(phoneLookupPhone) && (
-                <div className="mt-2 flex items-center gap-2 text-gray-400">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span className="text-[10px] tracking-wider">顧客情報を確認中...</span>
-                </div>
-              )}
-              {existingCustomer && !dismissedLookup && phoneLookupPhone && (
-                <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 px-3 py-2.5">
-                  <div>
-                    <p className="text-xs font-black text-blue-900">{existingCustomer.fullName}様ですか？</p>
-                    <p className="text-[10px] text-blue-500 mt-0.5">タップでお名前・メールを自動入力します</p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleApplyExistingCustomer}
-                      className="text-[11px] font-black text-white bg-blue-600 px-3 py-1.5 active:opacity-80 touch-manipulation"
-                    >
-                      はい
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDismissedLookup(true)}
-                      className="text-[11px] text-blue-400 px-2 py-1.5 touch-manipulation"
-                    >
-                      別の方
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* メールアドレス */}
-            <MinimalInput
-              id="email"
-              label="メールアドレス"
-              required
-              type="email"
-              inputMode="email"
-              value={formData.customerEmail}
-              onChange={(v) => handleInputChange("customerEmail", v)}
-              onBlur={() => validateField("customerEmail", formData.customerEmail)}
-              error={fieldErrors.customerEmail}
-              hint="予約確認メールをお送りします"
-              autoComplete="email"
-            />
-
-            {/* LINE連絡希望 */}
-            <label className="flex items-center gap-4 cursor-pointer group">
-              <div className={cn(
-                "w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                formData.preferLineContact ? "bg-[#06C755] border-[#06C755]" : "border-gray-300 group-hover:border-gray-600"
-              )}>
-                {formData.preferLineContact && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-              </div>
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={formData.preferLineContact}
-                onChange={(e) => handleInputChange("preferLineContact", e.target.checked)}
-              />
-              <div>
-                <p className="text-sm font-bold text-gray-900">LINEでの連絡を希望する</p>
-                <p className="text-xs text-gray-400">任意</p>
-              </div>
-            </label>
-          </div>
-        </section>
-
-        {/* 区切り線 */}
-        <div className="border-t border-gray-100" />
-
-        {/* ===== 入力内容サマリー ===== */}
-        {formData.firstChoiceDate && formData.firstChoiceTimeSlot && formData.customerName && (
-          <section>
-            <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-4">Confirmation</p>
-            <div className="bg-gray-50 p-5 space-y-3">
-              <div className="flex justify-between items-baseline">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Date</span>
-                <span className="text-sm font-bold text-gray-900">{selectedDateDisplay}</span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Time</span>
-                <span className="text-sm font-bold text-gray-900">{selectedSlotLabel}</span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Name</span>
-                <span className="text-sm font-bold text-gray-900">{formData.customerName}</span>
-              </div>
-              {formData.customerPhone && (
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Tel</span>
-                  <span className="text-sm font-bold text-gray-900">{formData.customerPhone}</span>
-                </div>
-              )}
-              {formData.notes && (
-                <div className="flex justify-between items-start gap-4">
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400 flex-shrink-0">Memo</span>
-                  <span className="text-xs text-gray-700 text-right line-clamp-2">{formData.notes}</span>
-                </div>
-              )}
+          <section className="border-t border-stone-300 pt-6">
+            <div className="mb-5 flex items-center gap-3"><span className="text-xs font-bold text-amber-700">01</span><h2 className="font-bold">ご希望のメニュー</h2></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {siteConfig.reservationMenus.map((menu) => (
+                <button key={menu.value} type="button" onClick={() => updateForm("menu", menu.value)} className={cn("border p-4 text-left transition", form.menu === menu.value ? "border-stone-900 bg-stone-900 text-white" : "border-stone-200 bg-white hover:border-stone-500")}>
+                  <span className="block text-sm font-semibold">{menu.label}</span>
+                  <span className={cn("mt-1 block text-xs", form.menu === menu.value ? "text-stone-300" : "text-stone-500")}>{menu.value === "initial" ? "初回のご予約は90分枠です" : "ご希望内容は予約メモにご記入ください"}</span>
+                </button>
+              ))}
             </div>
           </section>
-        )}
 
-        {/* ===== プライバシーポリシー同意 ===== */}
-        <label className="flex items-start gap-4 cursor-pointer group">
-          <div className={cn(
-            "w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all",
-            formData.privacyAgreed ? "bg-black border-black" : "border-gray-300 group-hover:border-gray-600"
-          )}>
-            {formData.privacyAgreed && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-          </div>
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={formData.privacyAgreed}
-            onChange={(e) => handleInputChange("privacyAgreed", e.target.checked)}
-          />
-          <p className="text-xs text-gray-500 leading-relaxed">
-            <span className="font-bold text-gray-900">個人情報の取り扱いへの同意</span>
-            <span className="ml-1 text-[10px] font-bold text-red-500">必須</span>
-            <br />
-            入力いただいた個人情報は、予約確認・ご連絡のみに使用します。
-            <a href="/privacy" className="underline text-gray-900 ml-1" target="_blank" rel="noopener noreferrer">
-              プライバシーポリシー
-            </a>
-            をご確認ください。
-          </p>
-        </label>
+          <section className="border-t border-stone-300 pt-6">
+            <div className="mb-5 flex items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="text-xs font-bold text-amber-700">02</span><h2 className="font-bold">日時を選択</h2></div><span className="text-xs text-stone-500">日曜・祝日休み</span></div>
+            <div className="border border-stone-200 bg-white">
+              <div className="flex items-center justify-between border-b border-stone-200 px-3 py-3">
+                <button type="button" aria-label="前の週" className="p-2 hover:bg-stone-100 disabled:opacity-30" disabled={weekStart <= today} onClick={() => setWeekStart((current) => createUtcDate(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() - 7))}><ChevronLeft className="h-5 w-5" /></button>
+                <p className="text-sm font-semibold">{weekStart.getUTCFullYear()}年{weekStart.getUTCMonth() + 1}月</p>
+                <button type="button" aria-label="次の週" className="p-2 hover:bg-stone-100 disabled:opacity-30" disabled={weekStart >= maxDate} onClick={() => setWeekStart((current) => createUtcDate(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 7))}><ChevronRight className="h-5 w-5" /></button>
+              </div>
+              <div className="grid grid-cols-7">
+                {weekDays.map((date) => {
+                  const closed = isDateClosed(date);
+                  const selected = form.date && dateKey(form.date) === dateKey(date);
+                  const count = availability[dateKey(date)] ?? 0;
+                  return <button key={dateKey(date)} type="button" onClick={() => selectDate(date)} disabled={closed} className={cn("relative min-h-24 border-r border-stone-100 p-2 text-center last:border-r-0 sm:min-h-28", selected && "bg-stone-900 text-white", !selected && !closed && "hover:bg-amber-50", closed && "cursor-not-allowed bg-stone-50 text-stone-300")}><span className="block text-[10px]">{DAYS[date.getUTCDay()]}</span><span className="mt-1 block text-base font-semibold">{date.getUTCDate()}</span>{closed ? <span className="mt-1 block text-[10px]">休業</span> : <span className={cn("mt-2 inline-block h-1.5 w-1.5 rounded-full", selected ? "bg-amber-300" : count > 0 ? "bg-amber-600" : "bg-emerald-500")} aria-label={count > 0 ? "予約あり" : "空きあり"} />}</button>;
+                })}
+              </div>
+            </div>
 
-        {/* ===== 送信ボタン ===== */}
-        <div className="pb-10">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={createMutation.isPending}
-            className={cn(
-              "w-full py-5 text-sm font-black tracking-[0.2em] uppercase transition-all",
-              "active:scale-[0.98] touch-manipulation",
-              createMutation.isPending
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-900"
-            )}
-          >
-            {createMutation.isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                送信中...
-              </span>
-            ) : (
-              "予約を申し込む"
-            )}
-          </button>
-          <p className="text-center text-[10px] text-gray-400 mt-4 tracking-wider">
-            送信後、担当者よりご連絡いたします
-          </p>
-        </div>
+            {form.date && <div className="mt-6"><div className="mb-3 flex items-center justify-between"><p className="text-sm font-semibold">{displayDate(form.date)} の空き枠</p>{isSlotsLoading && <span className="flex items-center gap-1 text-xs text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />確認中</span>}</div>{slotsError ? <p className="border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">空き枠を取得できませんでした。時間をおいて再度お試しください。</p> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{SLOTS.map((slot) => { const unavailable = isSlotUnavailable(slot); return <button key={slot.start} type="button" disabled={isSlotsLoading || unavailable} onClick={() => updateForm("time", slot.start)} className={cn("border px-3 py-3 text-left text-sm transition disabled:cursor-not-allowed", form.time === slot.start ? "border-stone-900 bg-stone-900 text-white" : unavailable ? "border-stone-100 bg-stone-100 text-stone-300 line-through" : "border-stone-200 bg-white hover:border-stone-600")}><span className="font-semibold">{slot.start}</span><span className="ml-1 text-xs opacity-70">– {slot.end}</span></button>; })}</div>}</div>}
+          </section>
 
+          <section className="border-t border-stone-300 pt-6">
+            <div className="mb-5 flex items-center gap-3"><span className="text-xs font-bold text-amber-700">03</span><h2 className="font-bold">お客様情報</h2></div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <label className="block text-sm font-medium sm:col-span-2">お名前 <span className="text-amber-700">必須</span><input value={form.name} onChange={(event) => updateForm("name", event.target.value)} autoComplete="name" className="mt-2 w-full border-b border-stone-300 bg-transparent px-0 py-3 outline-none focus:border-stone-900" placeholder="山田 花子" /></label>
+              <label className="block text-sm font-medium sm:col-span-2">フリガナ <span className="text-stone-400">任意</span><input value={form.furigana} onChange={(event) => updateForm("furigana", event.target.value)} className="mt-2 w-full border-b border-stone-300 bg-transparent px-0 py-3 outline-none focus:border-stone-900" placeholder="ヤマダ ハナコ" /></label>
+              <label className="block text-sm font-medium">電話番号 <span className="text-amber-700">必須</span><input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} inputMode="tel" autoComplete="tel" className="mt-2 w-full border-b border-stone-300 bg-transparent px-0 py-3 outline-none focus:border-stone-900" placeholder="09012345678" /></label>
+              <label className="block text-sm font-medium">メールアドレス <span className="text-amber-700">必須</span><input value={form.email} onChange={(event) => updateForm("email", event.target.value)} type="email" autoComplete="email" className="mt-2 w-full border-b border-stone-300 bg-transparent px-0 py-3 outline-none focus:border-stone-900" placeholder="example@email.com" /></label>
+              <label className="block text-sm font-medium sm:col-span-2">お悩み・ご要望 <span className="text-stone-400">任意</span><textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} className="mt-2 min-h-28 w-full border border-stone-200 bg-white p-3 outline-none focus:border-stone-900" placeholder="気になる症状やご要望をご記入ください。" /></label>
+            </div>
+          </section>
+
+          <label className="flex cursor-pointer items-start gap-3 border-t border-stone-300 pt-6 text-sm leading-6 text-stone-600"><input checked={form.agreed} onChange={(event) => updateForm("agreed", event.target.checked)} type="checkbox" className="mt-1 h-4 w-4 accent-stone-900" /><span>入力した情報を予約対応のために利用することに同意します。</span></label>
+          <button type="submit" disabled={createReservation.isPending} className="flex w-full items-center justify-center gap-3 bg-stone-900 px-5 py-4 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60"><CalendarDays className="h-5 w-5" />{createReservation.isPending ? "予約を登録しています…" : "予約リクエストを送信"}</button>
+        </form>
+
+        <aside className="h-fit border border-stone-200 bg-white p-6 lg:sticky lg:top-6">
+          <Sparkles className="h-5 w-5 text-amber-700" />
+          <h2 className="mt-4 text-xl font-bold">予約について</h2>
+          <dl className="mt-5 space-y-4 text-sm leading-6"><div><dt className="font-semibold">営業時間</dt><dd className="text-stone-600">10:00〜21:00</dd></div><div><dt className="font-semibold">初回予約</dt><dd className="text-stone-600">90分枠でご案内します。</dd></div><div><dt className="font-semibold">休業日</dt><dd className="text-stone-600">日曜・祝日</dd></div></dl>
+          <div className="mt-6 border-t border-stone-200 pt-5 text-xs leading-5 text-stone-500"><p className="flex gap-2"><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />予約枠はNotionカレンダーと連携しており、重複する時間帯は選択できません。</p></div>
+        </aside>
       </div>
-    </div>
+    </main>
   );
 }
